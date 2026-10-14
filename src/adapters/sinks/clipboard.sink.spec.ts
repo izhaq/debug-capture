@@ -1,0 +1,166 @@
+import { ClipboardHost, copyText } from './clipboard.sink';
+
+/** What the fallback's textarea looked like while `execCommand('copy')` ran. */
+interface CopySnapshot {
+  value: string;
+  readOnly: boolean;
+  position: string;
+  top: string;
+  opacity: string;
+  selected: string;
+}
+
+describe('copyText', () => {
+  let doc: Document;
+  let execCommand: jasmine.Spy<Document['execCommand']>;
+  let writeText: jasmine.Spy<Clipboard['writeText']>;
+  let snapshot: CopySnapshot | undefined;
+
+  beforeEach(() => {
+    // An inert document (no browsing context): execCommand is spied, and the
+    // real page's DOM, focus and clipboard are never touched.
+    doc = document.implementation.createHTMLDocument('clipboard-sink-spec');
+    snapshot = undefined;
+    execCommand = spyOn(doc, 'execCommand').and.callFake(() => {
+      snapshot = snapshotTextarea();
+      return true;
+    });
+    writeText = jasmine.createSpy<Clipboard['writeText']>('writeText').and.resolveTo();
+  });
+
+  function snapshotTextarea(): CopySnapshot | undefined {
+    const textarea = doc.body.querySelector('textarea');
+    if (!textarea) {
+      return undefined;
+    }
+    return {
+      value: textarea.value,
+      readOnly: textarea.readOnly,
+      position: textarea.style.position,
+      top: textarea.style.top,
+      opacity: textarea.style.opacity,
+      selected: textarea.value.slice(textarea.selectionStart, textarea.selectionEnd),
+    };
+  }
+
+  /** A plain-HTTP intranet page: not a secure context, no Clipboard API. */
+  function plainHttpHost(): ClipboardHost {
+    return { navigator: {}, document: doc, isSecureContext: false };
+  }
+
+  function secureHost(): ClipboardHost {
+    return { navigator: { clipboard: { writeText } }, document: doc, isSecureContext: true };
+  }
+
+  function fakeActiveElement(element: Element | null): void {
+    Object.defineProperty(doc, 'activeElement', { configurable: true, get: () => element });
+  }
+
+  it('uses navigator.clipboard in a secure context', async () => {
+    await expectAsync(copyText('hello', secureHost())).toBeResolvedTo(true);
+
+    expect(writeText).toHaveBeenCalledOnceWith('hello');
+    expect(execCommand).not.toHaveBeenCalled();
+  });
+
+  it('falls back to execCommand when not in a secure context', async () => {
+    // Even if a browser exposes the API on HTTP, it must not be trusted there.
+    const host: ClipboardHost = { ...secureHost(), isSecureContext: false };
+
+    await expectAsync(copyText('hello', host)).toBeResolvedTo(true);
+
+    expect(writeText).not.toHaveBeenCalled();
+    expect(execCommand).toHaveBeenCalledOnceWith('copy');
+  });
+
+  it('copies on a plain-HTTP host with no Clipboard API, via a selected off-screen textarea', async () => {
+    const text = 'line 1\nline 2 — éà';
+
+    await expectAsync(copyText(text, plainHttpHost())).toBeResolvedTo(true);
+
+    expect(execCommand).toHaveBeenCalledOnceWith('copy');
+    expect(snapshot).toEqual({
+      value: text,
+      readOnly: true,
+      position: 'fixed',
+      top: '-9999px',
+      opacity: '0',
+      selected: text,
+    });
+  });
+
+  it('resolves with execCommand\'s result when the browser refuses the copy', async () => {
+    execCommand.and.returnValue(false);
+
+    await expectAsync(copyText('hello', plainHttpHost())).toBeResolvedTo(false);
+
+    expect(doc.body.querySelector('textarea')).toBeNull();
+  });
+
+  it('falls back when navigator.clipboard rejects', async () => {
+    writeText.and.rejectWith(new DOMException('Document is not focused.', 'NotAllowedError'));
+
+    await expectAsync(copyText('hello', secureHost())).toBeResolvedTo(true);
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(execCommand).toHaveBeenCalledOnceWith('copy');
+    expect(snapshot?.value).toBe('hello');
+  });
+
+  it('resolves false instead of rejecting when everything fails', async () => {
+    writeText.and.rejectWith(new Error('denied'));
+    execCommand.and.throwError('execCommand unsupported');
+
+    await expectAsync(copyText('hello', secureHost())).toBeResolvedTo(false);
+
+    expect(doc.body.querySelector('textarea')).toBeNull();
+  });
+
+  it('resolves false when the fallback cannot even build its textarea', async () => {
+    spyOn(doc, 'createElement').and.throwError('no DOM');
+
+    await expectAsync(copyText('hello', plainHttpHost())).toBeResolvedTo(false);
+  });
+
+  it('removes the textarea and restores focus afterwards', async () => {
+    const input = doc.createElement('input');
+    doc.body.appendChild(input);
+    fakeActiveElement(input);
+    const focus = spyOn(input, 'focus');
+    let focusedBeforeCopy = true;
+    execCommand.and.callFake(() => {
+      focusedBeforeCopy = focus.calls.count() > 0;
+      snapshot = snapshotTextarea();
+      return true;
+    });
+
+    await expectAsync(copyText('hello', plainHttpHost())).toBeResolvedTo(true);
+
+    expect(snapshot?.value).toBe('hello');
+    expect(focusedBeforeCopy).toBe(false);
+    expect(focus).toHaveBeenCalledTimes(1);
+    expect(doc.body.querySelector('textarea')).toBeNull();
+    expect(doc.body.childNodes.length).toBe(1);
+  });
+
+  it('restores focus even when the copy throws', async () => {
+    const input = doc.createElement('input');
+    doc.body.appendChild(input);
+    fakeActiveElement(input);
+    const focus = spyOn(input, 'focus');
+    execCommand.and.throwError('execCommand unsupported');
+
+    await expectAsync(copyText('hello', plainHttpHost())).toBeResolvedTo(false);
+
+    expect(focus).toHaveBeenCalledTimes(1);
+    expect(doc.body.querySelector('textarea')).toBeNull();
+  });
+
+  it('does not try to restore focus when nothing was focused', async () => {
+    fakeActiveElement(null);
+
+    await expectAsync(copyText('hello', plainHttpHost())).toBeResolvedTo(true);
+
+    expect(doc.body.querySelector('textarea')).toBeNull();
+  });
+});

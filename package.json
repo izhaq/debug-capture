@@ -1,0 +1,9 @@
+{
+  "name": "debug-capture",
+  "version": "2.0.0-alpha.0",
+  "private": true,
+  "description": "Debug capture v2: framework-free recorder + on-screen panel for air-gapped apps. Seeded from v1 (src/debug-capture in the host app).",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}
