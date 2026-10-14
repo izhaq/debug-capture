@@ -1,0 +1,972 @@
+<!doctype html>
+<!--
+  Debug Capture v2 — debug panel visual mockup.
+  Source of truth: docs/design/HLD.md (§4 Behaviour, §5 Visual design).
+  This file is an illustration. Where it and the HLD differ, the HLD wins (§5.8).
+  Self-contained: no external scripts, fonts, images or stylesheets; no network requests.
+
+  Colour tokens: exactly the HLD §5.4 table (both themes). Sizes: §5.3, §5.5, §5.6.
+  Data is sample data, already "redacted" as the recorder would store it.
+
+  Assumptions not in HLD (the simplest option was chosen for each):
+  - Size tokens: the HLD names only colour tokens. Size/typography tokens here are named
+    --dcp-<part>-<property> (e.g. --dcp-row-h, --dcp-titlebar-h) after the §5.3 / §5.5 / §5.6 rows.
+  - Control height (buttons, search input, chips) is 24 px (32 px bar minus 2 x 4 px spacing).
+  - Toolbar buttons and chips have a 1 px --dcp-border-control border, transparent background.
+  - Pressed chip / selected option: --dcp-bg-selected background.
+  - Chips of one group are joined into one segmented control.
+  - Tabs and sub-tabs: --dcp-text-muted; active tab --dcp-text, weight 600, 2 px --dcp-accent line at the bottom.
+  - Detail header (sub-tabs + Copy + close) is 32 px with --dcp-bg-elevated.
+  - List column header row: 22 px, UI font 12 px, --dcp-text-muted, weight 400. The Console list has no
+    header row (the §4.8 sketch shows none).
+  - Column widths not in §5.6: WS Dir 96 px, WS Socket 64 px, WS Time/Size as HTTP; Console Level 72 px,
+    Source 144 px (fits "unhandledrejection"); WS connections pane 280 px; connection item 2 x 22 px.
+  - Status-bar text colour: --dcp-text-muted. Type and Duration cells use the data font in --dcp-text
+    (§5.4 lists only "timestamps, sizes" as faint meta).
+  - The `redacted` badge uses --dcp-text-muted (§5.4 does not name its colour token). A `[redacted]` inside
+    other text (FR-HTTP-07 "highlighted") uses the same colours without the icon.
+  - The host frame is 900 px tall, like the 1440 x 900 screenshot window, so the 40% panel is 359 px.
+  - Badges: 16 px tall, 4 px radius, UI font 11 px.
+  - Status "capture ● on" uses --dcp-success; "capture ○ off" uses --dcp-text-muted.
+  - WS connection state icons: open ● success, closed ○ text-muted, error ✕ error.
+  - WS lifecycle rows are "marked" only by their icon, label and --dcp-text-muted / --dcp-error colour.
+  - Timing bar: --dcp-accent fill on a --dcp-bg-hover track, 8 px tall.
+  - Capture-off banner: 32 px, --dcp-bg-elevated, warning icon, placed under the title bar.
+  - "Paused · N new" is plain text, weight 600. The "↓ N new" follow button is a normal button on --dcp-bg-elevated.
+  - Popovers (Export menu, Settings): --dcp-bg-elevated, 1 px --dcp-divider border, 4 px radius, 28 px items.
+  - Panel top corners use the 6 px panel radius while docked; 0 when maximized.
+  - Splitter: the 1 px divider line, with the same 6 px hit area as the resize handle.
+  - JSON tree: 16 px indent per level; punctuation in --dcp-text; v1 placeholders ([Circular], […]) in
+    --dcp-text-muted italic; collapsed nodes show a one-line preview.
+  - Console detail has no sub-tabs (§4.8 lists none); it shows Message, Arguments and Stack sections.
+  - Pending and "—" values: size/duration cells are left blank for pending rows (as in the §5.2 sketch).
+  - Row tints (8%, over the row background) and opaque badge backgrounds (12% over --dcp-bg) use color-mix()
+    (Chromium 111+); the product may precompute them for older Chromium.
+  - The problems count in the status bar is red only when above zero.
+  - Mockup-only chrome (page header, magenta captions, grey fake host) is not part of the design.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Debug Panel Mockup</title>
+<style>
+/* ===== Mockup page chrome (not part of the design) ===== */
+* { box-sizing: border-box; }
+body { margin: 0; background: #e9eaed; color: #1f2328; font: 14px/1.4 system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+.mk-head { padding: 16px 16px 8px; }
+.mk-head h1 { margin: 0 0 4px; font-size: 18px; }
+.mk-head p { margin: 0 0 8px; color: #4a525c; max-width: 1100px; }
+.mk-states { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.mk-states button { font: inherit; font-size: 13px; padding: 4px 10px; border: 1px solid #8a929b; border-radius: 4px; background: #fff; color: #1f2328; cursor: pointer; }
+.mk-states button[aria-pressed="true"] { background: #1f2328; color: #fff; border-color: #1f2328; }
+.mk-states label { margin-left: 8px; font-size: 13px; }
+.mk-desc { margin: 8px 0 0; font-size: 13px; color: #33393f; }
+.mk-theme { padding: 8px 16px 16px; }
+.mk-theme h2 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
+.mk-scroll { overflow-x: auto; }
+.mk-frame { position: relative; min-width: 1280px; height: 900px; overflow: hidden; border: 1px solid #9aa0a8; }
+.mk-note { font-size: 12px; color: #4a525c; margin: 4px 0 0; }
+
+/* Fake grey host page */
+.host { position: absolute; inset: 0; display: grid; grid-template: 48px 1fr / 200px 1fr; background: var(--host-bg); color: var(--host-text); font: 14px/1.4 Georgia, serif; }
+.host-top { grid-column: 1 / 3; background: var(--host-bar); display: flex; align-items: center; padding: 0 16px; gap: 24px; }
+.host-nav { background: var(--host-bar); padding: 16px; display: grid; gap: 10px; align-content: start; }
+.host-main { padding: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-content: start; }
+.host-card { height: 120px; border-radius: 6px; background: var(--host-card); padding: 12px; }
+.host-line { height: 10px; border-radius: 5px; background: var(--host-line); }
+.mk-frame[data-theme="dark"] { --host-bg: #34373c; --host-bar: #2a2c30; --host-card: #43474d; --host-line: #5a5f66; --host-text: #c9ccd1; }
+.mk-frame[data-theme="light"] { --host-bg: #c9ccd1; --host-bar: #b5b9bf; --host-card: #dadde1; --host-line: #a9aeb5; --host-text: #2a2c30; }
+
+/* Captions referencing HLD IDs (mockup-only annotation) */
+[data-cap]::after { content: attr(data-cap); position: absolute; top: 1px; right: 2px; z-index: 20; padding: 0 4px; border-radius: 2px; background: #a21caf; color: #fff; font: 10px/14px ui-monospace, Menlo, monospace; white-space: nowrap; pointer-events: none; }
+[data-cap-pos="below"]::after { top: calc(100% + 3px); right: auto; left: 0; }
+[data-cap-pos="above"]::after { top: auto; bottom: calc(100% + 3px); right: auto; left: 0; }
+[data-cap-pos="left"]::after { right: auto; left: 2px; }
+[data-cap-pos="mid"]::after { right: auto; left: 40%; }
+[data-cap-pos="out"]::after { top: 0; right: calc(100% + 4px); }
+[data-cap-pos="bl"]::after { top: auto; bottom: 1px; right: auto; left: 2px; }
+body.no-caps [data-cap]::after { display: none; }
+
+/* ===== Panel design: tokens (§5.3, §5.4, §5.5, §5.6, §5.7) ===== */
+.dcp {
+  /* §5.3 Sizes */
+  --dcp-panel-h: 40%;
+  --dcp-panel-min-h: 160px;
+  --dcp-panel-max-h: 90%;
+  --dcp-panel-w: 520px;          /* docked right (not shown) */
+  --dcp-panel-min-w: 360px;
+  --dcp-titlebar-h: 32px;
+  --dcp-filterbar-h: 32px;
+  --dcp-statusbar-h: 22px;
+  --dcp-row-h: 22px;              /* Normal text; Small 20 px, Large 26 px */
+  --dcp-detail-w: 45%;
+  --dcp-detail-min-w: 240px;
+  --dcp-resize-hit: 6px;
+  --dcp-launcher-h: 28px;
+  --dcp-launcher-inset: 12px;
+  --dcp-space-1: 2px;
+  --dcp-space-2: 4px;
+  --dcp-space-3: 8px;
+  --dcp-space-4: 12px;
+  --dcp-space-5: 16px;
+  --dcp-radius: 4px;              /* controls */
+  --dcp-radius-panel: 6px;        /* panel corners; 0 when maximized */
+  --dcp-border-w: 1px;
+  --dcp-icon: 14px;
+  /* §5.5 Typography */
+  --dcp-font-ui: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --dcp-font-mono: ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  --dcp-fs-ui: 12px;
+  --dcp-fs-data: 12px;
+  --dcp-fs-meta: 11px;
+  --dcp-lh: 1.4;
+  /* §5.6 HTTP columns */
+  --dcp-col-time: 104px;
+  --dcp-col-method: 64px;
+  --dcp-col-status: 72px;
+  --dcp-col-type: 52px;
+  --dcp-col-size: 64px;
+  --dcp-col-duration: 72px;
+  /* §5.4 badges, §5.6 row tint, §5.7 states */
+  --dcp-tint-badge: 12%;
+  --dcp-tint-row: 8%;
+  --dcp-focus-w: 2px;
+  --dcp-focus-offset: 1px;
+  --dcp-selected-bar: 2px;
+  --dcp-disabled-opacity: 0.5;
+  /* Assumed (not in HLD) */
+  --dcp-control-h: 24px;
+}
+/* §5.4 Colour tokens — dark */
+.dcp[data-theme="dark"] {
+  --dcp-bg: #1e1f22;
+  --dcp-bg-elevated: #26282c;
+  --dcp-bg-row-alt: #222428;
+  --dcp-bg-hover: #2d3036;
+  --dcp-bg-selected: #1b3152;
+  --dcp-divider: #3a3d43;
+  --dcp-border-control: #7a8089;
+  --dcp-text: #e6e7ea;
+  --dcp-text-muted: #a9aeb8;
+  --dcp-text-faint: #a3a9b3;
+  --dcp-accent: #6aaeff;
+  --dcp-success: #56c98a;
+  --dcp-info: #6cb2ff;
+  --dcp-warning: #e5b84b;
+  --dcp-error: #ff8a80;
+  --dcp-match-bg: #5a4a16;
+  --dcp-json-key: #9cdcfe;
+  --dcp-json-string: #e0a77f;
+  --dcp-json-number: #b5cea8;
+  --dcp-json-literal: #79b8ff;
+}
+/* §5.4 Colour tokens — light */
+.dcp[data-theme="light"] {
+  --dcp-bg: #ffffff;
+  --dcp-bg-elevated: #f4f5f7;
+  --dcp-bg-row-alt: #f8f9fa;
+  --dcp-bg-hover: #eceef1;
+  --dcp-bg-selected: #e1ecff;
+  --dcp-divider: #d6d9de;
+  --dcp-border-control: #7a828b;
+  --dcp-text: #1f2328;
+  --dcp-text-muted: #57606a;
+  --dcp-text-faint: #545d68;
+  --dcp-accent: #0757b5;
+  --dcp-success: #146a2c;
+  --dcp-info: #0757b5;
+  --dcp-warning: #7d5400;
+  --dcp-error: #b0141f;
+  --dcp-match-bg: #ffe58a;
+  --dcp-json-key: #0451a5;
+  --dcp-json-string: #a31515;
+  --dcp-json-number: #08613f;
+  --dcp-json-literal: #0000c4;
+}
+/* §5.4 Forced colours */
+@media (forced-colors: active) {
+  .dcp[data-theme] {
+    --dcp-bg: Canvas; --dcp-bg-elevated: Canvas; --dcp-bg-row-alt: Canvas; --dcp-bg-hover: Canvas;
+    --dcp-bg-selected: Highlight; --dcp-divider: GrayText; --dcp-border-control: ButtonText;
+    --dcp-text: CanvasText; --dcp-text-muted: GrayText; --dcp-text-faint: GrayText; --dcp-accent: Highlight;
+    --dcp-success: CanvasText; --dcp-info: CanvasText; --dcp-warning: CanvasText; --dcp-error: CanvasText;
+    --dcp-match-bg: Mark;
+  }
+  .dcp .row[aria-selected="true"] { color: HighlightText; }
+  .dcp mark { color: MarkText; }
+}
+
+/* ===== Panel design: components ===== */
+/* ISO-03: every inherited value set on the inner root, px only, ltr */
+.dcp { font-family: var(--dcp-font-ui); font-size: var(--dcp-fs-ui); font-weight: 400; line-height: var(--dcp-lh); color: var(--dcp-text); direction: ltr; text-align: left; letter-spacing: normal; }
+.dcp button, .dcp input { font: inherit; color: inherit; }
+.dcp .i, .i { width: var(--dcp-icon); height: var(--dcp-icon); flex: none; vertical-align: -2px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+symbol .f { fill: currentColor; stroke: none; }
+
+.dcp-launcher { position: absolute; right: var(--dcp-launcher-inset); bottom: var(--dcp-launcher-inset); height: var(--dcp-launcher-h); display: inline-flex; align-items: center; gap: var(--dcp-space-2); padding: 0 var(--dcp-space-4); border: var(--dcp-border-w) solid var(--dcp-border-control); border-radius: calc(var(--dcp-launcher-h) / 2); background: var(--dcp-bg-elevated); font-weight: 600; cursor: pointer; }
+.dcp-launcher .count { color: var(--dcp-error); }
+.mk-frame[data-open="1"] .dcp-launcher { display: none; }
+
+.dcp-panel { position: absolute; left: 0; right: 0; bottom: 0; height: clamp(var(--dcp-panel-min-h), var(--dcp-panel-h), var(--dcp-panel-max-h)); display: flex; flex-direction: column; background: var(--dcp-bg); border-top: var(--dcp-border-w) solid var(--dcp-divider); border-radius: var(--dcp-radius-panel) var(--dcp-radius-panel) 0 0; overflow: hidden; overscroll-behavior: contain; }
+.mk-frame[data-open="0"] .dcp-panel { display: none; }
+.mk-frame[data-max] .dcp-panel { height: 100%; border-radius: 0; }
+.dcp-resize { position: absolute; top: 0; left: 0; right: 0; height: var(--dcp-resize-hit); cursor: ns-resize; z-index: 3; }
+
+.dcp-bar { flex: none; display: flex; align-items: center; gap: var(--dcp-space-2); padding: 0 var(--dcp-space-3); background: var(--dcp-bg-elevated); border-bottom: var(--dcp-border-w) solid var(--dcp-divider); position: relative; }
+.dcp-titlebar { height: var(--dcp-titlebar-h); }
+.dcp-filterbar { height: var(--dcp-filterbar-h); gap: var(--dcp-space-3); }
+.dcp-brand { display: inline-flex; align-items: center; gap: var(--dcp-space-2); font-weight: 600; margin-right: var(--dcp-space-3); }
+.dcp-spacer { flex: 1; position: relative; align-self: stretch; }
+.pane-title { position: relative; }
+
+.dcp-tabs { display: flex; align-self: stretch; }
+.dcp-tab { border: 0; background: none; padding: 0 var(--dcp-space-3); color: var(--dcp-text-muted); cursor: pointer; }
+.dcp-tab[aria-selected="true"] { color: var(--dcp-text); font-weight: 600; box-shadow: inset 0 calc(-1 * var(--dcp-focus-w)) 0 var(--dcp-accent); }
+
+.dcp-btn { height: var(--dcp-control-h); display: inline-flex; align-items: center; gap: var(--dcp-space-2); padding: 0 var(--dcp-space-3); border: var(--dcp-border-w) solid var(--dcp-border-control); border-radius: var(--dcp-radius); background: transparent; cursor: pointer; white-space: nowrap; position: relative; }
+.dcp-btn.icon { width: var(--dcp-control-h); padding: 0; justify-content: center; }
+.dcp-btn:disabled { opacity: var(--dcp-disabled-opacity); cursor: default; }
+.dcp-tab:hover, .dcp-btn:hover, .dcp-chip:hover, .dcp-launcher:hover, .dcp-menu [role="menuitem"]:hover, .sim-hover { background-color: var(--dcp-bg-hover); }
+/* §5.7 focus: 2 px accent outline, 1 px offset, :focus-visible only */
+.dcp :focus { outline: none; }
+.dcp :focus-visible, .dcp.dcp-launcher:focus-visible, .dcp .sim-focus { outline: var(--dcp-focus-w) solid var(--dcp-accent); outline-offset: var(--dcp-focus-offset); z-index: 2; }
+
+.dcp-paused, .dcp-btn[data-act="resume"] { display: none; }
+.mk-frame[data-paused] .dcp-paused, .mk-frame[data-paused] .dcp-btn[data-act="resume"] { display: inline-flex; }
+.mk-frame[data-paused] .dcp-btn[data-act="pause"] { display: none; }
+.dcp-paused { font-weight: 600; position: relative; }
+
+.dcp-search { position: relative; display: inline-flex; align-items: center; }
+.dcp-search .i { position: absolute; left: var(--dcp-space-2); color: var(--dcp-text-muted); }
+.dcp-search input { height: var(--dcp-control-h); width: 240px; padding: 0 var(--dcp-space-3) 0 22px; border: var(--dcp-border-w) solid var(--dcp-border-control); border-radius: var(--dcp-radius); background: var(--dcp-bg); }
+.dcp-search input::placeholder { color: var(--dcp-text-muted); opacity: 1; }
+.dcp-chips { display: inline-flex; }
+.dcp-chip { height: var(--dcp-control-h); padding: 0 var(--dcp-space-3); border: var(--dcp-border-w) solid var(--dcp-border-control); background: transparent; cursor: pointer; margin-left: calc(-1 * var(--dcp-border-w)); position: relative; white-space: nowrap; }
+.dcp-chip:first-child { border-radius: var(--dcp-radius) 0 0 var(--dcp-radius); margin-left: 0; }
+.dcp-chip:last-child { border-radius: 0 var(--dcp-radius) var(--dcp-radius) 0; }
+.dcp-chip:only-child { border-radius: var(--dcp-radius); }
+.dcp-chip[aria-pressed="true"] { background-color: var(--dcp-bg-selected); }
+
+.dcp-banner { display: none; flex: none; height: 32px; align-items: center; gap: var(--dcp-space-3); padding: 0 var(--dcp-space-3); background: var(--dcp-bg-elevated); border-bottom: var(--dcp-border-w) solid var(--dcp-divider); position: relative; }
+.dcp-banner .i { color: var(--dcp-warning); }
+.mk-frame[data-capture="off"] .dcp-banner { display: flex; }
+
+.dcp-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.view { display: none; flex: 1; min-height: 0; flex-direction: column; }
+.mk-frame[data-view="http"] .view-http, .mk-frame[data-view="ws"] .view-ws, .mk-frame[data-view="console"] .view-console { display: flex; }
+.dcp-split { flex: 1; min-height: 0; display: flex; }
+.dcp-listwrap { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
+.dcp-list { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; position: relative; }
+.dcp-detail { flex: 0 0 var(--dcp-detail-w); min-width: var(--dcp-detail-min-w); display: flex; flex-direction: column; border-left: var(--dcp-border-w) solid var(--dcp-divider); position: relative; }
+.dcp-detail::before { content: ""; position: absolute; top: 0; bottom: 0; left: calc(var(--dcp-resize-hit) / -2); width: var(--dcp-resize-hit); cursor: ew-resize; }
+.dcp-split[data-detail="0"] .dcp-detail { display: none; }
+
+/* Grid rows */
+.thead, .row { display: grid; height: var(--dcp-row-h); line-height: var(--dcp-row-h); white-space: nowrap; }
+.thead { position: sticky; top: 0; z-index: 1; background: var(--dcp-bg); color: var(--dcp-text-muted); border-bottom: var(--dcp-border-w) solid var(--dcp-divider); height: calc(var(--dcp-row-h) + var(--dcp-border-w)); }
+.thead > *, .row > * { padding: 0 var(--dcp-space-2); overflow: hidden; text-overflow: ellipsis; }
+.row { font-family: var(--dcp-font-mono); font-size: var(--dcp-fs-data); background-color: var(--dcp-bg); position: relative; cursor: default; }
+.row:nth-child(even) { background-color: var(--dcp-bg-row-alt); }
+.row:hover, .row.sim-hover { background-color: var(--dcp-bg-hover); }
+.row[aria-selected="true"] { background-color: var(--dcp-bg-selected); box-shadow: inset var(--dcp-selected-bar) 0 0 var(--dcp-accent); }
+.dcp .ic { display: inline-flex; align-items: center; gap: var(--dcp-space-2); }
+.grid-http { grid-template-columns: var(--dcp-col-time) var(--dcp-col-method) var(--dcp-col-status) minmax(0, 1fr) var(--dcp-col-type) var(--dcp-col-size) var(--dcp-col-duration); }
+.grid-ws { grid-template-columns: 96px var(--dcp-col-time) 64px var(--dcp-col-size) minmax(0, 1fr); }
+.grid-con { grid-template-columns: 72px var(--dcp-col-time) 144px minmax(0, 1fr); }
+.meta { font-family: var(--dcp-font-mono); font-size: var(--dcp-fs-meta); color: var(--dcp-text-faint); }
+.data { font-family: var(--dcp-font-mono); font-size: var(--dcp-fs-data); }
+.bidi { unicode-bidi: plaintext; }
+mark { background: var(--dcp-match-bg); color: var(--dcp-text); }
+.c-success { color: var(--dcp-success); } .c-info { color: var(--dcp-info); } .c-warning { color: var(--dcp-warning); }
+.c-error { color: var(--dcp-error); } .c-muted { color: var(--dcp-text-muted); } .c-text { color: var(--dcp-text); }
+.tint-error { background-image: linear-gradient(color-mix(in srgb, var(--dcp-error) var(--dcp-tint-row), transparent), color-mix(in srgb, var(--dcp-error) var(--dcp-tint-row), transparent)); }
+.tint-warning { background-image: linear-gradient(color-mix(in srgb, var(--dcp-warning) var(--dcp-tint-row), transparent), color-mix(in srgb, var(--dcp-warning) var(--dcp-tint-row), transparent)); }
+
+.dcp-state { position: absolute; inset: calc(var(--dcp-row-h) + var(--dcp-border-w)) 0 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: var(--dcp-space-3); color: var(--dcp-text-muted); }
+.dcp-list[data-state="empty"] .dcp-empty, .dcp-list[data-state="nomatch"] .dcp-nomatch { display: flex; }
+.dcp-follow { display: none; position: absolute; bottom: var(--dcp-space-3); left: 50%; transform: translateX(-50%); background: var(--dcp-bg-elevated); z-index: 2; }
+.mk-frame[data-state="console"] .dcp-follow { display: inline-flex; }
+
+/* Badges §5.4 */
+.badge { display: inline-flex; align-items: center; gap: var(--dcp-space-1); height: 16px; line-height: 16px; padding: 0 var(--dcp-space-2); border-radius: var(--dcp-radius); font: var(--dcp-fs-meta) var(--dcp-font-ui); vertical-align: 1px; --b: var(--dcp-text-muted); color: var(--b); background: color-mix(in srgb, var(--b) var(--dcp-tint-badge), var(--dcp-bg)); }
+.redact { color: var(--dcp-text-muted); background: color-mix(in srgb, var(--dcp-text-muted) var(--dcp-tint-badge), var(--dcp-bg)); border-radius: var(--dcp-radius); }
+.badge .i { width: 12px; height: 12px; vertical-align: 0; }
+.badge.trunc { --b: var(--dcp-warning); }
+
+/* Detail */
+.dcp-dhead { height: var(--dcp-titlebar-h); }
+.dcp-dbody { flex: 1; min-height: 0; overflow: auto; padding: var(--dcp-space-3); }
+.pane { display: none; }
+.pane[data-on] { display: block; }
+.dcp-dbody h4 { margin: var(--dcp-space-3) 0 var(--dcp-space-2); font-size: var(--dcp-fs-ui); font-weight: 600; }
+.dcp-dbody h4:first-child { margin-top: 0; }
+.kv { border-collapse: collapse; width: 100%; font-family: var(--dcp-font-mono); font-size: var(--dcp-fs-data); }
+.kv th { text-align: left; font-weight: 400; color: var(--dcp-text-muted); width: 1%; white-space: nowrap; padding: 1px var(--dcp-space-4) 1px var(--dcp-space-3); vertical-align: top; }
+.kv td { padding: 1px 0; word-break: break-all; }
+.note { color: var(--dcp-text-muted); margin: 0; }
+.bodybar { display: flex; align-items: center; gap: var(--dcp-space-3); margin-bottom: var(--dcp-space-3); }
+.bodybar .dcp-spacer + * { margin-left: auto; }
+pre.raw { margin: 0; font: var(--dcp-fs-data)/var(--dcp-lh) var(--dcp-font-mono); white-space: pre-wrap; word-break: break-all; }
+.timebar { height: 8px; margin: var(--dcp-space-3) 0 var(--dcp-space-2); background: var(--dcp-bg-hover); border-radius: var(--dcp-radius); overflow: hidden; }
+.timebar > span { display: block; height: 100%; background: var(--dcp-accent); }
+.linkbtn { border: 0; background: none; padding: 0; color: var(--dcp-accent); cursor: pointer; text-decoration: underline; }
+
+/* JSON viewer FR-COM-01 */
+.jt, .jt ul { list-style: none; margin: 0; padding: 0; font: var(--dcp-fs-data)/var(--dcp-lh) var(--dcp-font-mono); }
+.jt ul { padding-left: var(--dcp-space-5); }
+.jt-line { display: flex; align-items: baseline; gap: 0; white-space: pre; }
+.jt-tog { width: 16px; height: 16px; border: 0; padding: 0; background: none; color: var(--dcp-text-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; align-self: center; }
+.jt-line > span:last-child { white-space: normal; word-break: break-all; min-width: 0; }
+.jt-sp { display: inline-block; width: 16px; flex: none; }
+.jt li[aria-expanded="false"] > ul, .jt li[aria-expanded="false"] > .jt-line .jtype, .jt li[aria-expanded="true"] > .jt-line .jprev { display: none; }
+.jt li[aria-expanded="false"] > .jt-line .jt-tog .i { transform: rotate(-90deg); }
+.jk { color: var(--dcp-json-key); } .js { color: var(--dcp-json-string); } .jn { color: var(--dcp-json-number); } .jl { color: var(--dcp-json-literal); }
+.jph { color: var(--dcp-text-muted); font-style: italic; }
+.jtype, .jprev { color: var(--dcp-text-muted); overflow: hidden; text-overflow: ellipsis; }
+
+/* WebSocket */
+.ws-conns { flex: 0 0 280px; display: flex; flex-direction: column; border-right: var(--dcp-border-w) solid var(--dcp-divider); position: relative; }
+.pane-title { flex: none; height: var(--dcp-row-h); line-height: var(--dcp-row-h); padding: 0 var(--dcp-space-3); color: var(--dcp-text-muted); border-bottom: var(--dcp-border-w) solid var(--dcp-divider); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conn { display: block; height: calc(2 * var(--dcp-row-h)); padding: 0 var(--dcp-space-3); font-family: var(--dcp-font-mono); font-size: var(--dcp-fs-data); }
+.conn > div { height: var(--dcp-row-h); line-height: var(--dcp-row-h); display: flex; gap: var(--dcp-space-3); align-items: center; white-space: nowrap; }
+.conn .path { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.conn .sub { padding-left: 22px; }
+.conn.all { height: var(--dcp-row-h); line-height: var(--dcp-row-h); font-family: var(--dcp-font-ui); font-size: var(--dcp-fs-ui); border-top: var(--dcp-border-w) solid var(--dcp-divider); }
+
+/* Popovers */
+.dcp-popwrap { position: relative; display: inline-flex; }
+.dcp-pop { display: none; position: absolute; top: calc(100% + var(--dcp-space-2)); right: 0; z-index: 30; width: max-content; white-space: nowrap; background: var(--dcp-bg-elevated); border: var(--dcp-border-w) solid var(--dcp-divider); border-radius: var(--dcp-radius); padding: var(--dcp-space-2); }
+.mk-frame[data-menu="export"] .pop-export, .mk-frame[data-menu="settings"] .pop-settings { display: block; }
+.dcp-menu { min-width: 260px; }
+.dcp-menu [role="menuitem"] { display: flex; width: 100%; height: 28px; align-items: center; gap: var(--dcp-space-3); padding: 0 var(--dcp-space-3); border: 0; border-radius: var(--dcp-radius); background: transparent; cursor: pointer; }
+.dcp-menu kbd { margin-left: auto; font: var(--dcp-fs-meta) var(--dcp-font-mono); color: var(--dcp-text-muted); }
+.pop-settings { padding: var(--dcp-space-3); }
+.pop-settings h3 { margin: 0 0 var(--dcp-space-3); font-size: var(--dcp-fs-ui); font-weight: 600; }
+.set-row { display: flex; align-items: center; height: 28px; }
+.set-row > span:first-child { width: 88px; color: var(--dcp-text-muted); }
+
+/* Status bar FR-BAR-06 */
+.dcp-status { flex: none; height: var(--dcp-statusbar-h); line-height: calc(var(--dcp-statusbar-h) - var(--dcp-border-w)); padding: 0 var(--dcp-space-3); background: var(--dcp-bg-elevated); border-top: var(--dcp-border-w) solid var(--dcp-divider); font-family: var(--dcp-font-mono); font-size: var(--dcp-fs-meta); color: var(--dcp-text-muted); white-space: nowrap; overflow: hidden; position: relative; }
+.dcp-status .i { width: 12px; height: 12px; vertical-align: -2px; }
+
+@media (prefers-reduced-motion: reduce) { .dcp * { transition: none; animation: none; } }
+@media print { .dcp { display: none !important; } }
+</style>
+</head>
+<body>
+<svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+  <symbol id="i-check" viewBox="0 0 16 16"><path d="M3 8.5l3 3 7-7" stroke-width="1.6"/></symbol>
+  <symbol id="i-redirect" viewBox="0 0 16 16"><path d="M3 3v4a3 3 0 0 0 3 3h7M10 7l3 3-3 3"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 16 16"><path d="M8 2L1.5 13.5h13zM8 6.5v3.2M8 11.6v.2"/></symbol>
+  <symbol id="i-x" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke-width="1.6"/></symbol>
+  <symbol id="i-pending" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" stroke-dasharray="2 2.3"/></symbol>
+  <symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke-width="1.4"/><path d="M8 7.3v4M8 4.8v.2" stroke-width="1.6"/></symbol>
+  <symbol id="i-dot" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.5" class="f"/></symbol>
+  <symbol id="i-more" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1.3" class="f"/><circle cx="8" cy="8" r="1.3" class="f"/><circle cx="12.5" cy="8" r="1.3" class="f"/></symbol>
+  <symbol id="i-up" viewBox="0 0 16 16"><path d="M8 13V3M4 7l4-4 4 4" stroke-width="1.6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 16 16"><path d="M8 3v10M4 9l4 4 4-4" stroke-width="1.6"/></symbol>
+  <symbol id="i-open" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.5" class="f"/></symbol>
+  <symbol id="i-ring" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.5"/></symbol>
+  <symbol id="i-square" viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx="1" class="f"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="7" rx="1.2"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></symbol>
+  <symbol id="i-scissors" viewBox="0 0 16 16"><circle cx="4.5" cy="11.5" r="2" stroke-width="1.4"/><circle cx="11.5" cy="11.5" r="2" stroke-width="1.4"/><path d="M5.8 10L12 2.5M10.2 10L4 2.5" stroke-width="1.4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 16 16"><path d="M5.5 3.5v9M10.5 3.5v9" stroke-width="2"/></symbol>
+  <symbol id="i-play" viewBox="0 0 16 16"><path d="M5 3.5l7 4.5-7 4.5z" class="f"/></symbol>
+  <symbol id="i-clear" viewBox="0 0 16 16"><path d="M3.5 8a4.5 4.5 0 1 0 1.4-3.3M3.5 2.5v3h3"/></symbol>
+  <symbol id="i-export" viewBox="0 0 16 16"><path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.2" stroke-width="1.4"/><circle cx="8" cy="8" r="4.6" stroke-width="1.4"/><path d="M8 1.5v1.9M8 12.6v1.9M1.5 8h1.9M12.6 8h1.9M3.4 3.4l1.3 1.3M11.3 11.3l1.3 1.3M3.4 12.6l1.3-1.3M11.3 4.7l1.3-1.3" stroke-width="1.4"/></symbol>
+  <symbol id="i-max" viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M13.5 2.5L9 7M6.5 13.5h-4v-4M2.5 13.5L7 9"/></symbol>
+  <symbol id="i-caret" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4" stroke-width="1.6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4" stroke-width="1.6"/></symbol>
+  <symbol id="i-logo" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3" class="f"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 16 16"><rect x="5.5" y="5.5" width="8" height="8" rx="1" stroke-width="1.4"/><path d="M3 10.5V3.5a1 1 0 0 1 1-1h6.5" stroke-width="1.4"/></symbol>
+</svg>
+
+<header class="mk-head">
+  <h1>Debug Capture v2 — panel mockup</h1>
+  <p>Static illustration of HLD §4 (behaviour) and §5 (visual design), in both themes. Each frame is a fake grey host page with the panel docked at the bottom (40% height, §4.3). <strong>Where this mockup and the HLD differ, the HLD wins (§5.8).</strong> Tabs, sub-tabs, chips, search, JSON toggles, Raw, Maximize, Close and the launcher work; HTTP and Console rows can be selected.</p>
+  <div class="mk-states" role="group" aria-label="Mockup state">
+    <button type="button" data-state="launcher">Launcher (closed)</button>
+    <button type="button" data-state="http">Network › HTTP</button>
+    <button type="button" data-state="interact">Hover / focus / match</button>
+    <button type="button" data-state="ws">Network › WebSocket</button>
+    <button type="button" data-state="console">Console</button>
+    <button type="button" data-state="empty">Empty</button>
+    <button type="button" data-state="nomatch">No match</button>
+    <button type="button" data-state="paused">Paused + capture off + Export</button>
+    <button type="button" data-state="settings">Settings</button>
+    <label><input type="checkbox" class="mk-caps" checked> HLD captions</label>
+  </div>
+  <p class="mk-desc" aria-live="polite"></p>
+</header>
+<main>
+  <section class="mk-theme"><h2>Dark theme</h2><div class="mk-scroll"><div class="mk-frame" data-theme="dark"></div></div></section>
+  <section class="mk-theme"><h2>Light theme</h2><div class="mk-scroll"><div class="mk-frame" data-theme="light"></div></div>
+    <p class="mk-note">Below 1280 px wide the frames scroll sideways: the HLD supports screens from 1280 × 720 up (NFR-COMP-02) and defines no narrow layout.</p></section>
+</main>
+
+<template class="tpl-frame">
+  <div class="host" aria-hidden="true">
+    <div class="host-top"><b>Experiments Console</b><span>Runs</span><span>Entities</span><span>Reports</span></div>
+    <div class="host-nav"><div class="host-line"></div><div class="host-line"></div><div class="host-line"></div><div class="host-line"></div></div>
+    <div class="host-main">
+      <div class="host-card">Host page (unchanged)<div class="host-line" style="margin-top:12px"></div></div>
+      <div class="host-card"><div class="host-line"></div></div><div class="host-card"><div class="host-line"></div></div>
+      <div class="host-card"><div class="host-line"></div></div><div class="host-card"><div class="host-line"></div></div><div class="host-card"><div class="host-line"></div></div>
+    </div>
+  </div>
+
+  <button type="button" class="dcp dcp-launcher" data-cap="FR-ACT-03/04 · §4.2" data-cap-pos="above" title="Open debug panel (Ctrl+Alt+Shift+P)" aria-label="Open debug panel, 3 new problems">DBG <span class="count">3</span></button>
+
+  <div class="dcp dcp-panel" role="dialog" aria-modal="false" aria-label="Debug panel" lang="en" dir="ltr">
+    <div class="dcp-resize" title="Drag to resize"></div>
+    <div class="dcp-bar dcp-titlebar">
+      <span class="dcp-brand"><svg class="i"><use href="#i-logo"/></svg>Debug</span>
+      <div class="dcp-tabs" role="tablist" aria-label="Sections">
+        <button type="button" class="dcp-tab" role="tab" data-tab="network" aria-selected="true" title="Network (Alt+1)">Network</button>
+        <button type="button" class="dcp-tab" role="tab" data-tab="console" aria-selected="false" tabindex="-1" title="Console (Alt+2)">Console</button>
+      </div>
+      <span class="dcp-spacer" data-cap="§4.9 · FR-WIN-04/05/06 · FR-BAR-01…04"></span>
+      <span class="dcp-paused" data-cap="FR-BAR-01" data-cap-pos="below">Paused · 37 new</span>
+      <button type="button" class="dcp-btn" data-act="pause" title="Pause the view (capture continues)"><svg class="i"><use href="#i-pause"/></svg>Pause</button>
+      <button type="button" class="dcp-btn" data-act="resume" title="Resume and apply waiting entries"><svg class="i"><use href="#i-play"/></svg>Resume</button>
+      <button type="button" class="dcp-btn" data-act="clear" title="Clear the capture buffer, all tabs (Ctrl+Alt+Shift+X)"><svg class="i"><use href="#i-clear"/></svg>Clear</button>
+      <span class="dcp-popwrap">
+        <button type="button" class="dcp-btn" data-act="export" aria-haspopup="menu" aria-expanded="false"><svg class="i"><use href="#i-export"/></svg>Export<svg class="i"><use href="#i-caret"/></svg></button>
+        <span class="dcp-pop dcp-menu pop-export" role="menu" aria-label="Export" data-cap="FR-BAR-04 · §4.9" data-cap-pos="out">
+          <button type="button" role="menuitem"><svg class="i"><use href="#i-export"/></svg>Download all (JSON)<kbd>Ctrl+Alt+Shift+D</kbd></button>
+          <button type="button" role="menuitem"><svg class="i"><use href="#i-copy"/></svg>Copy all (JSON)<kbd>Ctrl+Alt+Shift+C</kbd></button>
+        </span>
+      </span>
+      <span class="dcp-popwrap">
+        <button type="button" class="dcp-btn icon" data-act="settings" aria-label="Settings" title="Settings" aria-haspopup="dialog" aria-expanded="false"><svg class="i"><use href="#i-gear"/></svg></button>
+        <span class="dcp-pop pop-settings" role="dialog" aria-label="Settings" data-cap="§4.10 · FR-BAR-07 · FR-ACT-08/09" data-cap-pos="out">
+          <h3>Settings</h3>
+          <span class="set-row"><span>Theme</span><span class="dcp-chips"><button type="button" class="dcp-chip" aria-pressed="true">Auto</button><button type="button" class="dcp-chip" aria-pressed="false">Dark</button><button type="button" class="dcp-chip" aria-pressed="false">Light</button></span></span>
+          <span class="set-row"><span>Dock</span><span class="dcp-chips"><button type="button" class="dcp-chip" aria-pressed="true">Bottom</button><button type="button" class="dcp-chip" aria-pressed="false">Right</button></span></span>
+          <span class="set-row"><span>Text size</span><span class="dcp-chips"><button type="button" class="dcp-chip" aria-pressed="false">Small 11 px</button><button type="button" class="dcp-chip" aria-pressed="true">Normal 12 px</button><button type="button" class="dcp-chip" aria-pressed="false">Large 14 px</button></span></span>
+          <span class="set-row"><span>Time</span><span class="dcp-chips"><button type="button" class="dcp-chip" aria-pressed="true">Clock</button><button type="button" class="dcp-chip" aria-pressed="false">Relative</button></span></span>
+          <span class="set-row"><span>Launcher</span><span class="dcp-chips"><button type="button" class="dcp-chip" aria-pressed="true">Show</button><button type="button" class="dcp-chip" aria-pressed="false">Hide</button></span></span>
+          <span class="set-row"><span>Capture</span><span class="dcp-chips"><button type="button" class="dcp-chip" aria-pressed="true">On</button><button type="button" class="dcp-chip" aria-pressed="false">Off</button></span></span>
+        </span>
+      </span>
+      <button type="button" class="dcp-btn icon" data-act="max" aria-label="Maximize" title="Maximize"><svg class="i"><use href="#i-max"/></svg></button>
+      <button type="button" class="dcp-btn icon" data-act="close" aria-label="Close" title="Close (Ctrl+Alt+Shift+P, Escape)"><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
+
+    <div class="dcp-banner" data-cap="FR-ACT-09 · §4.11">
+      <svg class="i"><use href="#i-warn"/></svg><span>Capture is off — nothing new is recorded.</span>
+      <button type="button" class="dcp-btn" data-act="capture-on">Turn on</button>
+    </div>
+
+    <div class="dcp-body">
+      <!-- Network › HTTP -->
+      <section class="view view-http" aria-label="HTTP">
+        <div class="dcp-bar dcp-filterbar" data-cap="FR-HTTP-03 · §4.5">
+          <div class="dcp-tabs" role="tablist" aria-label="Network">
+            <button type="button" class="dcp-tab" role="tab" data-sub="http" aria-selected="true">HTTP</button>
+            <button type="button" class="dcp-tab" role="tab" data-sub="ws" aria-selected="false" tabindex="-1">WebSocket</button>
+          </div>
+          <label class="dcp-search"><svg class="i"><use href="#i-search"/></svg><input type="search" class="q-http" placeholder="Filter URL, method, status" aria-label="Filter requests (Ctrl+F)"></label>
+          <span class="dcp-chips chips-type" role="group" aria-label="Type">
+            <button type="button" class="dcp-chip" data-v="all" aria-pressed="true">All</button><button type="button" class="dcp-chip" data-v="xhr" aria-pressed="false">XHR</button><button type="button" class="dcp-chip" data-v="fetch" aria-pressed="false">Fetch</button>
+          </span>
+          <span class="dcp-chips chips-status" role="group" aria-label="Status">
+            <button type="button" class="dcp-chip" data-v="2xx" aria-pressed="false">2xx</button><button type="button" class="dcp-chip" data-v="3xx" aria-pressed="false">3xx</button><button type="button" class="dcp-chip" data-v="4xx" aria-pressed="false">4xx</button><button type="button" class="dcp-chip" data-v="5xx" aria-pressed="false">5xx</button><button type="button" class="dcp-chip" data-v="failed" aria-pressed="false">Failed</button>
+          </span>
+        </div>
+        <div class="dcp-split">
+          <div class="dcp-listwrap">
+            <div class="dcp-list list-http" role="grid" aria-label="HTTP requests">
+              <div class="thead grid-http" role="row" data-cap="FR-HTTP-01/02 · §5.6" data-cap-pos="mid"><span role="columnheader">Time</span><span role="columnheader">Method</span><span role="columnheader">Status</span><span role="columnheader">Name</span><span role="columnheader">Type</span><span role="columnheader">Size</span><span role="columnheader">Duration</span></div>
+              <div class="tbody" role="rowgroup"></div>
+              <div class="dcp-state dcp-empty" data-cap="FR-COM-04 · §4.11">No requests yet.</div>
+              <div class="dcp-state dcp-nomatch" data-cap="FR-COM-04 · §4.11">No entries match the filter.<button type="button" class="dcp-btn" data-act="clear-filters">Clear filters</button></div>
+            </div>
+          </div>
+          <aside class="dcp-detail detail-http" aria-label="Request detail">
+            <div class="dcp-bar dcp-dhead">
+              <div class="dcp-tabs" role="tablist" aria-label="Request detail">
+                <button type="button" class="dcp-tab" role="tab" data-pane="headers" aria-selected="true">Headers</button>
+                <button type="button" class="dcp-tab" role="tab" data-pane="payload" aria-selected="false" tabindex="-1">Payload</button>
+                <button type="button" class="dcp-tab" role="tab" data-pane="response" aria-selected="false" tabindex="-1">Response</button>
+                <button type="button" class="dcp-tab" role="tab" data-pane="timing" aria-selected="false" tabindex="-1">Timing</button>
+              </div>
+              <span class="dcp-spacer" data-cap="FR-HTTP-04…07 · §4.6"></span>
+              <button type="button" class="dcp-btn" title="Copy URL, request body, response body, or as cURL (FR-HTTP-06)" aria-haspopup="menu">Copy<svg class="i"><use href="#i-caret"/></svg></button>
+              <button type="button" class="dcp-btn icon" data-act="close-detail" aria-label="Close detail" title="Close detail (Escape)"><svg class="i"><use href="#i-x"/></svg></button>
+            </div>
+            <div class="dcp-dbody"></div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- Network › WebSocket -->
+      <section class="view view-ws" aria-label="WebSocket">
+        <div class="dcp-bar dcp-filterbar" data-cap="FR-WS-03 · §4.5">
+          <div class="dcp-tabs" role="tablist" aria-label="Network">
+            <button type="button" class="dcp-tab" role="tab" data-sub="http" aria-selected="false" tabindex="-1">HTTP</button>
+            <button type="button" class="dcp-tab" role="tab" data-sub="ws" aria-selected="true">WebSocket</button>
+          </div>
+          <label class="dcp-search"><svg class="i"><use href="#i-search"/></svg><input type="search" placeholder="Filter message data" aria-label="Filter messages (Ctrl+F)"></label>
+          <span class="dcp-chips" role="group" aria-label="Direction"><button type="button" class="dcp-chip" aria-pressed="true">All</button><button type="button" class="dcp-chip" aria-pressed="false">Sent</button><button type="button" class="dcp-chip" aria-pressed="false">Received</button></span>
+          <span class="dcp-chips" role="group" aria-label="Type"><button type="button" class="dcp-chip" aria-pressed="false">Text</button><button type="button" class="dcp-chip" aria-pressed="false">Binary</button></span>
+        </div>
+        <div class="dcp-split">
+          <div class="ws-conns" data-cap="FR-WS-01/05 · §4.7" data-cap-pos="bl">
+            <div class="pane-title">Connections</div>
+            <div class="dcp-list conn-list" role="listbox" aria-label="Connections"></div>
+          </div>
+          <div class="dcp-listwrap">
+            <div class="pane-title" data-cap="FR-WS-02/05 · §5.6">Messages — all connections</div>
+            <div class="dcp-list list-ws" role="grid" aria-label="WebSocket messages">
+              <div class="thead grid-ws" role="row"><span role="columnheader">Dir</span><span role="columnheader">Time</span><span role="columnheader">Socket</span><span role="columnheader">Size</span><span role="columnheader">Data</span></div>
+              <div class="tbody" role="rowgroup"></div>
+            </div>
+          </div>
+          <aside class="dcp-detail detail-ws" aria-label="Message detail">
+            <div class="dcp-bar dcp-dhead">
+              <div class="dcp-tabs" role="tablist" aria-label="Message detail">
+                <button type="button" class="dcp-tab" role="tab" data-pane="message" aria-selected="true">Message</button>
+                <button type="button" class="dcp-tab" role="tab" data-pane="info" aria-selected="false" tabindex="-1">Info</button>
+              </div>
+              <span class="dcp-spacer" data-cap="FR-WS-04 · §4.7"></span>
+              <button type="button" class="dcp-btn" aria-haspopup="menu">Copy<svg class="i"><use href="#i-caret"/></svg></button>
+              <button type="button" class="dcp-btn icon" data-act="close-detail" aria-label="Close detail" title="Close detail (Escape)"><svg class="i"><use href="#i-x"/></svg></button>
+            </div>
+            <div class="dcp-dbody"></div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- Console -->
+      <section class="view view-console" aria-label="Console">
+        <div class="dcp-bar dcp-filterbar" data-cap="FR-CON-01…04 · §4.8 · §5.6">
+          <span class="dcp-chips" role="group" aria-label="Levels">
+            <button type="button" class="dcp-chip" aria-pressed="true">Errors</button><button type="button" class="dcp-chip" aria-pressed="true">Warnings</button><button type="button" class="dcp-chip" aria-pressed="true">Info</button><button type="button" class="dcp-chip" aria-pressed="true">Log</button><button type="button" class="dcp-chip" aria-pressed="true">Debug</button>
+          </span>
+          <label class="dcp-search"><svg class="i"><use href="#i-search"/></svg><input type="search" placeholder="Filter" aria-label="Filter console (Ctrl+F)"></label>
+        </div>
+        <div class="dcp-split">
+          <div class="dcp-listwrap">
+            <div class="dcp-list list-con" role="grid" aria-label="Console messages">
+              <div class="tbody" role="rowgroup"></div>
+            </div>
+            <button type="button" class="dcp-btn dcp-follow" data-cap="FR-BAR-02" data-cap-pos="above"><svg class="i"><use href="#i-down"/></svg>12 new</button>
+          </div>
+          <aside class="dcp-detail detail-con" aria-label="Console detail">
+            <div class="dcp-bar dcp-dhead">
+              <span class="con-head ic" style="gap:var(--dcp-space-3)"></span>
+              <span class="dcp-spacer" data-cap="§4.8 · FR-CON-02/03 · FR-COM-01/02"></span>
+              <button type="button" class="dcp-btn" aria-haspopup="menu">Copy<svg class="i"><use href="#i-caret"/></svg></button>
+              <button type="button" class="dcp-btn icon" data-act="close-detail" aria-label="Close detail" title="Close detail (Escape)"><svg class="i"><use href="#i-x"/></svg></button>
+            </div>
+            <div class="dcp-dbody"></div>
+          </aside>
+        </div>
+      </section>
+    </div>
+
+    <div class="dcp-status" data-cap="FR-BAR-06 · §4.9"></div>
+  </div>
+</template>
+
+<script>
+(() => {
+  'use strict';
+  // ---------- tiny safe DOM builder (text only, no HTML strings — NFR-SEC-01) ----------
+  const $ = (r, s) => r.querySelector(s);
+  const $$ = (r, s) => Array.from(r.querySelectorAll(s));
+  function h(tag, attrs, ...kids) {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v === false || v == null) continue;
+      if (k === 'class') el.className = v; else el.setAttribute(k, v === true ? '' : String(v));
+    }
+    for (const k of kids.flat(3)) if (k != null && k !== false) el.append(k instanceof Node ? k : String(k));
+    return el;
+  }
+  function icon(name) {
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.setAttribute('class', 'i'); s.setAttribute('aria-hidden', 'true');
+    const u = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    u.setAttribute('href', '#i-' + name); s.append(u); return s;
+  }
+  const ic = (cls, name, label) => h('span', { class: 'ic ' + cls }, icon(name), label);
+  const REDACTED = () => h('span', { class: 'badge' }, icon('lock'), 'redacted');
+
+  // ---------- sample data (realistic, already redacted by the recorder) ----------
+  const BASE = 'http://lab-02.internal:8080/api/system-experiments/';
+  // FR-HTTP-01: completed rows in completion order (start + duration), Time = start, so it can be out
+  // of order; pending rows sit below them in start order. Sorted below.
+  const HTTP = [
+    { t: '14:02:11.050', m: 'GET', s: 304, n: 'i18n/en.json', ty: 'fetch', sz: '0 B', d: '12 ms' },
+    { t: '14:02:11.004', m: 'GET', s: 200, n: 'experiments?page=1&size=50', ty: 'xhr', sz: '48.6 kB', d: '412 ms', res: { total: 913, page: 1, items: [{ id: 914, name: 'thermal-drift', owner: '[redacted]' }, { id: 913, name: 'baseline', owner: '[redacted]' }] } },
+    { t: '14:02:13.020', m: 'GET', s: 404, n: 'experiments/913/notes', ty: 'fetch', sz: '112 B', d: '27 ms', res: { error: 'NotFound', message: 'No notes for experiment 913' } },
+    { t: '14:02:15.501', m: 'POST', s: 200, n: 'default', ty: 'xhr', sz: '2 B', d: '88 ms', body: { id: 7, mode: 'default' }, res: {} },
+    { t: '14:02:19.950', m: 'GET', s: 401, n: 'session', ty: 'xhr', sz: '61 B', d: '38 ms', res: { error: 'Unauthorized' } },
+    { t: '14:02:18.912', m: 'GET', s: 'Failed', n: 'telemetry/stream?token=[redacted]', ty: 'fetch', sz: '', d: '1.18 s' },
+    { t: '14:02:20.115', m: 'GET', s: 'Aborted', n: 'search?q=ניסוי 914', ty: 'fetch', sz: '', d: '302 ms' },
+    { t: '14:02:18.770', m: 'POST', s: 500, n: 'primary', ty: 'xhr', sz: '2.3 kB', d: '2.04 s',
+      reqH: [['accept', 'application/json, text/plain, */*'], ['authorization', REDACTED], ['content-type', 'application/json'], ['x-request-id', '7f3c9a12-5b0e-4d7a-9e1f-2c64d0b8a301']],
+      resH: [['content-length', '2316'], ['content-type', 'application/json; charset=utf-8'], ['date', 'Wed, 14 Oct 2026 14:02:20 GMT'], ['set-cookie', REDACTED]],
+      body: { experimentId: 914, name: 'thermal-drift', params: { rate: 0.25, enabled: true, apiKey: '[redacted]' }, tags: ['lab', 'night'], note: null },
+      res: { error: 'InternalServerError', message: 'Experiment 914 is locked by another run', traceId: 'a1b2c3d4e5f6', retryable: false, details: null,
+        trace: 'java.lang.IllegalStateException: run lock held at com.lab.exp.RunService.apply(RunService.java:212)…[truncated 1,204 chars]' },
+      orig: '3,520 chars' },
+    { t: '14:02:18.100', m: 'GET', s: 'Timeout', n: 'reports/export?format=csv', ty: 'xhr', sz: '', d: '3.00 s' },
+    { t: '14:02:19.002', m: 'GET', s: 'Pending', n: 'health', ty: 'fetch', sz: '', d: '' },
+    { t: '14:02:21.640', m: 'POST', s: 'Pending', n: 'experiments/914/run', ty: 'xhr', sz: '', d: '', body: { dryRun: false } },
+  ];
+  const STATUS_TEXT = { 200: 'OK', 204: 'No Content', 304: 'Not Modified', 401: 'Unauthorized', 404: 'Not Found', 500: 'Internal Server Error' };
+  function st(s) {
+    if (s === 'Pending') return { c: 'c-muted', icon: 'pending', label: 'Pending', long: 'Pending', grp: null };
+    if (typeof s === 'string') return { c: 'c-error', icon: 'x', label: s, long: s, grp: 'failed' };
+    const k = Math.floor(s / 100);
+    const m = { 2: ['c-success', 'check'], 3: ['c-info', 'redirect'], 4: ['c-warning', 'warn'], 5: ['c-error', 'x'] }[k];
+    return { c: m[0], icon: m[1], label: String(s), long: s + ' ' + STATUS_TEXT[s], grp: k + 'xx' };
+  }
+
+  const toMs = t => t.split(':').reduce((a, x) => a * 60 + +x, 0) * 1000;
+  const ms = d => !d ? 0 : d.endsWith(' s') ? parseFloat(d) * 1000 : parseFloat(d);
+  const endMs = r => toMs(r.t) + ms(r.d);
+  HTTP.sort((a, b) => (a.s === 'Pending') - (b.s === 'Pending') || (a.s === 'Pending' ? toMs(a.t) - toMs(b.t) : endMs(a) - endMs(b)));
+  const SEL = HTTP.findIndex(r => r.n === 'primary'), idx = n => HTTP.findIndex(r => r.n.startsWith(n));
+
+  const CONNS = [
+    { id: 3, path: '/api/system-experiments/ws', state: 'open', up: 1, down: 2, t: '14:02:11' },
+    { id: 2, path: '/api/ws', state: 'closed', up: 0, down: 1, t: '13:58:40' },
+    { id: 1, path: '/api/ws', state: 'error', up: 1, down: 0, t: '13:55:02' },
+  ];
+  const CONN_ST = { open: ['c-success', 'open'], closed: ['c-muted', 'ring'], error: ['c-error', 'x'] };
+  const WS_EV = { sent: ['c-success', 'up', 'sent'], recv: ['c-info', 'down', 'received'], open: ['c-muted', 'open', 'opened'], close: ['c-muted', 'square', 'closed'], error: ['c-error', 'x', 'error'] };
+  const FRAME = { entities: [
+      { entityId: 'E-1042', state: 'running', temp: 41.7, ok: true },
+      { entityId: 'E-1043', state: 'idle', temp: 22.1, ok: true },
+      { entityId: 'E-1044', state: 'fault', temp: null, ok: false, note: 'sensor offline' } ],
+    seq: 118, ts: '2026-10-14T14:02:15.520Z', session: '[redacted]' };
+  const WS = [
+    ['open', '13:55:02.110', 1, '', 'connection opened'],
+    ['sent', '13:55:02.131', 1, '38 B', '{"cmd":"subscribe","topic":"status"}'],
+    ['error', '13:55:09.442', 1, '', 'error'],
+    ['close', '13:55:09.450', 1, '', '1006 ""'],
+    ['open', '13:58:40.200', 2, '', 'connection opened'],
+    ['recv', '13:58:40.233', 2, '412 B', '{"status":"ready","version":"4.2.1"}'],
+    ['close', '14:01:12.004', 2, '', '1000 "done"'],
+    ['open', '14:02:11.020', 3, '', 'connection opened'],
+    ['sent', '14:02:15.501', 3, '41 B', '{"cmd":"apply","id":7}'],
+    ['recv', '14:02:15.522', 3, '3.2 kB', JSON.stringify(FRAME), true],
+    ['recv', '14:02:16.002', 3, '512 B', '[Binary 512 bytes]'],
+  ];
+
+  const LVL = { error: ['c-error', 'x', 'error', 'tint-error'], warn: ['c-warning', 'warn', 'warn', 'tint-warning'], info: ['c-info', 'info', 'info', ''], log: ['c-text', 'dot', 'log', ''], debug: ['c-muted', 'more', 'debug', ''] };
+  const STACK = "TypeError: Cannot read properties of undefined (reading 'rows')\n    at ExperimentTableComponent.ngOnChanges (experiment-table.component.ts:88:31)\n    at ExperimentTableComponent.rememberChangeHistoryAndInvokeOnChangesHook (core.mjs:2928:14)\n    at callHookInternal (core.mjs:3953:14)\n    at callHook (core.mjs:3980:13)\n    at callHooks (core.mjs:3935:17)\n    at executeInitAndCheckHooks (core.mjs:3885:9)\n    at refreshView (core.mjs:12312:21)\n    at detectChangesInView (core.mjs:12536:9)";
+  const CON = [
+    ['debug', '14:02:10.950', '', ['router: NavigationStart → /experiments']],
+    ['info', '14:02:11.004', '', ['Angular is running in development mode.']],
+    ['warn', '14:02:11.009', '', ['Could not find Angular Material core theme. Most Material components may not work as expected.']],
+    ['log', '14:02:11.120', '', ['ws connected', { url: 'ws://lab-02.internal:8080/api/system-experiments/ws', id: 3 }]],
+    ['error', '14:02:15.601', 'angular', [STACK.split('\n')[0]], STACK],
+    ['log', '14:02:16.120', '', ['apply', { id: 7, rows: 12, experiment: { id: 914, name: 'thermal-drift', params: { rate: 0.25, enabled: true, token: '[redacted]' } }, parent: '[Circular]', history: '[…]', onDone: '[Function onApplyDone]', cache: '[Map(2)]', anchor: '[HTMLDivElement div#grid.table]', result: '[undefined]' }], null, true],
+    ['error', '14:02:18.790', 'unhandledrejection', ['Http failure response for ' + BASE + 'primary: 500 Internal Server Error'], 'HttpErrorResponse: Http failure response for ' + BASE + 'primary: 500 Internal Server Error\n    at XMLHttpRequest.onLoad (http.mjs:1847:36)'],
+    ['warn', '14:02:19.100', '', ['Slow change detection: 64 ms in ExperimentTableComponent']],
+    ['error', '14:02:20.050', 'window', ['ResizeObserver loop completed with undelivered notifications.'], 'Error: ResizeObserver loop completed with undelivered notifications.'],
+    ['debug', '14:02:21.300', '', ['poll tick', { n: 42 }]],
+    ['debug', '14:02:21.350', '', ['poll tick', { n: 43 }]],
+    ['log', '14:02:21.410', '', ['render done', { ms: 18 }]],
+    ['info', '14:02:21.450', '', ['WebSocket #3 heartbeat ok']],
+    ['error', '14:02:21.484', 'capture', ['capture: response body not read (event-stream)'], 'CaptureError: response body not read (event-stream)\n    at readBody (fetch-probe.ts:61:11)'],
+  ];
+
+  // ---------- JSON viewer (FR-COM-01) ----------
+  function preview(v) {
+    const one = x => x && typeof x === 'object' ? (Array.isArray(x) ? '[…]' : '{…}') : typeof x === 'string' ? JSON.stringify(x) : String(x);
+    const s = Array.isArray(v) ? '[' + v.map(one).join(', ') + ']' : '{ ' + Object.entries(v).map(([k, x]) => k + ': ' + one(x)).join(', ') + ' }';
+    return s.length > 64 ? s.slice(0, 63) + '…' : s;
+  }
+  function jval(v) {
+    if (v === null || typeof v === 'boolean') return h('span', { class: 'jl' }, String(v));
+    if (typeof v === 'number') return h('span', { class: 'jn' }, String(v));
+    if (v === '[redacted]') return REDACTED();
+    if (/^\[(Circular|…|undefined|Object|Invalid Date|Text|(Array|Map|Set)\(\d+\)|Function .*|Thrown: .*|\w+Array \d+ bytes|HTML\w+ .*)\]$/.test(v)) return h('span', { class: 'jph' }, v);
+    const t = /^(.*)…\[truncated ([\d,]+) chars\]$/.exec(v);
+    if (t) return h('span', {}, h('span', { class: 'js' }, '"' + t[1] + '…"'), ' ', h('span', { class: 'badge trunc' }, icon('scissors'), 'truncated ' + t[2] + ' chars'));
+    return h('span', { class: 'js bidi', dir: 'auto' }, JSON.stringify(v));
+  }
+  function jnode(key, v, depth) {
+    const obj = v !== null && typeof v === 'object';
+    const li = h('li', { role: 'treeitem', 'aria-expanded': obj ? String(depth < 3) : null });
+    const line = h('div', { class: 'jt-line' },
+      obj ? h('button', { type: 'button', class: 'jt-tog', 'aria-label': 'Expand or collapse', tabindex: '-1' }, icon('caret')) : h('span', { class: 'jt-sp' }),
+      key != null ? [h('span', { class: 'jk' }, key), ': '] : null,
+      obj ? [h('span', { class: 'jtype' }, Array.isArray(v) ? 'Array(' + v.length + ')' : 'Object'), h('span', { class: 'jprev' }, preview(v))] : jval(v));
+    li.append(line);
+    if (obj) li.append(h('ul', { role: 'group' }, Object.entries(v).map(([k, x]) => jnode(k, x, depth + 1))));
+    return li;
+  }
+  const jsonTree = v => { const t = h('ul', { class: 'jt', role: 'tree', 'aria-label': 'JSON' }, jnode(null, v, 0)); t.firstChild.setAttribute('tabindex', '0'); return t; };
+  function bodyView(v, meta, extra) {
+    if (v == null) return h('p', { class: 'note' }, meta);
+    const raw = h('pre', { class: 'raw', hidden: true }, JSON.stringify(v, null, 2));
+    const tree = jsonTree(v);
+    const rawBtn = h('button', { type: 'button', class: 'dcp-chip', 'aria-pressed': 'false', 'data-act': 'raw' }, 'Raw');
+    return h('div', {}, h('div', { class: 'bodybar' }, h('span', { class: 'meta' }, meta), extra, h('span', { class: 'dcp-spacer' }), rawBtn), tree, raw);
+  }
+  const kvText = v => typeof v === 'string' && v.includes('[redacted]') ? hl(v, '') : v;
+  const kv = rows => h('table', { class: 'kv' }, h('tbody', {}, rows.map(([k, v]) => h('tr', {}, h('th', { scope: 'row' }, k), h('td', { class: 'bidi', dir: 'auto' }, typeof v === 'function' ? v() : kvText(v))))));
+
+  // ---------- HTTP ----------
+  function addMs(t, d) {
+    const [hh, mm, ss] = t.split(':'); let x = ((+hh * 60 + +mm) * 60 + +ss) * 1000 + d;
+    const p = (n, w) => String(Math.floor(n)).padStart(w, '0');
+    return p(x / 3600000, 2) + ':' + p(x / 60000 % 60, 2) + ':' + p(x / 1000 % 60, 2) + '.' + p(x % 1000, 3);
+  }
+  function hl(text, q) {
+    if (text.includes('[redacted]')) return text.split('[redacted]').flatMap((x, i) => i ? [h('span', { class: 'redact', title: 'Redacted by the recorder' }, '[redacted]'), ...hl(x, q)] : hl(x, q));
+    if (!q) return [text];
+    const out = []; const lo = text.toLowerCase(); let i = 0, j;
+    while ((j = lo.indexOf(q, i)) >= 0) { out.push(text.slice(i, j), h('mark', {}, text.slice(j, j + q.length))); i = j + q.length; }
+    out.push(text.slice(i)); return out;
+  }
+  function httpRows(fr) {
+    const S = fr._s, q = S.q.trim().toLowerCase();
+    const data = S.empty ? [] : HTTP;
+    return { data, rows: data.filter(r => (!S.type.size || S.type.has(r.ty)) && (!S.status.size || S.status.has(st(r.s).grp)) &&
+      (!q || [BASE + r.n, r.m, st(r.s).label].some(x => x.toLowerCase().includes(q)))) };
+  }
+  function renderHttp(fr) {
+    const S = fr._s, q = S.q.trim().toLowerCase();
+    const { data, rows } = httpRows(fr);
+    const list = $(fr, '.list-http');
+    $(list, '.tbody').replaceChildren(...rows.map(r => {
+      const s = st(r.s), i = HTTP.indexOf(r), sel = i === S.sel;
+      return h('div', { class: 'row grid-http', role: 'row', 'data-i': i, 'aria-selected': String(sel), tabindex: sel ? '0' : '-1' },
+        h('span', { role: 'gridcell', class: 'meta' }, r.t), h('span', { role: 'gridcell' }, r.m),
+        h('span', { role: 'gridcell' }, ic(s.c, s.icon, s.label)),
+        h('span', { role: 'gridcell', class: 'bidi', dir: 'auto', title: BASE + r.n }, hl(r.n, q)),
+        h('span', { role: 'gridcell' }, r.ty), h('span', { role: 'gridcell', class: 'meta' }, r.sz), h('span', { role: 'gridcell' }, r.d));
+    }));
+    list.dataset.state = !data.length ? 'empty' : !rows.length ? 'nomatch' : 'rows';
+    const showDetail = rows.some(r => HTTP.indexOf(r) === S.sel) && S.detail;
+    $(fr, '.view-http .dcp-split').dataset.detail = showDetail ? '1' : '0';
+    if (showDetail) renderHttpDetail(fr, HTTP[S.sel]);
+    S.shown = rows.length; S.total = data.length;
+    status(fr);
+  }
+  function renderHttpDetail(fr, r) {
+    const s = st(r.s), pending = r.s === 'Pending', failed = s.grp === 'failed';
+    const reqH = r.reqH || [['accept', 'application/json, text/plain, */*'], ['authorization', REDACTED]];
+    const resH = pending || failed ? null : r.resH || [['content-type', 'application/json'], ['content-length', r.sz]];
+    const slowest = Math.max(...httpRows(fr).rows.map(x => ms(x.d)));
+    const panes = {
+      headers: [h('h4', {}, 'General'), kv([['URL', BASE + r.n], ['Method', r.m], ['Status', () => ic(s.c, s.icon, s.long)], ['Transport', r.ty === 'xhr' ? 'XHR' : 'Fetch'], ['Start', r.t], ['Duration', r.d || '—'], ['Size', r.sz || '—']]),
+        h('h4', {}, 'Request headers'), kv(reqH), h('h4', {}, 'Response headers'), resH ? kv(resH) : h('p', { class: 'note' }, pending ? 'Pending — no response yet.' : 'No response (' + s.label + ').')],
+      payload: [bodyView(r.body, r.body ? 'application/json' : 'No request body')],
+      response: [pending ? h('p', { class: 'note' }, 'Pending — no response yet.') : failed ? h('p', { class: 'note' }, 'Body not captured (' + s.label + ')') :
+        bodyView(r.res, r.res ? 'application/json · ' + r.sz : r.s === 204 || r.s === 304 ? 'No response body' : 'Body not captured (mockup has no sample body for this row)',
+          r.orig ? [h('span', { class: 'badge trunc' }, icon('scissors'), 'truncated'), h('span', { class: 'meta' }, 'original ' + r.orig)] : null)],
+      timing: [kv([['Start', r.t], ['End', r.d && !pending ? addMs(r.t, ms(r.d)) : '—'], ['Duration', r.d || (pending ? 'Pending' : '—')]]),
+        h('div', { class: 'timebar', title: 'Duration against the slowest request in view' }, h('span', { style: 'width:' + (slowest ? Math.round(ms(r.d) / slowest * 100) : 0) + '%' })),
+        h('p', { class: 'note' }, 'Bar: this request against the slowest in view (' + (slowest >= 1000 ? (slowest / 1000).toFixed(2) + ' s' : slowest + ' ms') + '). v1 records start and duration only.')],
+    };
+    fillPanes(fr, '.detail-http', panes);
+  }
+  function fillPanes(fr, sel, panes) {
+    const d = $(fr, sel), on = $(d, '[role="tab"][aria-selected="true"]').dataset.pane;
+    $(d, '.dcp-dbody').replaceChildren(...Object.entries(panes).map(([k, kids]) => h('div', { class: 'pane', 'data-pane': k, 'data-on': k === on }, kids)));
+  }
+
+  // ---------- WebSocket ----------
+  function renderWs(fr) {
+    $(fr, '.conn-list').replaceChildren(
+      ...CONNS.map(c => h('div', { class: 'conn', role: 'option', 'aria-selected': 'false' },
+        h('div', {}, ic(CONN_ST[c.state][0], CONN_ST[c.state][1], ''), h('span', {}, '#' + c.id), h('span', { class: 'path', title: 'ws://lab-02.internal:8080' + c.path }, c.path), h('span', { class: CONN_ST[c.state][0] }, c.state)),
+        h('div', { class: 'sub' }, ic('c-success', 'up', ' ' + c.up), ic('c-info', 'down', ' ' + c.down), h('span', { class: 'meta' }, c.t)))),
+      h('div', { class: 'conn all row', role: 'option', 'aria-selected': 'true' }, 'All connections'));
+    const list = $(fr, '.list-ws');
+    $(list, '.tbody').replaceChildren(...WS.map(([ev, t, id, sz, data, sel]) => {
+      const [c, i, label] = WS_EV[ev];
+      return h('div', { class: 'row grid-ws', role: 'row', 'aria-selected': String(!!sel), tabindex: sel ? '0' : '-1' },
+        h('span', { role: 'gridcell' }, ic(c, i, label)), h('span', { role: 'gridcell', class: 'meta' }, t), h('span', { role: 'gridcell' }, '#' + id),
+        h('span', { role: 'gridcell', class: 'meta' }, sz), h('span', { role: 'gridcell', class: 'bidi ' + (ev === 'open' || ev === 'close' ? 'c-muted' : ev === 'error' ? 'c-error' : ''), dir: 'auto' }, data));
+    }));
+    fillPanes(fr, '.detail-ws', {
+      message: [bodyView(FRAME, 'Text · ↓ received · 14:02:15.522 · 3.2 kB')],
+      info: [kv([['URL', 'ws://lab-02.internal:8080/api/system-experiments/ws'], ['Socket id', '#3'], ['State', () => ic('c-success', 'open', 'open')], ['Opened', '14:02:11.020'], ['Closed', '—'], ['Close code', '—'], ['Close reason', '—'], ['Messages', () => [ic('c-success', 'up', '1 sent'), ' · ', ic('c-info', 'down', '2 received')]]])],
+    });
+    requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
+  }
+
+  // ---------- Console ----------
+  function argText(args) { return args.map(a => typeof a === 'string' ? a : '▸ ' + preview(a)).join(' '); }
+  function renderCon(fr) {
+    const S = fr._s;
+    $(fr, '.list-con .tbody').replaceChildren(...CON.map(([lv, t, src, args, stack], i) => {
+      const [c, ico, label, tint] = LVL[lv], sel = i === S.csel;
+      return h('div', { class: 'row grid-con ' + tint, role: 'row', 'data-ci': i, 'aria-selected': String(sel), tabindex: sel ? '0' : '-1' },
+        h('span', { role: 'gridcell' }, ic(c, ico, label)), h('span', { role: 'gridcell', class: 'meta' }, t),
+        h('span', { role: 'gridcell', class: 'c-muted' }, src),
+        h('span', { role: 'gridcell', class: 'bidi', dir: 'auto' }, argText(args), stack ? [' ', h('span', { class: 'c-muted', title: 'Stack (collapsed)' }, icon('right'))] : null));
+    }));
+    const [lv, t, src, args, stack] = CON[S.csel], [c, ico, label] = LVL[lv];
+    $(fr, '.con-head').replaceChildren(ic(c, ico, label), h('span', { class: 'meta' }, t), h('span', { class: 'c-muted' }, src));
+    const body = [h('h4', {}, 'Message'), h('p', { class: 'data bidi', dir: 'auto', style: 'margin:0' }, args.filter(a => typeof a === 'string').join(' '))];
+    if (args.length > 1 || typeof args[0] !== 'string') body.push(h('h4', {}, 'Arguments'), ...args.map((a, i) => h('div', { style: 'margin-bottom:4px' }, h('span', { class: 'meta' }, 'arg ' + i), typeof a === 'string' ? h('div', {}, jval(a)) : jsonTree(a))));
+    if (stack) {
+      const lines = stack.split('\n'), shortS = lines.slice(0, 6).join('\n');
+      const pre = h('pre', { class: 'raw' }, shortS);
+      body.push(h('h4', {}, 'Stack'), pre);
+      if (lines.length > 6) body.push(h('button', { type: 'button', class: 'linkbtn', 'data-act': 'showall', 'data-full': stack }, 'Show all (' + stack.length.toLocaleString('en-US') + ' chars)'));
+    }
+    $(fr, '.detail-con .dcp-dbody').replaceChildren(...body);
+  }
+
+  // ---------- status bar (FR-BAR-06) ----------
+  function status(fr) {
+    const S = fr._s, v = fr.dataset.view, empty = S.empty;
+    const shown = v === 'http' ? (S.shown || 0) : v === 'ws' ? WS.length : CON.length;
+    const total = empty ? 0 : 1284, on = fr.dataset.capture !== 'off';
+    $(fr, '.dcp-status').replaceChildren(
+      (empty ? 0 : shown).toLocaleString('en-US') + ' / ' + total.toLocaleString('en-US') + ' shown · ',
+      h('span', { class: empty ? 'c-muted' : 'c-error' }, icon('x'), ' ' + (empty ? 0 : 9) + ' problems'),
+      ' · buffer ' + total.toLocaleString('en-US') + ' / 5,000 · capture ',
+      h('span', { class: on ? 'c-success' : 'c-muted' }, icon(on ? 'open' : 'ring'), on ? ' on' : ' off'),
+      ' · dropped 0 · evicted 0');
+  }
+
+  // ---------- states ----------
+  const STATES = {
+    launcher: ['Closed: only the launcher pill (bottom-right, 28 px, 12 px from the edges) with the new-problems count. Click it to open.', 'FR-ACT-03/04, §4.2'],
+    http: ['Network › HTTP: request list (fetch + XHR, 2xx/3xx/4xx/5xx, Failed/Aborted/Timeout, Pending), the 500 row selected, detail at 45% width. Try the Payload / Response / Timing sub-tabs and Raw.', 'FR-HTTP-01…07, §4.6, §5.6'],
+    interact: ['Simulated states: row hover (row 3), selected row with keyboard focus ring, Clear button hover, Export button focus-visible, search matches for "experiments". Real :hover / :focus-visible look the same.', '§5.7'],
+    ws: ['Network › WebSocket: connections (open / closed / error) with "All connections" selected, messages with sent / received / opened / closed / error rows and the socket column, Message detail as a JSON tree.', 'FR-WS-01…05, §4.7'],
+    console: ['Console: debug / info / warn / error / log levels with 8% tints on warn and error rows; the selected log row shows its object argument expanded. Click an error row to see its stack. The list is scrolled up, so "↓ 12 new" shows.', 'FR-CON-01…04, FR-BAR-02, §4.8'],
+    empty: ['Empty state: the buffer has no requests yet.', 'FR-COM-04, §4.11'],
+    nomatch: ['No match: the filter hides every entry; "Clear filters" resets it.', 'FR-COM-04, §4.5, §4.11'],
+    paused: ['Paused view ("Paused · 37 new" + Resume), capture switched off (banner + status bar) and the Export menu open.', 'FR-BAR-01, FR-BAR-04, FR-ACT-09, §4.11'],
+    settings: ['Settings popover under the gear button, with defaults selected.', '§4.10, FR-BAR-07'],
+  };
+  const frames = $$(document, '.mk-frame');
+
+  function setView(fr, v) {
+    fr.dataset.view = v;
+    if (v !== 'console') fr._s.net = v;
+    for (const t of $$(fr, '.dcp-titlebar [role="tab"]')) { const on = (t.dataset.tab === 'console') === (v === 'console'); t.setAttribute('aria-selected', on); t.tabIndex = on ? 0 : -1; }
+    if (v === 'http') renderHttp(fr); else status(fr);
+  }
+  function apply(fr, name) {
+    const S = fr._s = { q: '', type: new Set(), status: new Set(), sel: SEL, csel: 5, detail: true, empty: name === 'empty', net: 'http' };
+    fr.dataset.state = name;
+    fr.dataset.open = name === 'launcher' ? '0' : '1';
+    fr.dataset.capture = name === 'paused' ? 'off' : 'on';
+    fr.toggleAttribute('data-paused', name === 'paused');
+    fr.removeAttribute('data-max');
+    fr.dataset.menu = name === 'paused' ? 'export' : name === 'settings' ? 'settings' : '';
+    $(fr, '[data-act="export"]').setAttribute('aria-expanded', String(name === 'paused'));
+    $(fr, '[data-act="settings"]').setAttribute('aria-expanded', String(name === 'settings'));
+    S.q = name === 'interact' ? 'experiments' : name === 'nomatch' ? 'invoice' : '';
+    $(fr, '.q-http').value = S.q;
+    syncChips(fr);
+    for (const el of $$(fr, '.sim-hover, .sim-focus, [data-sim-cap]')) { el.classList.remove('sim-hover', 'sim-focus'); if (el.hasAttribute('data-sim-cap')) { el.removeAttribute('data-cap'); el.removeAttribute('data-cap-pos'); el.removeAttribute('data-sim-cap'); } }
+    for (const sp of $$(fr, '.view-ws .dcp-split, .view-console .dcp-split')) sp.dataset.detail = '1';
+    renderCon(fr);
+    renderWs(fr);
+    setView(fr, name === 'ws' ? 'ws' : name === 'console' ? 'console' : 'http');
+    if (name === 'console') { const l = $(fr, '.list-con'); requestAnimationFrame(() => { l.scrollTop = 0; }); }
+    if (name === 'interact') {
+      sim(fr, $(fr, `.list-http .row[data-i="${idx('default')}"]`), 'sim-hover', '§5.7 hover');
+      sim(fr, $(fr, `.list-http .row[data-i="${SEL}"]`), 'sim-focus', '§5.7 selected + focus-visible');
+      sim(fr, $(fr, '[data-act="clear"]'), 'sim-hover', 'hover', 'below');
+      sim(fr, $(fr, '[data-act="export"]'), 'sim-focus', 'focus-visible', 'below');
+      sim(fr, $(fr, `.list-http .row[data-i="${idx('experiments/913')}"]`), '', '§5.7 search match (--dcp-match-bg)');
+    }
+  }
+  function closeDetail(fr) {
+    if (fr.dataset.view === 'http') { fr._s.detail = false; renderHttp(fr); } else $(fr, `.view-${fr.dataset.view} .dcp-split`).dataset.detail = '0';
+  }
+  function sim(fr, el, cls, cap, pos) {
+    if (cls) el.classList.add(cls);
+    el.setAttribute('data-cap', cap); el.setAttribute('data-sim-cap', '');
+    if (pos) el.setAttribute('data-cap-pos', pos);
+  }
+  function syncChips(fr) {
+    const S = fr._s;
+    for (const b of $$(fr, '.chips-type .dcp-chip')) b.setAttribute('aria-pressed', String(b.dataset.v === 'all' ? !S.type.size : S.type.has(b.dataset.v)));
+    for (const b of $$(fr, '.chips-status .dcp-chip')) b.setAttribute('aria-pressed', String(S.status.has(b.dataset.v)));
+  }
+  function setState(name) {
+    for (const b of $$(document, '.mk-states [data-state]')) b.setAttribute('aria-pressed', String(b.dataset.state === name));
+    $(document, '.mk-desc').textContent = STATES[name][0] + '  [' + STATES[name][1] + ']';
+    frames.forEach(fr => apply(fr, name));
+  }
+
+  // ---------- build frames + interactions ----------
+  const tpl = $(document, '.tpl-frame');
+  for (const fr of frames) {
+    fr.append(tpl.content.cloneNode(true));
+    for (const el of $$(fr, '.dcp')) el.dataset.theme = fr.dataset.theme;
+    let timer = 0;
+    fr.addEventListener('input', e => {
+      if (!e.target.matches('.q-http')) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => { fr._s.q = e.target.value; renderHttp(fr); }, 150);   // §4.5: 150 ms pause
+    });
+    fr.addEventListener('click', e => {
+      const t = e.target.closest('button, .row');
+      if (!t || !fr.contains(t)) return;
+      const S = fr._s, act = t.dataset.act;
+      if (t.classList.contains('dcp-launcher')) return setState('http');
+      if (act === 'close') return setState('launcher');
+      if (act === 'max') { fr.toggleAttribute('data-max'); return; }
+      if (act === 'pause' || act === 'resume') { fr.toggleAttribute('data-paused', act === 'pause'); return; }
+      if (act === 'capture-on') { fr.dataset.capture = 'on'; status(fr); return; }
+      if (act === 'export' || act === 'settings') { const open = fr.dataset.menu !== act; fr.dataset.menu = open ? act : ''; t.setAttribute('aria-expanded', String(open)); return; }
+      if (act === 'clear-filters') { S.q = ''; S.type.clear(); S.status.clear(); $(fr, '.q-http').value = ''; syncChips(fr); return renderHttp(fr); }
+      if (act === 'close-detail') return closeDetail(fr);
+      if (act === 'raw') { const on = t.getAttribute('aria-pressed') !== 'true'; t.setAttribute('aria-pressed', String(on)); const box = t.closest('.bodybar').parentElement; $(box, '.jt').hidden = on; $(box, 'pre.raw').hidden = !on; return; }
+      if (act === 'showall') { t.previousElementSibling.textContent = t.dataset.full; t.remove(); return; }
+      if (t.classList.contains('jt-tog')) { const li = t.closest('li'); li.setAttribute('aria-expanded', String(li.getAttribute('aria-expanded') !== 'true')); return; }
+      if (t.dataset.tab) return setView(fr, t.dataset.tab === 'console' ? 'console' : S.net);
+      if (t.dataset.sub) return setView(fr, t.dataset.sub);
+      if (t.dataset.pane) {
+        const d = t.closest('.dcp-detail');
+        for (const x of $$(d, '[role="tab"]')) { x.setAttribute('aria-selected', String(x === t)); x.tabIndex = x === t ? 0 : -1; }
+        for (const p of $$(d, '.pane')) p.toggleAttribute('data-on', p.dataset.pane === t.dataset.pane);
+        return;
+      }
+      const grp = t.closest('.chips-type, .chips-status');
+      if (grp) {
+        const set = grp.classList.contains('chips-type') ? S.type : S.status, v = t.dataset.v;
+        if (v === 'all') set.clear(); else if (set.has(v)) set.delete(v); else set.add(v);
+        syncChips(fr); return renderHttp(fr);
+      }
+      if (t.matches('.dcp-chip') && t.closest('.pop-settings')) { for (const c of $$(t.parentElement, '.dcp-chip')) c.setAttribute('aria-pressed', String(c === t)); return; }
+      if (t.dataset.i) { S.sel = +t.dataset.i; S.detail = true; renderHttp(fr); $(fr, '.list-http .row[aria-selected="true"]').focus(); return; }
+      if (t.dataset.ci) { S.csel = +t.dataset.ci; renderCon(fr); $(fr, '.list-con .row[aria-selected="true"]').focus(); }
+    });
+    // ↑ / ↓ move the selection (§4.12); ← → move between tabs.
+    fr.addEventListener('keydown', e => {
+      const S = fr._s, row = e.target.closest && e.target.closest('.row');
+      if (row && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        const sib = e.key === 'ArrowDown' ? row.nextElementSibling : row.previousElementSibling;
+        if (sib && sib.matches('.row')) { e.preventDefault(); sib.click(); }
+      } else if (e.target.getAttribute('role') === 'tab' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        const tabs = $$(e.target.parentElement, '[role="tab"]'), i = tabs.indexOf(e.target);
+        const n = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]; n.focus(); n.click(); e.preventDefault();
+      } else if (e.key === 'Escape' && fr.dataset.open === '1') {
+        // §4.12: innermost first — menu/popover, then detail, then the panel
+        if (fr.dataset.menu) { for (const b of $$(fr, '[aria-expanded="true"]')) b.setAttribute('aria-expanded', 'false'); fr.dataset.menu = ''; return; }
+        if ($(fr, `.view-${fr.dataset.view} .dcp-split`).dataset.detail !== '0') closeDetail(fr); else setState('launcher');
+      }
+    });
+  }
+  for (const b of $$(document, '.mk-states [data-state]')) b.addEventListener('click', () => setState(b.dataset.state));
+  $(document, '.mk-caps').addEventListener('change', e => document.body.classList.toggle('no-caps', !e.target.checked));
+  const fromHash = location.hash.slice(1);
+  setState(STATES[fromHash] ? fromHash : 'http');
+})();
+</script>
+</body>
+</html>
