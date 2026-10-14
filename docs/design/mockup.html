@@ -10,39 +10,28 @@
 
   Assumptions not in HLD (the simplest option was chosen for each):
   - Size tokens: the HLD names only colour tokens. Size/typography tokens here are named
-    --dcp-<part>-<property> (e.g. --dcp-row-h, --dcp-titlebar-h) after the §5.3 / §5.5 / §5.6 rows.
-  - Control height (buttons, search input, chips) is 24 px (32 px bar minus 2 x 4 px spacing).
-  - Toolbar buttons and chips have a 1 px --dcp-border-control border, transparent background.
-  - Pressed chip / selected option: --dcp-bg-selected background.
+    --dcp-<part>-<property> (e.g. --dcp-row-h, --dcp-titlebar-h) after the §5.3 / §5.5 / §5.6 / §5.7 rows.
   - Chips of one group are joined into one segmented control.
   - Tabs and sub-tabs: --dcp-text-muted; active tab --dcp-text, weight 600, 2 px --dcp-accent line at the bottom.
-  - Detail header (sub-tabs + Copy + close) is 32 px with --dcp-bg-elevated.
+    The inset focus ring is used on every tab, not only tabs inside scroll areas.
   - List column header row: 22 px, UI font 12 px, --dcp-text-muted, weight 400. The Console list has no
     header row (the §4.8 sketch shows none).
   - Column widths not in §5.6: WS Dir 96 px, WS Socket 64 px, WS Time/Size as HTTP; Console Level 72 px,
     Source 144 px (fits "unhandledrejection"); WS connections pane 280 px; connection item 2 x 22 px.
   - Status-bar text colour: --dcp-text-muted. Type and Duration cells use the data font in --dcp-text
     (§5.4 lists only "timestamps, sizes" as faint meta).
-  - The `redacted` badge uses --dcp-text-muted (§5.4 does not name its colour token). A `[redacted]` inside
-    other text (FR-HTTP-07 "highlighted") uses the same colours without the icon.
-  - The host frame is 900 px tall, like the 1440 x 900 screenshot window, so the 40% panel is 359 px.
-  - Badges: 16 px tall, 4 px radius, UI font 11 px.
-  - Status "capture ● on" uses --dcp-success; "capture ○ off" uses --dcp-text-muted.
+  - Badges: 16 px tall, UI font 11 px. Banner: 32 px tall.
   - WS connection state icons: open ● success, closed ○ text-muted, error ✕ error.
   - WS lifecycle rows are "marked" only by their icon, label and --dcp-text-muted / --dcp-error colour.
-  - Timing bar: --dcp-accent fill on a --dcp-bg-hover track, 8 px tall.
-  - Capture-off banner: 32 px, --dcp-bg-elevated, warning icon, placed under the title bar.
-  - "Paused · N new" is plain text, weight 600. The "↓ N new" follow button is a normal button on --dcp-bg-elevated.
-  - Popovers (Export menu, Settings): --dcp-bg-elevated, 1 px --dcp-divider border, 4 px radius, 28 px items.
-  - Panel top corners use the 6 px panel radius while docked; 0 when maximized.
+  - "Paused · N new" is plain text, weight 600. Menu items are 28 px.
   - Splitter: the 1 px divider line, with the same 6 px hit area as the resize handle.
-  - JSON tree: 16 px indent per level; punctuation in --dcp-text; v1 placeholders ([Circular], […]) in
-    --dcp-text-muted italic; collapsed nodes show a one-line preview.
-  - Console detail has no sub-tabs (§4.8 lists none); it shows Message, Arguments and Stack sections.
-  - Pending and "—" values: size/duration cells are left blank for pending rows (as in the §5.2 sketch).
+  - JSON tree: 16 px indent per level; punctuation in --dcp-text; v1 placeholders in --dcp-text-muted italic;
+    collapsed nodes show a one-line preview.
+  - Size and duration cells are blank for pending rows; size is blank for failed rows (as in the §5.2 sketch).
   - Row tints (8%, over the row background) and opaque badge backgrounds (12% over --dcp-bg) use color-mix()
     (Chromium 111+); the product may precompute them for older Chromium.
   - The problems count in the status bar is red only when above zero.
+  - The host frame is 900 px tall, like a 1440 x 900 window, so the 40% panel is 359 px.
   - Mockup-only chrome (page header, magenta captions, grey fake host) is not part of the design.
 -->
 <html lang="en">
@@ -84,7 +73,7 @@ body { margin: 0; background: #e9eaed; color: #1f2328; font: 14px/1.4 system-ui,
 [data-cap-pos="above"]::after { top: auto; bottom: calc(100% + 3px); right: auto; left: 0; }
 [data-cap-pos="left"]::after { right: auto; left: 2px; }
 [data-cap-pos="mid"]::after { right: auto; left: 40%; }
-[data-cap-pos="out"]::after { top: 0; right: calc(100% + 4px); }
+[data-cap-pos="out"]::after { top: 4px; right: calc(100% + 4px); }
 [data-cap-pos="bl"]::after { top: auto; bottom: 1px; right: auto; left: 2px; }
 body.no-caps [data-cap]::after { display: none; }
 
@@ -110,8 +99,9 @@ body.no-caps [data-cap]::after { display: none; }
   --dcp-space-3: 8px;
   --dcp-space-4: 12px;
   --dcp-space-5: 16px;
-  --dcp-radius: 4px;              /* controls */
-  --dcp-radius-panel: 6px;        /* panel corners; 0 when maximized */
+  --dcp-radius: 4px;              /* controls, chips, badges */
+  --dcp-radius-pop: 6px;          /* popovers, menus, launcher */
+  --dcp-radius-panel: 0px;        /* the panel touches the window edges */
   --dcp-border-w: 1px;
   --dcp-icon: 14px;
   /* §5.5 Typography */
@@ -124,7 +114,7 @@ body.no-caps [data-cap]::after { display: none; }
   /* §5.6 HTTP columns */
   --dcp-col-time: 104px;
   --dcp-col-method: 64px;
-  --dcp-col-status: 72px;
+  --dcp-col-status: 88px;
   --dcp-col-type: 52px;
   --dcp-col-size: 64px;
   --dcp-col-duration: 72px;
@@ -132,11 +122,15 @@ body.no-caps [data-cap]::after { display: none; }
   --dcp-tint-badge: 12%;
   --dcp-tint-row: 8%;
   --dcp-focus-w: 2px;
-  --dcp-focus-offset: 1px;
+  --dcp-focus-offset: 1px;        /* controls */
+  --dcp-focus-offset-inset: -2px; /* list rows and tabs */
   --dcp-selected-bar: 2px;
   --dcp-disabled-opacity: 0.5;
+  --dcp-control-h: 24px;          /* §5.7 component looks */
+  --dcp-banner-bar: 2px;
+  --dcp-timebar-h: 6px;
   /* Assumed (not in HLD) */
-  --dcp-control-h: 24px;
+  --dcp-banner-h: 32px;
 }
 /* §5.4 Colour tokens — dark */
 .dcp[data-theme="dark"] {
@@ -152,7 +146,7 @@ body.no-caps [data-cap]::after { display: none; }
   --dcp-text-faint: #a3a9b3;
   --dcp-accent: #6aaeff;
   --dcp-success: #56c98a;
-  --dcp-info: #6cb2ff;
+  --dcp-info: #5cc8dc;
   --dcp-warning: #e5b84b;
   --dcp-error: #ff8a80;
   --dcp-match-bg: #5a4a16;
@@ -175,7 +169,7 @@ body.no-caps [data-cap]::after { display: none; }
   --dcp-text-faint: #545d68;
   --dcp-accent: #0757b5;
   --dcp-success: #146a2c;
-  --dcp-info: #0757b5;
+  --dcp-info: #00657a;
   --dcp-warning: #7d5400;
   --dcp-error: #b0141f;
   --dcp-match-bg: #ffe58a;
@@ -204,13 +198,13 @@ body.no-caps [data-cap]::after { display: none; }
 .dcp .i, .i { width: var(--dcp-icon); height: var(--dcp-icon); flex: none; vertical-align: -2px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 symbol .f { fill: currentColor; stroke: none; }
 
-.dcp-launcher { position: absolute; right: var(--dcp-launcher-inset); bottom: var(--dcp-launcher-inset); height: var(--dcp-launcher-h); display: inline-flex; align-items: center; gap: var(--dcp-space-2); padding: 0 var(--dcp-space-4); border: var(--dcp-border-w) solid var(--dcp-border-control); border-radius: calc(var(--dcp-launcher-h) / 2); background: var(--dcp-bg-elevated); font-weight: 600; cursor: pointer; }
+.dcp-launcher { position: absolute; right: var(--dcp-launcher-inset); bottom: var(--dcp-launcher-inset); height: var(--dcp-launcher-h); display: inline-flex; align-items: center; gap: var(--dcp-space-2); padding: 0 var(--dcp-space-4); border: var(--dcp-border-w) solid var(--dcp-border-control); border-radius: var(--dcp-radius-pop); background: var(--dcp-bg-elevated); font-weight: 600; cursor: pointer; }
 .dcp-launcher .count { color: var(--dcp-error); }
 .mk-frame[data-open="1"] .dcp-launcher { display: none; }
 
-.dcp-panel { position: absolute; left: 0; right: 0; bottom: 0; height: clamp(var(--dcp-panel-min-h), var(--dcp-panel-h), var(--dcp-panel-max-h)); display: flex; flex-direction: column; background: var(--dcp-bg); border-top: var(--dcp-border-w) solid var(--dcp-divider); border-radius: var(--dcp-radius-panel) var(--dcp-radius-panel) 0 0; overflow: hidden; overscroll-behavior: contain; }
+.dcp-panel { position: absolute; left: 0; right: 0; bottom: 0; height: clamp(var(--dcp-panel-min-h), var(--dcp-panel-h), var(--dcp-panel-max-h)); display: flex; flex-direction: column; background: var(--dcp-bg); border-top: var(--dcp-border-w) solid var(--dcp-divider); border-radius: var(--dcp-radius-panel); overflow: hidden; overscroll-behavior: contain; }
 .mk-frame[data-open="0"] .dcp-panel { display: none; }
-.mk-frame[data-max] .dcp-panel { height: 100%; border-radius: 0; }
+.mk-frame[data-max] .dcp-panel { height: 100%; }
 .dcp-resize { position: absolute; top: 0; left: 0; right: 0; height: var(--dcp-resize-hit); cursor: ns-resize; z-index: 3; }
 
 .dcp-bar { flex: none; display: flex; align-items: center; gap: var(--dcp-space-2); padding: 0 var(--dcp-space-3); background: var(--dcp-bg-elevated); border-bottom: var(--dcp-border-w) solid var(--dcp-divider); position: relative; }
@@ -224,13 +218,14 @@ symbol .f { fill: currentColor; stroke: none; }
 .dcp-tab { border: 0; background: none; padding: 0 var(--dcp-space-3); color: var(--dcp-text-muted); cursor: pointer; }
 .dcp-tab[aria-selected="true"] { color: var(--dcp-text); font-weight: 600; box-shadow: inset 0 calc(-1 * var(--dcp-focus-w)) 0 var(--dcp-accent); }
 
-.dcp-btn { height: var(--dcp-control-h); display: inline-flex; align-items: center; gap: var(--dcp-space-2); padding: 0 var(--dcp-space-3); border: var(--dcp-border-w) solid var(--dcp-border-control); border-radius: var(--dcp-radius); background: transparent; cursor: pointer; white-space: nowrap; position: relative; }
+.dcp-btn { height: var(--dcp-control-h); display: inline-flex; align-items: center; gap: var(--dcp-space-2); padding: 0 var(--dcp-space-3); border: var(--dcp-border-w) solid var(--dcp-border-control); border-radius: var(--dcp-radius); background: var(--dcp-bg); cursor: pointer; white-space: nowrap; position: relative; }
 .dcp-btn.icon { width: var(--dcp-control-h); padding: 0; justify-content: center; }
 .dcp-btn:disabled { opacity: var(--dcp-disabled-opacity); cursor: default; }
 .dcp-tab:hover, .dcp-btn:hover, .dcp-chip:hover, .dcp-launcher:hover, .dcp-menu [role="menuitem"]:hover, .sim-hover { background-color: var(--dcp-bg-hover); }
-/* §5.7 focus: 2 px accent outline, 1 px offset, :focus-visible only */
+/* §5.7 focus: 2 px accent outline, :focus-visible only; controls 1 px outside, rows and tabs inset */
 .dcp :focus { outline: none; }
 .dcp :focus-visible, .dcp.dcp-launcher:focus-visible, .dcp .sim-focus { outline: var(--dcp-focus-w) solid var(--dcp-accent); outline-offset: var(--dcp-focus-offset); z-index: 2; }
+.dcp .row:focus-visible, .dcp .row.sim-focus, .dcp .dcp-tab:focus-visible, .dcp .jt li:focus-visible { outline-offset: var(--dcp-focus-offset-inset); }
 
 .dcp-paused, .dcp-btn[data-act="resume"] { display: none; }
 .mk-frame[data-paused] .dcp-paused, .mk-frame[data-paused] .dcp-btn[data-act="resume"] { display: inline-flex; }
@@ -242,14 +237,13 @@ symbol .f { fill: currentColor; stroke: none; }
 .dcp-search input { height: var(--dcp-control-h); width: 240px; padding: 0 var(--dcp-space-3) 0 22px; border: var(--dcp-border-w) solid var(--dcp-border-control); border-radius: var(--dcp-radius); background: var(--dcp-bg); }
 .dcp-search input::placeholder { color: var(--dcp-text-muted); opacity: 1; }
 .dcp-chips { display: inline-flex; }
-.dcp-chip { height: var(--dcp-control-h); padding: 0 var(--dcp-space-3); border: var(--dcp-border-w) solid var(--dcp-border-control); background: transparent; cursor: pointer; margin-left: calc(-1 * var(--dcp-border-w)); position: relative; white-space: nowrap; }
+.dcp-chip { height: var(--dcp-control-h); padding: 0 var(--dcp-space-3); border: var(--dcp-border-w) solid var(--dcp-border-control); background: var(--dcp-bg); cursor: pointer; margin-left: calc(-1 * var(--dcp-border-w)); position: relative; white-space: nowrap; }
 .dcp-chip:first-child { border-radius: var(--dcp-radius) 0 0 var(--dcp-radius); margin-left: 0; }
 .dcp-chip:last-child { border-radius: 0 var(--dcp-radius) var(--dcp-radius) 0; }
 .dcp-chip:only-child { border-radius: var(--dcp-radius); }
-.dcp-chip[aria-pressed="true"] { background-color: var(--dcp-bg-selected); }
+.dcp-chip[aria-pressed="true"] { background-color: var(--dcp-bg-selected); border-color: var(--dcp-accent); color: var(--dcp-text); z-index: 1; }
 
-.dcp-banner { display: none; flex: none; height: 32px; align-items: center; gap: var(--dcp-space-3); padding: 0 var(--dcp-space-3); background: var(--dcp-bg-elevated); border-bottom: var(--dcp-border-w) solid var(--dcp-divider); position: relative; }
-.dcp-banner .i { color: var(--dcp-warning); }
+.dcp-banner { display: none; flex: none; height: var(--dcp-banner-h); box-shadow: inset var(--dcp-banner-bar) 0 0 var(--dcp-warning); align-items: center; gap: var(--dcp-space-3); padding: 0 var(--dcp-space-3); background: var(--dcp-bg-elevated); border-bottom: var(--dcp-border-w) solid var(--dcp-divider); position: relative; }
 .mk-frame[data-capture="off"] .dcp-banner { display: flex; }
 
 .dcp-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -285,12 +279,12 @@ mark { background: var(--dcp-match-bg); color: var(--dcp-text); }
 
 .dcp-state { position: absolute; inset: calc(var(--dcp-row-h) + var(--dcp-border-w)) 0 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: var(--dcp-space-3); color: var(--dcp-text-muted); }
 .dcp-list[data-state="empty"] .dcp-empty, .dcp-list[data-state="nomatch"] .dcp-nomatch { display: flex; }
-.dcp-follow { display: none; position: absolute; bottom: var(--dcp-space-3); left: 50%; transform: translateX(-50%); background: var(--dcp-bg-elevated); z-index: 2; }
+.dcp-follow { display: none; position: absolute; bottom: var(--dcp-space-3); right: var(--dcp-space-3); background: var(--dcp-bg-elevated); z-index: 2; }
 .mk-frame[data-state="console"] .dcp-follow { display: inline-flex; }
 
 /* Badges §5.4 */
 .badge { display: inline-flex; align-items: center; gap: var(--dcp-space-1); height: 16px; line-height: 16px; padding: 0 var(--dcp-space-2); border-radius: var(--dcp-radius); font: var(--dcp-fs-meta) var(--dcp-font-ui); vertical-align: 1px; --b: var(--dcp-text-muted); color: var(--b); background: color-mix(in srgb, var(--b) var(--dcp-tint-badge), var(--dcp-bg)); }
-.redact { color: var(--dcp-text-muted); background: color-mix(in srgb, var(--dcp-text-muted) var(--dcp-tint-badge), var(--dcp-bg)); border-radius: var(--dcp-radius); }
+.redact { padding: 0 var(--dcp-space-2); color: var(--dcp-text-muted); background: color-mix(in srgb, var(--dcp-text-muted) var(--dcp-tint-badge), var(--dcp-bg)); border-radius: var(--dcp-radius); }
 .badge .i { width: 12px; height: 12px; vertical-align: 0; }
 .badge.trunc { --b: var(--dcp-warning); }
 
@@ -308,7 +302,7 @@ mark { background: var(--dcp-match-bg); color: var(--dcp-text); }
 .bodybar { display: flex; align-items: center; gap: var(--dcp-space-3); margin-bottom: var(--dcp-space-3); }
 .bodybar .dcp-spacer + * { margin-left: auto; }
 pre.raw { margin: 0; font: var(--dcp-fs-data)/var(--dcp-lh) var(--dcp-font-mono); white-space: pre-wrap; word-break: break-all; }
-.timebar { height: 8px; margin: var(--dcp-space-3) 0 var(--dcp-space-2); background: var(--dcp-bg-hover); border-radius: var(--dcp-radius); overflow: hidden; }
+.timebar { height: var(--dcp-timebar-h); margin: var(--dcp-space-3) 0 var(--dcp-space-2); background: var(--dcp-divider); border-radius: var(--dcp-radius); overflow: hidden; }
 .timebar > span { display: block; height: 100%; background: var(--dcp-accent); }
 .linkbtn { border: 0; background: none; padding: 0; color: var(--dcp-accent); cursor: pointer; text-decoration: underline; }
 
@@ -336,7 +330,7 @@ pre.raw { margin: 0; font: var(--dcp-fs-data)/var(--dcp-lh) var(--dcp-font-mono)
 
 /* Popovers */
 .dcp-popwrap { position: relative; display: inline-flex; }
-.dcp-pop { display: none; position: absolute; top: calc(100% + var(--dcp-space-2)); right: 0; z-index: 30; width: max-content; white-space: nowrap; background: var(--dcp-bg-elevated); border: var(--dcp-border-w) solid var(--dcp-divider); border-radius: var(--dcp-radius); padding: var(--dcp-space-2); }
+.dcp-pop { display: none; position: absolute; top: calc(100% + var(--dcp-space-2)); right: 0; z-index: 30; width: max-content; white-space: nowrap; background: var(--dcp-bg-elevated); border: var(--dcp-border-w) solid var(--dcp-divider); border-radius: var(--dcp-radius-pop); padding: var(--dcp-space-2); }
 .mk-frame[data-menu="export"] .pop-export, .mk-frame[data-menu="settings"] .pop-settings { display: block; }
 .dcp-menu { min-width: 260px; }
 .dcp-menu [role="menuitem"] { display: flex; width: 100%; height: 28px; align-items: center; gap: var(--dcp-space-3); padding: 0 var(--dcp-space-3); border: 0; border-radius: var(--dcp-radius); background: transparent; cursor: pointer; }
@@ -435,21 +429,15 @@ pre.raw { margin: 0; font: var(--dcp-fs-data)/var(--dcp-lh) var(--dcp-font-mono)
       <button type="button" class="dcp-btn" data-act="clear" title="Clear the capture buffer, all tabs (Ctrl+Alt+Shift+X)"><svg class="i"><use href="#i-clear"/></svg>Clear</button>
       <span class="dcp-popwrap">
         <button type="button" class="dcp-btn" data-act="export" aria-haspopup="menu" aria-expanded="false"><svg class="i"><use href="#i-export"/></svg>Export<svg class="i"><use href="#i-caret"/></svg></button>
-        <span class="dcp-pop dcp-menu pop-export" role="menu" aria-label="Export" data-cap="FR-BAR-04 · §4.9" data-cap-pos="out">
+        <span class="dcp-pop dcp-menu pop-export" role="menu" aria-label="Export" data-cap="FR-BAR-04 · §4.9" data-cap-pos="below">
           <button type="button" role="menuitem"><svg class="i"><use href="#i-export"/></svg>Download all (JSON)<kbd>Ctrl+Alt+Shift+D</kbd></button>
           <button type="button" role="menuitem"><svg class="i"><use href="#i-copy"/></svg>Copy all (JSON)<kbd>Ctrl+Alt+Shift+C</kbd></button>
         </span>
       </span>
       <span class="dcp-popwrap">
         <button type="button" class="dcp-btn icon" data-act="settings" aria-label="Settings" title="Settings" aria-haspopup="dialog" aria-expanded="false"><svg class="i"><use href="#i-gear"/></svg></button>
-        <span class="dcp-pop pop-settings" role="dialog" aria-label="Settings" data-cap="§4.10 · FR-BAR-07 · FR-ACT-08/09" data-cap-pos="out">
+        <span class="dcp-pop pop-settings" role="dialog" aria-label="Settings" data-cap="§4.10 · FR-BAR-07 · FR-ACT-08/09" data-cap-pos="below">
           <h3>Settings</h3>
-          <span class="set-row"><span>Theme</span><span class="dcp-chips"><button type="button" class="dcp-chip" aria-pressed="true">Auto</button><button type="button" class="dcp-chip" aria-pressed="false">Dark</button><button type="button" class="dcp-chip" aria-pressed="false">Light</button></span></span>
-          <span class="set-row"><span>Dock</span><span class="dcp-chips"><button type="button" class="dcp-chip" aria-pressed="true">Bottom</button><button type="button" class="dcp-chip" aria-pressed="false">Right</button></span></span>
-          <span class="set-row"><span>Text size</span><span class="dcp-chips"><button type="button" class="dcp-chip" aria-pressed="false">Small 11 px</button><button type="button" class="dcp-chip" aria-pressed="true">Normal 12 px</button><button type="button" class="dcp-chip" aria-pressed="false">Large 14 px</button></span></span>
-          <span class="set-row"><span>Time</span><span class="dcp-chips"><button type="button" class="dcp-chip" aria-pressed="true">Clock</button><button type="button" class="dcp-chip" aria-pressed="false">Relative</button></span></span>
-          <span class="set-row"><span>Launcher</span><span class="dcp-chips"><button type="button" class="dcp-chip" aria-pressed="true">Show</button><button type="button" class="dcp-chip" aria-pressed="false">Hide</button></span></span>
-          <span class="set-row"><span>Capture</span><span class="dcp-chips"><button type="button" class="dcp-chip" aria-pressed="true">On</button><button type="button" class="dcp-chip" aria-pressed="false">Off</button></span></span>
         </span>
       </span>
       <button type="button" class="dcp-btn icon" data-act="max" aria-label="Maximize" title="Maximize"><svg class="i"><use href="#i-max"/></svg></button>
@@ -457,7 +445,7 @@ pre.raw { margin: 0; font: var(--dcp-fs-data)/var(--dcp-lh) var(--dcp-font-mono)
     </div>
 
     <div class="dcp-banner" data-cap="FR-ACT-09 · §4.11">
-      <svg class="i"><use href="#i-warn"/></svg><span>Capture is off — nothing new is recorded.</span>
+      <span>Capture is off — nothing new is recorded.</span>
       <button type="button" class="dcp-btn" data-act="capture-on">Turn on</button>
     </div>
 
@@ -474,7 +462,7 @@ pre.raw { margin: 0; font: var(--dcp-fs-data)/var(--dcp-lh) var(--dcp-font-mono)
             <button type="button" class="dcp-chip" data-v="all" aria-pressed="true">All</button><button type="button" class="dcp-chip" data-v="xhr" aria-pressed="false">XHR</button><button type="button" class="dcp-chip" data-v="fetch" aria-pressed="false">Fetch</button>
           </span>
           <span class="dcp-chips chips-status" role="group" aria-label="Status">
-            <button type="button" class="dcp-chip" data-v="2xx" aria-pressed="false">2xx</button><button type="button" class="dcp-chip" data-v="3xx" aria-pressed="false">3xx</button><button type="button" class="dcp-chip" data-v="4xx" aria-pressed="false">4xx</button><button type="button" class="dcp-chip" data-v="5xx" aria-pressed="false">5xx</button><button type="button" class="dcp-chip" data-v="failed" aria-pressed="false">Failed</button>
+            <button type="button" class="dcp-chip" data-v="2xx" aria-pressed="false">2xx</button><button type="button" class="dcp-chip" data-v="3xx" aria-pressed="false">3xx</button><button type="button" class="dcp-chip" data-v="4xx" aria-pressed="false">4xx</button><button type="button" class="dcp-chip" data-v="5xx" aria-pressed="false">5xx</button><button type="button" class="dcp-chip" data-v="failed" aria-pressed="false">Failed</button><button type="button" class="dcp-chip" data-v="pending" aria-pressed="false">Pending</button>
           </span>
         </div>
         <div class="dcp-split">
@@ -554,7 +542,7 @@ pre.raw { margin: 0; font: var(--dcp-fs-data)/var(--dcp-lh) var(--dcp-font-mono)
             <div class="dcp-list list-con" role="grid" aria-label="Console messages">
               <div class="tbody" role="rowgroup"></div>
             </div>
-            <button type="button" class="dcp-btn dcp-follow" data-cap="FR-BAR-02" data-cap-pos="above"><svg class="i"><use href="#i-down"/></svg>12 new</button>
+            <button type="button" class="dcp-btn dcp-follow" data-cap="FR-BAR-02" data-cap-pos="out"><svg class="i"><use href="#i-down"/></svg>12 new</button>
           </div>
           <aside class="dcp-detail detail-con" aria-label="Console detail">
             <div class="dcp-bar dcp-dhead">
@@ -622,7 +610,7 @@ pre.raw { margin: 0; font: var(--dcp-fs-data)/var(--dcp-lh) var(--dcp-font-mono)
   ];
   const STATUS_TEXT = { 200: 'OK', 204: 'No Content', 304: 'Not Modified', 401: 'Unauthorized', 404: 'Not Found', 500: 'Internal Server Error' };
   function st(s) {
-    if (s === 'Pending') return { c: 'c-muted', icon: 'pending', label: 'Pending', long: 'Pending', grp: null };
+    if (s === 'Pending') return { c: 'c-muted', icon: 'pending', label: 'Pending', long: 'Pending', grp: 'pending' };
     if (typeof s === 'string') return { c: 'c-error', icon: 'x', label: s, long: s, grp: 'failed' };
     const k = Math.floor(s / 100);
     const m = { 2: ['c-success', 'check'], 3: ['c-info', 'redirect'], 4: ['c-warning', 'warn'], 5: ['c-error', 'x'] }[k];
@@ -826,15 +814,22 @@ pre.raw { margin: 0; font: var(--dcp-fs-data)/var(--dcp-lh) var(--dcp-font-mono)
   // ---------- status bar (FR-BAR-06) ----------
   function status(fr) {
     const S = fr._s, v = fr.dataset.view, empty = S.empty;
-    const shown = v === 'http' ? (S.shown || 0) : v === 'ws' ? WS.length : CON.length;
+    // §4.9: N / M shown = rows after filters / rows of this list before filters
+    const [n, m] = v === 'http' ? [S.shown || 0, S.total || 0] : v === 'ws' ? [WS.length, WS.length] : [CON.length, CON.length];
     const total = empty ? 0 : 1284, on = fr.dataset.capture !== 'off';
     $(fr, '.dcp-status').replaceChildren(
-      (empty ? 0 : shown).toLocaleString('en-US') + ' / ' + total.toLocaleString('en-US') + ' shown · ',
+      (empty ? 0 : n) + ' / ' + (empty ? 0 : m) + ' shown · ',
       h('span', { class: empty ? 'c-muted' : 'c-error' }, icon('x'), ' ' + (empty ? 0 : 9) + ' problems'),
       ' · buffer ' + total.toLocaleString('en-US') + ' / 5,000 · capture ',
-      h('span', { class: on ? 'c-success' : 'c-muted' }, icon(on ? 'open' : 'ring'), on ? ' on' : ' off'),
+      h('span', { class: on ? 'c-success' : 'c-warning' }, icon(on ? 'open' : 'ring'), on ? ' on' : ' off'),
       ' · dropped 0 · evicted 0');
   }
+
+  // ---------- settings popover (§4.10): [label, options, default index] ----------
+  const SETTINGS = [['Theme', ['Auto', 'Dark', 'Light'], 0], ['Dock', ['Bottom', 'Right'], 0], ['Text size', ['Small 11 px', 'Normal 12 px', 'Large 14 px'], 1],
+    ['Time', ['Clock', 'Relative'], 0], ['Launcher', ['Show', 'Hide'], 0], ['Capture', ['On', 'Off'], 0]];
+  const settingsRows = () => SETTINGS.map(([label, opts, d]) => h('span', { class: 'set-row' }, h('span', {}, label),
+    h('span', { class: 'dcp-chips', role: 'group', 'aria-label': label }, opts.map((o, i) => h('button', { type: 'button', class: 'dcp-chip', 'aria-pressed': String(i === d) }, o)))));
 
   // ---------- states ----------
   const STATES = {
@@ -907,6 +902,7 @@ pre.raw { margin: 0; font: var(--dcp-fs-data)/var(--dcp-lh) var(--dcp-font-mono)
   for (const fr of frames) {
     fr.append(tpl.content.cloneNode(true));
     for (const el of $$(fr, '.dcp')) el.dataset.theme = fr.dataset.theme;
+    $(fr, '.pop-settings').append(...settingsRows());
     let timer = 0;
     fr.addEventListener('input', e => {
       if (!e.target.matches('.q-http')) return;
