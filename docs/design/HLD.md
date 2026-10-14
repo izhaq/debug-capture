@@ -1,7 +1,7 @@
 # Debug Capture v2 — High-Level Design (HLD)
 
-**Status:** Draft 0.2 — for owner review. Written 2026-10-14; revised the same day after a
-fresh-context review (33 findings, all applied).
+**Status:** Draft 0.3 — for owner review. Written 2026-10-14; revised the same day after a
+fresh-context review (33 findings) and a confirmation review (14 findings), all applied.
 **Scope:** the whole of v2: the capture layer it inherits from v1, and the new
 on-screen **debug panel**.
 **This document is the source of truth.** Every v2 spec and plan is cut from
@@ -114,7 +114,7 @@ error).
 | A field engineer finds a failed request among 5,000 entries | under 30 seconds, without help (*goal* — checked in a usability session at the pilot, not by an automated test) |
 | Panel effect on host change detection (Angular) | **0** extra cycles |
 | Host regressions in the "hostile host" test suite | **0** |
-| Panel open with 5,000 entries | first paint under 100 ms (`NFR-PERF-02`) |
+| Panel open with 5,000 entries | first paint under 100 ms, warm (`NFR-PERF-02`) |
 | Bundle cost to a host that never opens the panel | ≤ 4 kB loader; **0 bytes** of panel UI code |
 | Security review | approved, with no third-party runtime code |
 
@@ -173,12 +173,12 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 
 | ID | Requirement | Pri |
 |---|---|---|
-| FR-ACT-01 | The host installs the panel with one call after installing capture: `installDebugPanel(controller, options?)` (§6.6). With capture off (flag off), the call does nothing. | MUST |
+| FR-ACT-01 | The host installs the panel with one call after creating the capture controller: `installDebugPanel(controller, options?)` (§6.6). With the flag off the host has no controller and passes `null`: the call does nothing and returns an inert handle. | MUST |
 | FR-ACT-02 | The panel **UI** is **loaded on first open** (dynamic import), not at app start. Before that only the **loader** exists: launcher, toggle shortcut and badge counter (§6.1). | MUST |
 | FR-ACT-03 | A **launcher** — a small button in a screen corner — opens the panel. It can be turned off (`launcher: false` option, or in Settings). | MUST |
 | FR-ACT-04 | The launcher shows how many **new problems** happened since the panel was last closed. A **problem** is: an `ErrorEntry`; an HTTP entry with `status ≥ 500` or `error ≠ null`; a WebSocket `error` event. Not counted: 4xx, and `console.error` lines (Angular and React errors already make an `ErrorEntry`; counting both would count twice). Opening the panel and **Clear** reset the badge. | SHOULD |
 | FR-ACT-05 | A **toggle shortcut** opens and closes the panel: `Ctrl+Alt+Shift+P` (configurable), matched on `KeyboardEvent.code`, like v1's shortcuts. | MUST |
-| FR-ACT-06 | The panel never opens by itself. It opens only on a user click or key. | MUST |
+| FR-ACT-06 | The panel never opens by itself. It opens only on a user click or key. `handle.open()` exists only for a host's own user action (a menu item, a button). | MUST |
 | FR-ACT-07 | Opening from the keyboard or launcher moves focus into the panel. Closing returns focus to where it was. | MUST |
 | FR-ACT-08 | Settings and panel size/position are remembered per browser (`localStorage`, best effort — §4.10). | SHOULD |
 | FR-ACT-09 | **Capture on/off** from the panel: *off* removes the probes and shortcuts (the page's `fetch`, XHR, WebSocket and console are back to native); *on* installs them again on the **same recorder** (`C-2`), so the buffer, `seq` and socket ids carry on and the Angular and React seams keep working. Capture state is **not remembered**: a reload with the flag on always starts with capture on. | MUST |
@@ -243,7 +243,7 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 
 | ID | Requirement | Pri |
 |---|---|---|
-| FR-COM-01 | One shared **JSON viewer**: collapsible, keyboard-operable, shows strings, numbers, booleans, null, `[redacted]`, `…[truncated N chars]` and v1's placeholders (`[Circular]`, `[…]`) distinctly. | MUST |
+| FR-COM-01 | One shared **JSON viewer**: collapsible, keyboard-operable, shows strings, numbers, booleans, null, `[redacted]`, `…[truncated N chars]` and **every** v1 placeholder distinctly — `[Circular]`, `[…]`, `[undefined]`, `[Object]`, `[Array(n)]`, `[Map(n)]`, `[Set(n)]`, `[Function name]`, `[Thrown: …]`, `[Invalid Date]`, `[<TypedArray> n bytes]`, element descriptors (`[HTMLDivElement div#id.a]`, `[Text]`). The full list is `core/json-safe.ts`. | MUST |
 | FR-COM-02 | Long values (bodies, frames, stacks) show the first part with "Show all (N chars)"; the rest renders only when asked. JSON objects and arrays show their **first 100 children**, then "Show 100 more". | MUST |
 | FR-COM-03 | Time shows as clock time (`14:03:27.412`, default) or relative to capture start (`+12.345 s`), by setting. | MUST |
 | FR-COM-04 | Every list has a clear **empty** state and **no match** state (§4.11). | MUST |
@@ -377,7 +377,7 @@ selected row stays highlighted.
 |---|---|
 | **Headers** | *General*: URL (full), method, status (`200 OK`, `Failed` (network error), `Aborted`, `Timeout`, `Pending` — same labels as the list, §5.6), transport (XHR/Fetch), start time, duration, size. *Request headers* and *Response headers*: name/value tables, names lower-case as captured; redacted values show the `redacted` badge. |
 | **Payload** | Request body. JSON → tree (+ Raw toggle). Form-encoded → name/value table (+ Raw). Other text → as-is. Non-text → its descriptor (`[FormData: a, b]`, `[Blob 512 bytes]`). Empty → "No request body". |
-| **Response** | Response body, same rules as Payload. Truncated bodies show the `truncated` badge and the original length from v1's `…[truncated N chars]` note. A fetch body cut by the probe (`…[capture stopped at 1048576 chars]`) shows "over 1 MB — full length unknown". Not read (binary, event-stream) → "Body not captured (reason)". |
+| **Response** | Response body, same rules as Payload. Truncated bodies show the `truncated` badge and the original length from v1's `…[truncated N chars]` note. A fetch body the probe stopped reading at 1 MB (`HttpEntry.resBodyCapped`, `C-7`) shows "over 1 MB — full length unknown" instead of a length. Not read (binary, event-stream) → "Body not captured (reason)". |
 | **Timing** | Start time, end time, duration, and a simple bar of the duration against the slowest request in view. (v1 records start and duration only; no DNS/TLS phases.) |
 
 Toolbar of the detail: `Copy ▾` (URL, request body, response body, cURL) and
@@ -434,6 +434,8 @@ a close `✕`. `↑` / `↓` in the list moves the selection and updates the det
   buffer, always. The file is v1's format, `schemaVersion` 1, with two new
   optional fields (`pending`, `requestId` — `C-1`, §6.5).
 - **Problems** count: the rule in `FR-ACT-04`, over the buffer.
+- **v1 shortcuts** (`D` / `C` / `X`) belong to capture: while capture is off
+  they do nothing; the panel's toolbar still exports and clears.
 
 ### 4.10 Settings
 
@@ -470,7 +472,7 @@ storage is blocked the panel uses defaults and works the same.
 | Keys | Where | Action |
 |---|---|---|
 | `Ctrl+Alt+Shift+P` | anywhere | Open / close the panel |
-| `Ctrl+Alt+Shift+D` / `C` / `X` | anywhere | Download / copy / clear (v1, unchanged) |
+| `Ctrl+Alt+Shift+D` / `C` / `X` | anywhere | Download / copy / clear (v1, unchanged; inactive while capture is off) |
 | `Escape` | panel | Close the innermost open thing: a menu or popover (Export, Copy, Settings), else the detail, else the panel |
 | `↑` `↓` | list | Move selection (and the detail) |
 | `Home` `End` `PageUp` `PageDown` | list | Jump |
@@ -585,7 +587,9 @@ light — text 11.61, muted 4.69, faint 4.91, accent 5.08, success 4.93, info
 match 12.66.
 
 **Badges** (`redacted`, `truncated`, `pending`): text in the matching colour
-token on a 12% tint of it, with an icon (🔒 redacted, ✂ truncated, ◌ pending
+token on an **opaque** background = 12% of that colour over `--dcp-bg`, on any
+row (so a tinted or selected row never lowers the badge's contrast; measured
+≥ 5.40 in both themes, and part of the contrast check), with an icon (🔒 redacted, ✂ truncated, ◌ pending
 — drawn as SVG, not emoji).
 
 **Forced colours** (Windows high contrast): tokens map to system colours —
@@ -717,11 +721,11 @@ L1 contract ─► L2 core ─► L3 adapters ─► L4 install ─► L5 public
 
 | Layer | Holds | May use |
 |---|---|---|
-| P1 `panel/model` | `PanelDataSource` interface and the local data source; store (state + reducers); selectors (filtered lists, counts, problem rule, connection state); formatting (time, size, status text); cURL builder | L5 barrel only. No DOM, no timers, no globals — fully unit-testable |
+| P1 `panel/model` | `PanelDataSource` interface and the local data source (built from a controller); store (state + reducers); selectors (filtered lists, counts via `isProblemEntry`, connection state); formatting (time, size, status text); cURL builder | L5 barrel only. No DOM, no timers, no globals — fully unit-testable |
 | P2 `panel/ui` | Safe element builder (`text` only, no HTML strings); virtual list (bidi-safe cells); JSON viewer (paged children); split pane; tabs; chips; buttons; empty/no-match block; icons (SVG builders); theme (tokens → one `CSSStyleSheet`) | P1 barrel; the `document` passed in |
 | P3 `panel/views` | Title bar, filter bars, HTTP list + detail, WebSocket view, Console view, settings popover, status bar | P2 barrel |
-| P4 `panel/app` | `mountPanelUi(shadowRoot, source, options)`: the frame (top tabs, Network sub-tab routing, split, resize, dock, maximize), scheduler (rAF batching), settings storage, banners (capture off, host modal) | P3 barrel |
-| P5 `panel/index.ts` | **Loader:** `installDebugPanel()`; the custom element; mount on `<html>`; top layer; host lockdown sheet; event wall; zone handling; toggle shortcut; launcher + badge (own tiny sheet, same tokens) | L5 barrel; P4 only by `import type` and **one** dynamic `import()` — the layer checker fails on any static value import of P4, so the chunk stays lazy |
+| P4 `panel/app` | `mountPanelUi(shadowRoot, controller, options)`: the frame (top tabs, Network sub-tab routing, split, resize, dock, maximize), scheduler (rAF batching), settings storage, banners (capture off, host modal) | P3 barrel |
+| P5 `panel/index.ts` | **Loader:** `installDebugPanel()`; the custom element; mount on `<html>`; top layer; host lockdown sheet; event wall; zone handling; toggle shortcut; launcher + badge (own tiny sheet, same tokens; badge uses core's `isProblemEntry`, `C-8`) | L5 barrel; P4 only by `import type` and **one** dynamic `import()` — the layer checker fails on any static value import of P4, so the chunk stays lazy. P5 passes the **controller** to `mountPanelUi`; P4 builds the data source from P1 |
 
 ### 6.3 Data flow
 
@@ -758,18 +762,20 @@ interface PanelDataSource {
   subscribe(listener: (event: PanelDataEvent) => void): Unsubscribe;
   clear(): void;
   exportJson(): string;
+  download(root: ShadowRoot): void;                         // C-5: temporary <a> inside `root`
+  copyText(text: string, root: ShadowRoot): Promise<boolean>; // C-5: fallback textarea inside `root`
   capture: { readonly on: boolean; start(): void; stop(): void };   // C-2
 }
 
 type PanelDataEvent =
   | { type: 'entry'; entry: CaptureEntry }
   | { type: 'pending-start'; request: PendingRequest }   // C-1
-  | { type: 'pending-end'; id: number }                  // C-1: finished, ignored, sampled out, failed or disposed
+  | { type: 'pending-end'; id: number }                  // C-1: finished, sampled out, failed, capped or stopped
   | { type: 'cleared' }                                  // C-6
   | { type: 'stats'; stats: CaptureStats }               // C-6: dropped / failed changed
   | { type: 'capture'; on: boolean };                    // C-2
 
-/** C-1. Policed like an HttpEntry: ignoreUrls, sampling, URL and header redaction. */
+/** C-1. Filtered by ignoreUrls and redacted (URL, headers) like an HttpEntry; sample() runs at completion. */
 interface PendingRequest {
   readonly id: number;                     // = HttpEntry.requestId of the finished entry
   readonly t: number;                      // start time (epoch ms)
@@ -786,7 +792,7 @@ interface DebugPanelOptions {
   storageKey?: string | false;             // default 'debug-capture:panel'
 }
 
-function installDebugPanel(controller: CaptureController, options?: DebugPanelOptions): DebugPanelHandle;
+function installDebugPanel(controller: CaptureController | null, options?: DebugPanelOptions): DebugPanelHandle;  // null → inert handle
 
 interface DebugPanelHandle {
   open(): void;
@@ -795,7 +801,9 @@ interface DebugPanelHandle {
   dispose(): void;                         // closes (focus returns), unsubscribes, removes launcher, listener, element
 }
 
-/** C-2. One recorder for the page's life; `session` never changes. */
+/** C-2. One recorder for the page's life; `session` is one stable wrapper whose
+ *  `active` follows `on`; `session.dispose()` acts as `stop()`;
+ *  `getActiveCaptureSession()` returns this wrapper. */
 interface CaptureController {
   readonly session: CaptureSession;
   readonly on: boolean;
@@ -809,11 +817,13 @@ interface CaptureController {
 
 | ID | Change | Why | Effect on v1 file format |
 |---|---|---|---|
-| C-1 | **Pending requests.** Probes report a request when it **starts**. The recorder keeps a live list of `PendingRequest` (§6.4), **capped at 200** (oldest dropped), policed like an `HttpEntry` (`ignoreUrls`, sampling, URL and header redaction). Each gets an `id`; the finished `HttpEntry` carries it as a new `requestId`. Listeners get `pending-start` and `pending-end` — the end fires on completion **and** when the request is ignored, sampled out, fails while recording, or is cut off by `stop()` / `dispose()`. `clear()` and `stop()` empty the list. The stored `HttpEntry` stays one per **completed** request. | `FR-HTTP-02` | Two **optional** fields: `pending` (list) in the file, `requestId` on HTTP entries. `schemaVersion` stays **1**; rule: readers ignore unknown fields. v1 readers keep working. |
-| C-2 | **Capture controller.** `createCaptureController(options)` → `CaptureController` (§6.4). It owns **one recorder for the page's life**: `stop()` removes probes and shortcuts only; `start()` reinstalls them on the **same** recorder (`installDebugCapture` gains a `recorder` option). `controller.session` never changes, so `seq` and socket ids never restart and the Angular and React seams (which hold the session) keep working across stop/start. `session.dispose()` called directly acts as `stop()`. | `FR-ACT-09` | None |
+| C-1 | **Pending requests.** Probes report a request when it **starts**. The recorder keeps a live list of `PendingRequest` (§6.4), **capped at 200** (oldest dropped). Each gets an `id`; the finished `HttpEntry` carries it as a new `requestId`. At start a pending request is filtered by `ignoreUrls` only and redacted; `sample()` still runs **once, at completion**, on the finished draft (v1's signature). Listeners get `pending-start` and `pending-end` — the end fires on completion **and** when the request is sampled out, fails while recording, is pushed out by the 200 cap, or is cut off by `stop()` / `dispose()`. `clear()` and `stop()` empty the list. The stored `HttpEntry` stays one per **completed** request. | `FR-HTTP-02` | Two **optional** fields: `pending` (list) in the file, `requestId` on HTTP entries. `schemaVersion` stays **1**; rule: readers ignore unknown fields. v1 readers keep working. |
+| C-2 | **Capture controller.** `createCaptureController(options)` → `CaptureController` (§6.4). It owns **one recorder for the page's life**: `stop()` removes probes and shortcuts only; `start()` reinstalls them on the **same** recorder (`installDebugCapture` gains a `recorder` option). `controller.session` is one stable wrapper whose `active` follows `on`, and `getActiveCaptureSession()` returns it, so the Angular and React seams (which hold the session and check `active`) keep working across stop/start. `seq` lives in the recorder; the WebSocket **socket-id counter moves from the probe install into the recorder** (today `let nextSocketId = 1` is per install — the contract comment changes too), so ids never restart. `session.dispose()` called directly acts as `stop()`. | `FR-ACT-09` | None |
 | C-3 | **Policy.** The session exposes its resolved policy (read-only), so the panel can show `buffer 1,284 / 5,000` and mark values equal to `redactedValue`. | `FR-BAR-06`, `FR-HTTP-07` | None |
 | C-4 | **Angular seam without decorators.** `DebugCaptureErrorHandler` is provided with a factory instead of `@Injectable()`, so the package builds with plain `tsc` (no `ng-packagr`). | §7.2 build | None |
 | C-5 | **Copy and download without touching `<body>`.** `copyText` gets an option to place its fallback textarea inside a given root, and `downloadText` an option to place its temporary `<a>` there — the panel passes its shadow root, so no node is added to the host page. To be proven in a spike (`OPEN-04`). | `ISO-04`, research §3.4 | None |
+| C-7 | **Capped fetch body flag.** v1's fetch probe stops reading at 1,048,576 chars and appends a note, but the recorder then truncates to `maxBodyLength` (32,768) and the note is lost. The probe sets a new optional `resBodyCapped: true` on the draft instead, kept on the `HttpEntry`. | `§4.6` Response | One optional field on HTTP entries |
+| C-8 | **Problem rule in core.** `isProblemEntry(entry)` (the `FR-ACT-04` rule), exported from L5, so the loader's badge and the panel model share one definition. | `FR-ACT-04`, `FR-BAR-06` | None |
 | C-6 | **Change events.** `recorder.onChange(listener)` fires on `clear()` (also from v1's `Ctrl+Alt+Shift+X`) and when only stats change (`dropped`, `failed`). The data source maps it to `cleared` / `stats`. | `FR-BAR-03`, `FR-BAR-06` | None |
 
 ### 6.6 Using it in a host
@@ -824,7 +834,7 @@ import { createCaptureController, isDebugRequested } from 'debug-capture';
 import { installDebugPanel } from 'debug-capture/panel';  // loader, ≤ 4 kB
 
 const controller = isDebugRequested() ? createCaptureController() : null;  // installs capture now
-if (controller) installDebugPanel(controller);  // launcher + shortcut; the UI loads on first open
+installDebugPanel(controller);  // launcher + shortcut; the UI loads on first open (null → does nothing)
 ```
 
 To make even the loader cost 0 bytes with the flag off, `import()` it inside
@@ -841,8 +851,8 @@ Plain HTML page, no bundler (prebuilt files from `dist/`):
 ```
 
 The Angular seam (`provideDebugCapture()` + `provideDebugCaptureSession(controller?.session ?? null)`)
-and the React seam (`createReactRootErrorOptions(controller.session)`) stay as
-in v1. They hold `controller.session`, which never changes (`C-2`).
+and the React seam (`createReactRootErrorOptions(controller?.session ?? null)`)
+stay as in v1. They hold `controller.session`, which never changes (`C-2`).
 
 ### 6.7 Isolation rules (from tested research)
 
@@ -851,7 +861,7 @@ has its evidence, severity and test). Short form:
 
 | ID | Rule |
 |---|---|
-| ISO-01 | **One** host element, mounted once on `<html>` (after `<body>`) by `installDebugPanel()`. Its shadow root holds the launcher and, from first open, the panel UI ("lazy" applies to the UI, not the host element). Shown in the top layer (`popover="manual"`); fallback `position: fixed` + max `z-index`. Never inside a framework root. |
+| ISO-01 | **One** host element, mounted once on `<html>` (after `<body>`) by `installDebugPanel()`. Its shadow root holds the launcher and, from first open, the panel UI ("lazy" applies to the UI, not the host element). The host element covers the **whole viewport** with `pointer-events: none !important`; only the launcher and the panel root take `pointer-events: auto`, so the page stays clickable around them and the host element never needs resizing (`ISO-15`). This departs from research rule 2 (`pointer-events: auto` on the host). Shown in the top layer (`popover="manual"`); fallback `position: fixed` + max `z-index`. Never inside a framework root. |
 | ISO-02 | Lock the host element: `:host { all: initial !important; … }`, every `:host` declaration `!important`; `contain: strict`. |
 | ISO-03 | Set every inherited value on an inner root; **px** sizes; system fonts; `direction: ltr`. |
 | ISO-04 | CSP/Trusted-Types-safe DOM: `adoptedStyleSheets` only; `el.style.x =` only; no HTML strings; captured data as text only; no `href`/`src` from data. |
@@ -976,10 +986,10 @@ Each spec lives in `docs/specs/<nn>-<slug>/` with `spec.md`, `plan.md` and a
 
 | Spec | Covers | Depends on |
 |---|---|---|
-| **S-00 Foundation** | Tooling (§7.2), `AGENTS.md`, layer checker for the package, contract of the panel (P1 interfaces, `PanelDataSource`, options), core change C-4, mockup | — |
-| **S-01 Core changes** | C-1 pending requests, C-2 controller (one recorder), C-3 policy, C-5 copy/download spike, C-6 change events | S-00 |
+| **S-00 Foundation** | Tooling (§7.2), `AGENTS.md`, layer checker for the package, size baseline. **Contracts fixed for the parallel wave:** `PanelDataSource`, `PanelDataEvent`, `PendingRequest`, `CaptureController`, `recorder.onChange`, `isProblemEntry` signature, `mountPanelUi`, panel options. Core change C-4, mockup | — |
+| **S-01 Core changes** | C-1 pending requests, C-2 controller (one recorder, stable session, socket ids), C-3 policy, C-5 copy/download spike, C-6 change events, C-7 capped-body flag, C-8 problem rule | S-00 |
 | **S-02 Panel shell** | P5 loader: element, mount, top layer, lockdown, event wall, zone, toggle, launcher (+ badge), lazy chunk load. P4 app frame: top tabs and Network sub-tab routing, open/close/resize/dock/maximize, scheduler, settings storage, banners. Hostile-host fixture | S-00 |
-| **S-03 Panel model** | P1: local data source, store, batching contract, selectors, problem rule, filters, formatting, cURL | S-00 |
+| **S-03 Panel model** | P1: local data source (incl. download/copy pass-through), store, batching contract, selectors, filters, formatting, cURL | S-00 |
 | **S-04 UI building blocks** | P2: safe DOM builder, virtual list (bidi-safe), JSON viewer (paged), split pane, tabs, chips, empty/no-match block, icons, theme sheet + contrast check | S-00 |
 | **S-05 Network › HTTP** | P3 list + detail sub-tabs + copy | S-02, S-03, S-04 (S-01 for pending) |
 | **S-06 Network › WebSocket** | P3 connections + messages + detail | S-02, S-03, S-04 |
@@ -1008,9 +1018,9 @@ end to end that every `MUST` is covered.
 | Requirements | Owner spec(s) |
 |---|---|
 | BR-01…07 | S-10 (verified end to end) |
-| FR-ACT-01, 02, 03, 04, 05, 06, 07 | S-02 (badge rule from S-03) |
+| FR-ACT-01, 02, 03, 04, 05, 06, 07 | S-02 (badge rule `isProblemEntry` from S-01) |
 | FR-ACT-08 | S-02 |
-| FR-ACT-09 | S-01 (controller) + S-08 (switch and banner) |
+| FR-ACT-09 | S-01 (controller) + S-02 (banner in the frame) + S-08 (the switch) |
 | FR-WIN-01…07 | S-02 |
 | FR-HTTP-01…07 | S-05 (pending rows need S-01; cURL builder from S-03) |
 | FR-WS-01…05 | S-06 |
@@ -1022,9 +1032,9 @@ end to end that every `MUST` is covered.
 | FR-COM-05 | S-09 |
 | NFR-ISO-01 | S-02 (fixture and shell rules) + every view spec for its own rules |
 | NFR-PERF-01, 05 | S-02 |
-| NFR-PERF-02, 03, 04, 06 | S-03 + S-04 (built), S-10 (measured) |
+| NFR-PERF-02, 03, 04, 06 | S-02 (scheduler) + S-03 + S-04 (built), S-10 (measured) |
 | NFR-SIZE-01 | S-00 (baseline and check), S-10 (final) |
-| NFR-SEC-01…04 | S-04 (safe builder), S-05 (cURL), S-10 (CSP page) |
+| NFR-SEC-01…04 | S-04 (safe builder), S-05 (cURL, copy), S-08 (export), S-10 (CSP page) |
 | NFR-REL-01 | S-02 + every spec (lint rule, guard) |
 | NFR-A11Y-01 | S-04 (contrast), S-09 (the rest) |
 | NFR-I18N-01 | S-04 (bidi-safe cells) |
