@@ -1,7 +1,8 @@
 # Debug Capture v2 — High-Level Design (HLD)
 
-**Status:** Draft 0.3 — for owner review. Written 2026-10-14; revised the same day after a
-fresh-context review (33 findings) and a confirmation review (14 findings), all applied.
+**Status:** Draft 0.4 — for owner review. Written 2026-10-14; revised the same day after a
+fresh-context review (33 findings), a confirmation review (14 findings) and the
+mockup build (14 questions), all applied.
 **Scope:** the whole of v2: the capture layer it inherits from v1, and the new
 on-screen **debug panel**.
 **This document is the source of truth.** Every v2 spec and plan is cut from
@@ -29,7 +30,8 @@ error).
   nobody can **see** it live, on the machine, while it happens.
 - **v2 adds an on-screen debug panel** with two tabs:
   **Network** (sub-tabs **HTTP** — fetch and XHR — and **WebSocket**) and
-  **Console**. Each list has a detail view with its own sub-tabs.
+  **Console**. Each list has a detail view (HTTP and WebSocket details have
+  sub-tabs; the Console detail is one page).
 - **It must not touch the host.** The panel is a framework-free **Web
   Component** in a Shadow DOM, mounted on `<html>`, shown in the browser's top
   layer, outside Angular's zone, CSP- and Trusted-Types-safe. It works the same
@@ -201,7 +203,7 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 |---|---|---|
 | FR-HTTP-01 | A list of requests (fetch and XHR) in **completion order** (`seq`), oldest at top. The Time column shows the **start** time, so it can be out of order when requests overlap — that is expected. Pending rows (`FR-HTTP-02`) sit below all completed rows, in start order; when a request finishes, its pending row is removed and the completed row is appended. Columns: Time, Method, Status, Name, Type, Size, Duration (§5.6). | MUST |
 | FR-HTTP-02 | Requests **in flight** appear at once as *pending*, and update when they finish. | SHOULD (needs core change `C-1`) |
-| FR-HTTP-03 | Filters: text search (URL, method, status), type (All / XHR / Fetch), status class (2xx / 3xx / 4xx / 5xx / Failed — *Failed* covers network error, abort and timeout). Filters combine with AND; chips in one group combine with OR. | MUST |
+| FR-HTTP-03 | Filters: text search (URL, method, status), type (All / XHR / Fetch), status class (2xx / 3xx / 4xx / 5xx / Failed / Pending — *Failed* covers network error, abort and timeout; *Pending* the in-flight rows). Filters combine with AND; chips in one group combine with OR. | MUST |
 | FR-HTTP-04 | Selecting a row opens the **detail** with sub-tabs **Headers**, **Payload**, **Response**, **Timing** (§4.6). | MUST |
 | FR-HTTP-05 | JSON bodies show as a **collapsible tree** with a **Raw** toggle. Form bodies show as a name/value table. Other text shows as-is. Binary shows its descriptor. | MUST |
 | FR-HTTP-06 | **Copy** actions: URL, request body, response body, and **Copy as cURL**. cURL output is for **bash**: every value POSIX single-quoted (`'` → `'\''`), newlines kept inside the quotes; redacted values are copied as `[redacted]`. Unit-tested with hostile values (`$(…)`, backticks, quotes, newlines). | SHOULD |
@@ -222,8 +224,8 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 | ID | Requirement | Pri |
 |---|---|---|
 | FR-CON-01 | A list of console calls **and** errors (window errors, unhandled rejections, Angular errors, React errors, capture errors), in time order. | MUST |
-| FR-CON-02 | Each row: level (icon **and** label), time, message. Objects show a one-line preview and expand into the JSON tree. | MUST |
-| FR-CON-03 | Error rows show their source as v1 stores it (`window`, `unhandledrejection`, `angular`, `react`, `capture`) and a collapsed **stack** that expands on click. React errors show the component stack (v1 `stack` section). | MUST |
+| FR-CON-02 | Each row: level (icon **and** label), time, message. Objects show a one-line preview; the **detail pane** shows them as JSON trees (rows have a fixed height and never expand in place). | MUST |
+| FR-CON-03 | Error rows show their source as v1 stores it (`window`, `unhandledrejection`, `angular`, `react`, `capture`) and, in the detail pane, a collapsed **stack** that expands on click. React errors show the component stack (v1 `stack` section). | MUST |
 | FR-CON-04 | Filters: levels (Errors, Warnings, Info, Log, Debug — each a toggle), text search. | MUST |
 | FR-CON-05 | Repeated identical messages in a row are grouped with a count. | COULD |
 
@@ -243,7 +245,7 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 
 | ID | Requirement | Pri |
 |---|---|---|
-| FR-COM-01 | One shared **JSON viewer**: collapsible, keyboard-operable, shows strings, numbers, booleans, null, `[redacted]`, `…[truncated N chars]` and **every** v1 placeholder distinctly — `[Circular]`, `[…]`, `[undefined]`, `[Object]`, `[Array(n)]`, `[Map(n)]`, `[Set(n)]`, `[Function name]`, `[Thrown: …]`, `[Invalid Date]`, `[<TypedArray> n bytes]`, element descriptors (`[HTMLDivElement div#id.a]`, `[Text]`). The full list is `core/json-safe.ts`. | MUST |
+| FR-COM-01 | One shared **JSON viewer**: collapsible, keyboard-operable, shows strings, numbers, booleans, null, `[redacted]`, `…[truncated N chars]` and **every** v1 placeholder distinctly — `[Circular]`, `[…]`, `[undefined]`, `[Object]`, `[Array(n)]`, `[Map(n)]`, `[Set(n)]`, `[Function name]`, `[Thrown: …]`, `[Invalid Date]`, `[<TypedArray> n bytes]`, element descriptors (`[HTMLDivElement div#id.a]`, `[Text]`). The full list is `core/json-safe.ts`. Known limit: v1 stores placeholders as plain strings, so a real string with exactly the same text looks the same. | MUST |
 | FR-COM-02 | Long values (bodies, frames, stacks) show the first part with "Show all (N chars)"; the rest renders only when asked. JSON objects and arrays show their **first 100 children**, then "Show 100 more". | MUST |
 | FR-COM-03 | Time shows as clock time (`14:03:27.412`, default) or relative to capture start (`+12.345 s`), by setting. | MUST |
 | FR-COM-04 | Every list has a clear **empty** state and **no match** state (§4.11). | MUST |
@@ -387,12 +389,12 @@ a close `✕`. `↑` / `↓` in the list moves the selection and updates the det
 
 ```
 ┌ Connections ──────────────────┐┌ Messages — ws://host/api/system-experiments/ws ───────┐
-│ ● #3 /api/system-…/ws   open  ││ Dir  Time          Size    Data                       │
-│     ↑ 2  ↓ 118   14:02:11     ││ ●    14:02:11.020          connection opened          │
-│ ○ #2 /api/ws          closed  ││ ↓    14:02:11.034  3.2 kB  {"entities":[{"entityId":… │
-│     ↑ 0  ↓ 6     13:58:40     ││ ↑    14:02:15.501  41 B    {"cmd":"apply","id":7}     │
-│ ✕ #1 /api/ws           error  ││ ↓    14:02:15.522  3.2 kB  {"entities":[{"entityId":… │
-│ ─────────────────────────────  ││ ■    14:05:00.118          closed 1000 "done"         │
+│ ● #3 /api/system-…/ws   open  ││ Dir         Time          Size    Data                │
+│     ↑ 2  ↓ 118   14:02:11     ││ ● opened    14:02:11.020          connection opened   │
+│ ○ #2 /api/ws          closed  ││ ↓ received  14:02:11.034  3.2 kB  {"entities":[{"en… │
+│     ↑ 0  ↓ 6     13:58:40     ││ ↑ sent      14:02:15.501  41 B    {"cmd":"apply","i… │
+│ ✕ #1 /api/ws           error  ││ ↓ received  14:02:15.522  3.2 kB  {"entities":[{"en… │
+│ ─────────────────────────────  ││ ↓ received  14:02:16.002  512 B   [Binary 512 bytes]  │
 │ All connections               ││                                                       │
 └───────────────────────────────┘└───────────────────────────────────────────────────────┘
 ```
@@ -416,8 +418,10 @@ a close `✕`. `↑` / `↓` in the list moves the selection and updates the det
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- Selecting a row opens the detail: full message, each argument as its own
-  JSON tree, and for errors the full stack (React component stack included).
+- Selecting a row opens the detail (one page, no sub-tabs): full message,
+  each argument as its own JSON tree, and for errors the full stack (React
+  component stack included). `▸` in a row means "more in the detail"; rows
+  never expand in place.
 - Errors from all sources appear here, with their source tag.
 
 ### 4.9 Toolbar and status bar
@@ -434,6 +438,9 @@ a close `✕`. `↑` / `↓` in the list moves the selection and updates the det
   buffer, always. The file is v1's format, `schemaVersion` 1, with two new
   optional fields (`pending`, `requestId` — `C-1`, §6.5).
 - **Problems** count: the rule in `FR-ACT-04`, over the buffer.
+- **`N / M shown`**: N = rows the current list shows after filters; M = rows
+  that list has before filters (not the whole buffer — that is the `buffer`
+  figure).
 - **v1 shortcuts** (`D` / `C` / `X`) belong to capture: while capture is off
   they do nothing; the panel's toolbar still exports and clears.
 
@@ -532,14 +539,14 @@ the list instead of beside it.
 |---|---|
 | Panel height, docked bottom | default 40% of window; min 160 px; max 90% |
 | Panel width, docked right | default 520 px; min 360 px; max 90% |
-| Title bar / filter bar | 32 px each |
-| Status bar | 22 px |
+| Title bar / filter bar / detail header | 32 px each, at every text size |
+| Status bar | 22 px, at every text size |
 | List row | 22 px (Normal text), 20 px (Small), 26 px (Large) |
 | Detail pane | default 45% of the panel (bottom dock: width; right dock: height); min 240 px; draggable splitter |
 | Resize handle hit area | 6 px |
 | Launcher | 28 px tall, 12 px from the corner |
 | Spacing scale | 2 · 4 · 8 · 12 · 16 px |
-| Radius | 4 px (controls), 6 px (panel corners when maximized: 0) |
+| Radius | 4 px (controls, chips, badges); 6 px (popovers, menus, launcher); 0 (the panel itself — it touches the window edges) |
 | Borders | 1 px |
 | Icons | 14 px, inline SVG, `currentColor` |
 
@@ -570,7 +577,7 @@ never sit on tinted rows) (WCAG 1.4.11). `--dcp-match-bg` is checked against
 | `--dcp-text-faint` | Timestamps, sizes | `#a3a9b3` | `#545d68` |
 | `--dcp-accent` | Active tab line, focus ring, links in UI | `#6aaeff` | `#0757b5` |
 | `--dcp-success` | 2xx, WS sent ↑, open socket | `#56c98a` | `#146a2c` |
-| `--dcp-info` | 3xx, info level, WS received ↓ | `#6cb2ff` | `#0757b5` |
+| `--dcp-info` | 3xx, info level, WS received ↓ (cyan — kept apart from `--dcp-accent`, so a 3xx never looks like focus) | `#5cc8dc` | `#00657a` |
 | `--dcp-warning` | 4xx, warn level, `truncated` badge | `#e5b84b` | `#7d5400` |
 | `--dcp-error` | 5xx, failed, error level, socket error | `#ff8a80` | `#b0141f` |
 | `--dcp-json-key` | JSON keys | `#9cdcfe` | `#0451a5` |
@@ -580,10 +587,10 @@ never sit on tinted rows) (WCAG 1.4.11). `--dcp-match-bg` is checked against
 | `--dcp-match-bg` | Search-match highlight (solid; text on it is `--dcp-text`) | `#5a4a16` | `#ffe58a` |
 
 Measured minimum ratios (worst background, tinted rows included): dark —
-text 9.06, muted 5.03, faint 4.74, accent 4.86, success 5.40, info 5.04,
+text 9.06, muted 5.03, faint 4.74, accent 4.86, success 5.40, info 5.73,
 warning 6.02, error 4.91, JSON 5.34–7.51, control border 3.28, match 7.00;
 light — text 11.61, muted 4.69, faint 4.91, accent 5.08, success 4.93, info
-5.08, warning 4.91, error 5.20, JSON 5.53–8.59, control border 3.27,
+4.91, warning 4.91, error 5.20, JSON 5.53–8.59, control border 3.27,
 match 12.66.
 
 **Badges** (`redacted`, `truncated`, `pending`): text in the matching colour
@@ -603,7 +610,7 @@ Status stays readable by icon and text.
 |---|---|---|---|
 | UI (tabs, buttons, labels) | `system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif` | 12 px | 400; 600 for the active tab |
 | Data (cells, bodies, JSON, stacks) | `ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", Menlo, monospace` | 12 px | 400 |
-| Meta (timestamps, sizes, status bar) | monospace | 11 px | 400 |
+| Meta (timestamps, sizes, status bar) | the data stack above | 11 px | 400 |
 
 Line height 1.4 for text blocks, row height fixed for lists. No web fonts
 (`ISO-05`: no `@font-face`). Text size setting scales all three (11 / 12 /
@@ -617,7 +624,7 @@ Line height 1.4 for text blocks, row height fixed for lists. No web fonts
 |---|---|---|
 | Time | clock or relative (setting) | 104 px |
 | Method | `GET`, `POST`… | 64 px |
-| Status | code + icon; `Failed`, `Aborted`, `Timeout`, `Pending` | 72 px |
+| Status | code + icon; `Failed`, `Aborted`, `Timeout`, `Pending` | 88 px |
 | Name | last path segment + query; full URL on hover (`title`) | flexible |
 | Type | `xhr` / `fetch` | 52 px |
 | Size | `3.2 kB` | 64 px |
@@ -658,10 +665,26 @@ Line height 1.4 for text blocks, row height fixed for lists. No web fonts
 |---|---|
 | Hover | `--dcp-bg-hover` |
 | Selected | `--dcp-bg-selected`, plus a 2 px `--dcp-accent` bar at the row start |
-| Focus (keyboard) | 2 px `--dcp-accent` outline, 1 px offset, `:focus-visible` only |
+| Focus (keyboard) | 2 px `--dcp-accent` outline, `:focus-visible` only. Controls: 1 px outside offset. List rows and tabs inside scroll areas: **inset** (`outline-offset: -2px`) so the ring is not clipped |
 | Disabled | 50% opacity on the control (WCAG exempts disabled controls from contrast) |
 | Search match | `--dcp-match-bg` behind the text, text in `--dcp-text`; `Mark` / `MarkText` in forced colours |
+| `[redacted]` inside other text | same look as the `redacted` badge (muted on its opaque tint), no icon |
 | Motion | None by default (no transitions on rows). Opening/closing: no animation. |
+
+**Component looks** (the details the tables above do not fix):
+
+| Part | Look |
+|---|---|
+| Control (button, input, chip) | 24 px tall, 1 px `--dcp-border-control`, radius 4 px, `--dcp-bg` fill |
+| Chip, on | `--dcp-bg-selected` fill, `--dcp-accent` border, `--dcp-text` |
+| `redacted` badge | `--dcp-text-muted` (badge rule above) |
+| `truncated` badge | `--dcp-warning` |
+| `pending` badge | `--dcp-text-muted` |
+| Banner (capture off, host modal) | full width under the title bar, `--dcp-bg-elevated`, 2 px `--dcp-warning` bar at the start, text + one button |
+| Popover / menu | `--dcp-bg-elevated`, 1 px `--dcp-divider` border, radius 6 px, no shadow |
+| "↓ N new" follow button | a control, bottom-right of the list, 8 px from its edges, `--dcp-bg-elevated` |
+| Timing bar | `--dcp-accent` fill on a `--dcp-divider` track, 6 px tall |
+| Status bar `capture ● on` / `capture ○ off` | `--dcp-success` / `--dcp-warning` dot and word |
 
 ### 5.8 Mockup
 
