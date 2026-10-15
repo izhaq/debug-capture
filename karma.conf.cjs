@@ -67,6 +67,8 @@ module.exports = (config) => {
       { 'reporter:spec-count': ['type', SpecCountReporter] },
     ],
     files: ['.test-out/specs.js'],
+    // A spec with no expectation proves nothing: fail it (AGENTS rule 19).
+    client: { jasmine: { failSpecWithNoExpectations: true } },
     browsers: ['ChromeHeadlessNoSandbox'],
     customLaunchers: {
       ChromeHeadlessNoSandbox: {

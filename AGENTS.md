@@ -115,10 +115,11 @@ commit.
 | `npm run build`        | `.d.ts` (tsc) and the `dist/*.mjs` bundles (esbuild) — the bundles are what ships                                  |
 | `npm run size`         | size budgets (`NFR-SIZE-01`), min + gzip level 6                                                                   |
 | `npm run pack:check`   | the packed tarball installs and type-checks in a temp consumer (`node`, `bundler`, `node16`, `nodenext`)           |
-| `npm run e2e`          | Playwright smoke on a plain HTML page                                                                              |
+| `npm run e2e`          | Playwright; fails on a skipped test or below `test/e2e-floor.json`                                                 |
 | `npm run check`        | all of the above, in that order (not `format`)                                                                     |
 
-20a. A spec that adds tests raises `test/unit/spec-floor.json` to the new
+20a. A spec that adds tests raises `test/unit/spec-floor.json` (and
+`test/e2e-floor.json`) to the new
 count, so a lost spec file fails the run.
 
 21. A PR that changes what ships reports the `npm run size` numbers and the

@@ -29,10 +29,14 @@ const CASES = [
   ['src/core/zz.ts', `setInterval('run()', 10);`, ['no-implied-eval']],
   ['src/core/zz.ts', `window.setTimeout('run()', 0);`, ['no-implied-eval']],
   ['src/core/zz.ts', `globalThis.setTimeout('run()', 0);`, ['no-implied-eval']],
-  ['src/core/zz.ts', `export const f = (s: string): unknown => window.eval(s);`, ['no-eval']],
+  ['src/core/zz.ts', `export const f = (s: string): unknown => window.eval(s);`, ['no-eval', SINK]],
   ['src/core/zz.ts', `export const f = (s: string): unknown => eval(s);`, ['no-eval']],
   ['src/core/zz.ts', `export const f = new Function('return 1');`, ['no-new-func']],
   ['src/core/zz.ts', `setTimeout(() => undefined, 0);`, []],
+  ['src/core/zz.ts', `export const f = (s: string): unknown => self.eval(s);`, [SINK]],
+  ['src/core/zz.ts', `export const f = (s: string): unknown => document.defaultView?.eval(s);`, [SINK]],
+  ['src/core/zz.ts', `export const f = globalThis.Function('return 1');`, [SINK]],
+  ['src/core/zz.ts', `export const f = self.Function('return 1');`, [SINK]],
   // NFR-SEC-01: no HTML sinks.
   ['src/core/zz.ts', `export const f = (e: Element, s: string) => { e.innerHTML = s; };`, [SINK]],
   ['src/core/zz.ts', `export const f = (e: Element, s: string) => { e.outerHTML = s; };`, [SINK]],
@@ -81,6 +85,9 @@ const CASES = [
   // Playwright: forbidOnly catches test.only at run time; skip and fixme only lint does.
   ['test/e2e/zz.spec.mjs', `import { test } from '@playwright/test';\ntest.skip('a', () => {});`, [SINK]],
   ['test/e2e/zz.spec.mjs', `import { test } from '@playwright/test';\ntest('a', () => {});`, []],
+  ['test/e2e/zz.spec.mjs', `import { test } from '@playwright/test';\ntest.describe.skip('a', () => {});`, [SYNTAX]],
+  ['test/e2e/zz.spec.mjs', `import { test } from '@playwright/test';\ntest.describe.fixme('a', () => {});`, [SYNTAX]],
+  ['test/e2e/zz.spec.mjs', `import { test as t } from '@playwright/test';\nt.skip('a', () => {});`, [SYNTAX]],
 ];
 
 const eslint = new ESLint({ cwd: root });
