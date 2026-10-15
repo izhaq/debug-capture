@@ -828,13 +828,22 @@ interface DebugPanelHandle {
  *  `active` follows `on`; `session.dispose()` acts as `stop()`;
  *  `getActiveCaptureSession()` returns this wrapper. */
 interface CaptureController {
-  readonly session: CaptureSession;
+  readonly session: ControlledCaptureSession;  // a CaptureSession + recorder: LiveRecorder + policy (C-3)
   readonly on: boolean;
   start(): void;                           // reinstall probes + shortcuts on the same recorder
   stop(): void;                            // remove probes + shortcuts; buffer kept
   onChange(listener: (on: boolean) => void): Unsubscribe;
 }
 ```
+
+The exact contract types (S-00) live in `src/contract/capture-contract.ts`:
+`LiveRecorder` (the read side the panel uses: `onChange`, `pending`,
+`onPending`), `ProbeRecorder` (the write side only the probes use:
+`startPending`, `endPending`, `nextSocketId`), `ControlledCaptureSession`,
+`CaptureController`, `PendingRequest`, `PendingDraft`, `PendingEvent`,
+`RecorderChange`, `SinkOptions`, `IsProblemEntry`, `MAX_PENDING_REQUESTS`.
+Where this section and that file differ in detail, the file is the contract
+and this section is updated to match.
 
 ### 6.5 Changes v2 needs in the capture layer
 

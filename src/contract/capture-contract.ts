@@ -356,6 +356,49 @@ export interface LiveRecorder extends Recorder {
   onPending(listener: PendingListener): Unsubscribe;
 }
 
+/** C-1: the most requests `LiveRecorder.pending()` holds; the oldest is dropped beyond it. */
+export const MAX_PENDING_REQUESTS = 200;
+
+/**
+ * C-1 — what a probe knows when a request starts, before the recorder polices
+ * it (`ignoreUrls`, URL and header redaction) and gives it an id.
+ */
+export type PendingDraft = Omit<PendingRequest, 'id'>;
+
+/**
+ * The write side of the v2 recorder, used only by the probes (L3). Kept apart
+ * from `LiveRecorder` so the read side the panel fakes in its specs never
+ * grows when probe needs change. S-01's recorder implements both.
+ */
+export interface ProbeRecorder extends Recorder {
+  /**
+   * C-1: a request started. Returns its id, or `null` when the policy ignores
+   * it (then nothing is shown, and the finished draft is recorded as in v1).
+   * The probe puts the id on the finished HTTP draft as `requestId`;
+   * `record()` of that draft ends the pending request (completed, sampled
+   * out or failed alike).
+   */
+  startPending(draft: PendingDraft): number | null;
+  /** C-1: the request will never be recorded (cut off by dispose). Idempotent. */
+  endPending(id: number): void;
+  /**
+   * C-2: the next WebSocket id. The counter lives in the recorder, not in a
+   * probe install, so ids never restart across stop/start.
+   */
+  nextSocketId(): number;
+}
+
+/**
+ * C-5 — where a sink puts its temporary node (the copy fallback's textarea,
+ * the download link). Default: `document.body`. The panel passes its shadow
+ * root, so a copy or download from the panel adds nothing to the host page
+ * (`ISO-04`). S-01 adds this as the last, optional parameter of `copyText`
+ * and `downloadText`.
+ */
+export interface SinkOptions {
+  readonly root?: Pick<ParentNode, 'appendChild'>;
+}
+
 /**
  * C-2 + C-3 — the session a `CaptureController` hands out: one stable object
  * for the page's life. Still a v1 `CaptureSession`, so the Angular and React

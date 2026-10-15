@@ -15,12 +15,16 @@ import {
   HttpEntry,
   IsProblemEntry,
   LiveRecorder,
+  MAX_PENDING_REQUESTS,
+  PendingDraft,
   PendingEvent,
   PendingListener,
   PendingRequest,
+  ProbeRecorder,
   Recorder,
   RecorderChange,
   RecorderChangeListener,
+  SinkOptions,
   Unsubscribe,
 } from './index';
 
@@ -304,5 +308,47 @@ describe('capture contract v2 (HLD §6.4, §6.5)', () => {
     const isProblem: IsProblemEntry = (entry) => entry.kind === 'error';
 
     expect(isProblem({ kind: 'error', seq: 1, t: 0, source: 'window', message: 'x', stack: null })).toBeTrue();
+  });
+
+  it('C-1: the pending cap is 200', () => {
+    expect(MAX_PENDING_REQUESTS).toBe(200);
+  });
+
+  it('C-1 / C-2: a ProbeRecorder is a v1 Recorder with the probes\' write side', () => {
+    assertType<Equals<PendingDraft, Omit<PendingRequest, 'id'>>>();
+    let nextId = 0;
+    let nextSocket = 0;
+    const ended: number[] = [];
+    const base = fakeLiveRecorder();
+    const probeSide: ProbeRecorder = {
+      record: (draft) => base.record(draft),
+      snapshot: () => base.snapshot(),
+      clear: () => base.clear(),
+      stats: () => base.stats(),
+      onEntry: (listener) => base.onEntry(listener),
+      startPending: (draft) => (draft.url.includes('ignored') ? null : ++nextId),
+      endPending: (id) => {
+        ended.push(id);
+      },
+      nextSocketId: () => ++nextSocket,
+    };
+    const v1: Recorder = probeSide;
+    const draft: PendingDraft = { t: 0, transport: 'fetch', method: 'GET', url: '/a', reqHeaders: {} };
+
+    expect(probeSide.startPending(draft)).toBe(1);
+    expect(probeSide.startPending({ ...draft, url: '/ignored' })).toBeNull();
+    probeSide.endPending(1);
+    expect(ended).toEqual([1]);
+    expect([probeSide.nextSocketId(), probeSide.nextSocketId()]).toEqual([1, 2]);
+    expect(v1).toBe(probeSide);
+  });
+
+  it('C-5: SinkOptions takes a shadow root (or any node to append to)', () => {
+    const host = document.createElement('div');
+    const options: SinkOptions = { root: host.attachShadow({ mode: 'open' }) };
+    const none: SinkOptions = {};
+
+    expect(options.root).toBeDefined();
+    expect(none.root).toBeUndefined();
   });
 });

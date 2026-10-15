@@ -57,7 +57,7 @@ track's paths, so the merges cannot conflict.
 
 | Track | PR | State |
 |---|---|---|
-| 00a Tooling | #57 | merged — 336 specs, coverage 96.4 % statements, core 10,317 B min+gz |
+| 00a Tooling | #57 | merged — 336 specs, coverage 96.4 % statements; core baseline 10,316 B min+gz |
 | 00b Contracts | #55 | merged — types only, contract JS byte-identical |
 | 00c Angular seam | #56 | merged — AOT production build proven in a scratch copy |
 | 00d Standards | #54 | merged — contrast check 34 pairs + drift check |
@@ -66,6 +66,18 @@ track's paths, so the merges cannot conflict.
 to develop); `CaptureFile.pending?` added per HLD C-1; TS 5.1 does not reject a
 leftover decorator, so ESLint bans decorators; contrast script is `.mjs`.
 
-**Follow-ups for later specs:** S-01 updates the `WebSocketEntry.socketId`
-comment and adds `MAX_PENDING_REQUESTS`; S-02 updates
-`src/panel/public-api.spec.ts` when `installDebugPanel` lands.
+**Review round (fresh-context, no blockers):** contract made complete for
+the parallel wave by the orchestrator — `ProbeRecorder` (write side for
+probes: `startPending`, `endPending`, `nextSocketId`), `PendingDraft`,
+`MAX_PENDING_REQUESTS`, `SinkOptions` (C-5 root); HLD §6.4 updated. Tooling
+fixes in track 00e.
+
+**Follow-ups for later specs:**
+- S-01: implement `LiveRecorder` + `ProbeRecorder` in one recorder; move the
+  socket-id counter (update the `WebSocketEntry.socketId` comment); add
+  `SinkOptions` as the last optional parameter of `copyText` / `downloadText`;
+  implement `isProblemEntry` and `createCaptureController`.
+- S-02 and S-03 run beside S-01: take `isProblemEntry` as an injected
+  function (type `IsProblemEntry`) or a local stub until S-01 is merged, and
+  build fakes against `LiveRecorder` only (never `ProbeRecorder`).
+- S-02: update `src/panel/public-api.spec.ts` when `installDebugPanel` lands.
