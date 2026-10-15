@@ -1,0 +1,37 @@
+#!/usr/bin/env node
+/**
+ * Tiny static server for the end-to-end tests (Node `http`, no packages).
+ *   /             → test/hosts/plain/index.html
+ *   /dist/*       → the prebuilt bundles (`npm run build` first)
+ *   /api/ping     → a small JSON reply, for the page to fetch
+ * Usage: node test/static-server.mjs [port]   (default 4319)
+ */
+import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const port = Number(process.argv[2] ?? process.env.E2E_PORT ?? 4319);
+const TYPES = { '.html': 'text/html', '.mjs': 'text/javascript', '.js': 'text/javascript', '.map': 'application/json' };
+
+createServer(async (req, res) => {
+  const { pathname } = new URL(req.url ?? '/', 'http://localhost');
+  if (pathname === '/api/ping') {
+    res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ pong: true }));
+    return;
+  }
+  const rel = pathname === '/' ? 'test/hosts/plain/index.html' : pathname.slice(1);
+  const file = path.resolve(root, rel);
+  const allowed = [path.join(root, 'dist') + path.sep, path.join(root, 'test', 'hosts') + path.sep];
+  if (!allowed.some((dir) => file.startsWith(dir))) {
+    res.writeHead(404).end('not found');
+    return;
+  }
+  try {
+    const body = await readFile(file);
+    res.writeHead(200, { 'content-type': TYPES[path.extname(file)] ?? 'application/octet-stream' }).end(body);
+  } catch {
+    res.writeHead(404).end('not found');
+  }
+}).listen(port, '127.0.0.1', () => console.log(`e2e static server on http://127.0.0.1:${port}`));

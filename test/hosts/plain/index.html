@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>debug-capture — plain HTML host</title>
+  </head>
+  <body>
+    <p>Plain page: no framework, no bundler. Loads the prebuilt <code>dist/index.mjs</code>.</p>
+    <script type="module">
+      import { installDebugCapture } from '/dist/index.mjs';
+
+      installDebugCapture();
+      window.hostDone = fetch('/api/ping').then((response) => response.json());
+    </script>
+  </body>
+</html>
