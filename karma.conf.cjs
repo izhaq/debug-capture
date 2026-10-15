@@ -5,7 +5,49 @@
  *
  * Browser: `CHROME_BIN` if set; otherwise the Chromium that the pinned
  * `@playwright/test` uses (found in `PLAYWRIGHT_BROWSERS_PATH`).
+ *
+ * Spec count guard (the `spec-count` reporter below): the run fails when
+ *   - any declared spec did not run — `fit`/`fdescribe` (the rest are
+ *     skipped), `xit`/`xdescribe`/`pending()` (AGENTS rule 19; lint bans them
+ *     too, this catches what lint cannot see); or
+ *   - fewer specs ran than the floor in `test/unit/spec-floor.json` — specs
+ *     that vanish before Jasmine sees them (a spec file left out of the bundle,
+ *     an emptied describe) are not "declared", so only a committed floor
+ *     notices them.
  */
+const fs = require('node:fs');
+const path = require('node:path');
+
+const SPEC_FLOOR = JSON.parse(fs.readFileSync(path.join(__dirname, 'test', 'unit', 'spec-floor.json'), 'utf8')).min;
+
+/** Karma reporter: sets the exit code when specs were skipped or too few ran. */
+function SpecCountReporter(baseReporterDecorator) {
+  baseReporterDecorator(this);
+  this.onRunComplete = (browsers, results) => {
+    const problems = [];
+    browsers.forEach((browser) => {
+      const { total, success, failed, skipped } = browser.lastResult;
+      const ran = success + failed;
+      if (skipped > 0 || ran < total) {
+        problems.push(
+          `${browser.name}: ${ran} of ${total} declared specs ran (${skipped} skipped: fit/fdescribe/xit/xdescribe/pending).`,
+        );
+      }
+      if (ran < SPEC_FLOOR) {
+        problems.push(
+          `${browser.name}: ${ran} specs ran, fewer than the floor of ${SPEC_FLOOR} (test/unit/spec-floor.json).`,
+        );
+      }
+      if (problems.length === 0) this.write(`spec count: ${ran} of ${total} declared ran (floor ${SPEC_FLOOR})\n`);
+    });
+    if (problems.length > 0) {
+      problems.forEach((p) => this.write(`SPEC COUNT FAILED — ${p}\n`));
+      results.exitCode = 1;
+    }
+  };
+}
+SpecCountReporter.$inject = ['baseReporterDecorator'];
+
 if (!process.env.CHROME_BIN) {
   try {
     process.env.CHROME_BIN = require('playwright-core').chromium.executablePath();
@@ -18,7 +60,12 @@ module.exports = (config) => {
   config.set({
     basePath: __dirname,
     frameworks: ['jasmine'],
-    plugins: [require('karma-jasmine'), require('karma-chrome-launcher'), require('karma-coverage')],
+    plugins: [
+      require('karma-jasmine'),
+      require('karma-chrome-launcher'),
+      require('karma-coverage'),
+      { 'reporter:spec-count': ['type', SpecCountReporter] },
+    ],
     files: ['.test-out/specs.js'],
     browsers: ['ChromeHeadlessNoSandbox'],
     customLaunchers: {
@@ -34,7 +81,7 @@ module.exports = (config) => {
         ],
       },
     },
-    reporters: ['progress', 'coverage'],
+    reporters: ['progress', 'coverage', 'spec-count'],
     coverageReporter: {
       dir: 'coverage',
       reporters: [{ type: 'text-summary' }, { type: 'html', subdir: 'html' }],
