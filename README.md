@@ -18,7 +18,8 @@ own repository: everything it needs lives inside this folder.
 
 ## Develop
 
-Everything runs from this folder, with its own install:
+Everything runs from this folder, with its own install (Node
+`^20.19.0 || ^22.13.0 || >=24`, the range ESLint 10 needs):
 
 ```bash
 cd packages/debug-capture
@@ -26,24 +27,42 @@ npm ci
 npm run check        # every check below, in order
 ```
 
-| Command                | What it checks                                          |
-| ---------------------- | ------------------------------------------------------- |
-| `npm run typecheck`    | TypeScript, strict, specs included                      |
-| `npm run lint`         | ESLint rules (no `any`, no `console`, no HTML strings…) |
-| `npm run lint:layers`  | each layer imports only the one above it (HLD §6.2)     |
-| `npm run format:check` | Prettier formatting (`npm run format` fixes it)         |
-| `npm run contrast`     | the HLD §5.4 colour tokens meet WCAG contrast           |
-| `npm test`             | all unit specs, headless Chromium                       |
-| `npm run build`        | ESM + `.d.ts` per entry point, and `dist/*.mjs` bundles |
-| `npm run size`         | bundle size budgets                                     |
-| `npm run e2e`          | Playwright smoke test on a plain HTML page              |
+| Command                | What it checks                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------- |
+| `npm run typecheck`    | TypeScript, strict, specs included                                                          |
+| `npm run lint`         | ESLint rules (no `any`, no `console`, no HTML strings…), after a self-test of the rules     |
+| `npm run lint:layers`  | each layer imports only the one above it (HLD §6.2), after its self-test                    |
+| `npm run format:check` | Prettier formatting (`npm run format` fixes it)                                             |
+| `npm run contrast`     | the HLD §5.4 colour tokens meet WCAG contrast, after its self-test                          |
+| `npm test`             | all unit specs, headless Chromium; fails if any spec is skipped or fewer run than the floor |
+| `npm run build`        | `.d.ts` per source file (`tsc`) and the `dist/*.mjs` bundles (esbuild)                      |
+| `npm run size`         | bundle size budgets, in bytes minified + gzip level 6                                       |
+| `npm run pack:check`   | `npm pack`, install the tarball in a scratch app, type-check and import every entry point   |
+| `npm run e2e`          | Playwright smoke test on a plain HTML page                                                  |
 
-- `npm test` and `npm run e2e` need Chromium: set `CHROME_BIN`, or let them
-  use Playwright's installed Chromium. `npm run e2e` serves `dist/`, so run
-  `npm run build` first (`npm run check` does).
+- **Chromium.** `npm test` (Karma) uses `CHROME_BIN` when it is set, and
+  otherwise the Chromium of the pinned `@playwright/test`. `npm run e2e`
+  (Playwright) always uses that Playwright Chromium and ignores `CHROME_BIN`;
+  it finds it through `PLAYWRIGHT_BROWSERS_PATH`. Never run
+  `playwright install`: the browser must match the pinned version (1.56.1).
+- `npm run pack:check` and `npm run e2e` read `dist/`; they stop with a clear
+  message if it is missing or older than `src/` (`npm run build` first;
+  `npm run check` does).
+- The spec floor is in `test/unit/spec-floor.json`: raise it when you add
+  specs.
+
 - **Rules** for people and agents: [`AGENTS.md`](AGENTS.md).
 - **Design** (source of truth): [`docs/design/HLD.md`](docs/design/HLD.md).
 - **Specs** (one folder per piece of work): [`docs/specs/`](docs/specs/README.md).
+
+### Using the package
+
+ESM only. Entry points: `debug-capture`, `debug-capture/angular`,
+`debug-capture/react`, `debug-capture/panel`; each resolves to a prebuilt
+bundle in `dist/` with its `.d.ts`. Types resolve with TypeScript
+`moduleResolution` `node` (as in the Angular 16 host), `bundler`, `node16` and
+`nodenext`. A plain page can load `dist/index.mjs` and `dist/panel.mjs`
+directly with `<script type="module">`.
 
 ## Status
 
