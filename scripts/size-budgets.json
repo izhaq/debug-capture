@@ -1,8 +1,8 @@
 {
   "core": {
-    "baseline": 10316,
-    "max": 12364,
-    "note": "v1 seed baseline 10316 B (measured in S-00) + 2 kB"
+    "baseline": 10320,
+    "max": 12368,
+    "note": "v1 seed baseline 10320 B (gzip level 6, measured in S-00) + 2 kB"
   },
   "panel-loader": { "max": 4096 },
   "panel-ui": { "max": 25600 },

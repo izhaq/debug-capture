@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * `npm run size` — NFR-SIZE-01. Bundles each entry on its own with esbuild
- * (minified, ES2020), gzips it (level 9) and compares with
+ * (minified, ES2020), gzips it (level 6 — see GZIP_LEVEL) and compares with
  * `scripts/size-budgets.json`. Sizes are bytes, min+gzip; 1 kB = 1024 B.
  *
  *   core          src/index.ts, everything it pulls in   ≤ baseline + 2 kB
@@ -21,6 +21,9 @@ import path from 'node:path';
 import { gzipSync } from 'node:zlib';
 import * as esbuild from 'esbuild';
 import { EXTERNAL_PACKAGES, existingEntries, packageRoot } from './entries.mjs';
+
+/** zlib's default level: Apache's default, and the usual nginx setting (nginx's own default is 1). */
+const GZIP_LEVEL = 6;
 
 const root = packageRoot();
 const budgets = JSON.parse(fs.readFileSync(path.join(root, 'scripts', 'size-budgets.json'), 'utf8'));
@@ -116,7 +119,7 @@ async function bundle(source, coreExternal, splitting) {
       entryPoint: Boolean(meta.entryPoint),
       imports: meta.imports,
       raw: f.contents.length,
-      gzip: gzipSync(f.contents, { level: 9 }).length,
+      gzip: gzipSync(f.contents, { level: GZIP_LEVEL }).length,
     };
   });
 }
