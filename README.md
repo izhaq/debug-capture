@@ -38,6 +38,9 @@ npm run check        # every check below, in order
 | `npm run size` | bundle size budgets |
 | `npm run e2e` | Playwright smoke test on a plain HTML page |
 
+- `npm test` and `npm run e2e` need Chromium: set `CHROME_BIN`, or let them
+  use Playwright's installed Chromium. `npm run e2e` serves `dist/`, so run
+  `npm run build` first (`npm run check` does).
 - **Rules** for people and agents: [`AGENTS.md`](AGENTS.md).
 - **Design** (source of truth): [`docs/design/HLD.md`](docs/design/HLD.md).
 - **Specs** (one folder per piece of work): [`docs/specs/`](docs/specs/README.md).
@@ -53,12 +56,10 @@ starts from working, reviewed code:
 | `src/` (contract, core, adapters, install, react, `index.ts`) | `src/debug-capture/` |
 | `src/angular/` | `src/app/features/debug-capture/` (imports changed from `'../../../debug-capture'` to `'..'`) |
 
-What works now: `npm run typecheck` (strict, all 69 files, specs included).
-
-**Not set up yet** — on purpose, the HLD decides these and the first v2 spec
-builds them: a test runner of its own, a build (entry points `core`,
-`angular`, `react`, `panel`), lint and the layer checker for this layout, CI.
-Until then, the tested copy is v1.
+**Foundation (S-00) done:** the package installs, tests, lints, builds and
+size-checks on its own (see Develop). The v2 contracts and the empty panel
+layers are in place; the Angular seam needs no decorators (C-4). Not set up
+yet: CI (waits for `OPEN-06`).
 
 ## v1 and v2
 

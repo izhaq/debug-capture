@@ -57,7 +57,15 @@ track's paths, so the merges cannot conflict.
 
 | Track | PR | State |
 |---|---|---|
-| 00a | — | started |
-| 00b | — | started |
-| 00c | — | started |
-| 00d | — | started |
+| 00a Tooling | #57 | merged — 336 specs, coverage 96.4 % statements, core 10,317 B min+gz |
+| 00b Contracts | #55 | merged — types only, contract JS byte-identical |
+| 00c Angular seam | #56 | merged — AOT production build proven in a scratch copy |
+| 00d Standards | #54 | merged — contrast check 34 pairs + drift check |
+
+**Deviations recorded in the track PRs:** eslint 10 (9 is deprecated; Node ≥ 20.19
+to develop); `CaptureFile.pending?` added per HLD C-1; TS 5.1 does not reject a
+leftover decorator, so ESLint bans decorators; contrast script is `.mjs`.
+
+**Follow-ups for later specs:** S-01 updates the `WebSocketEntry.socketId`
+comment and adds `MAX_PENDING_REQUESTS`; S-02 updates
+`src/panel/public-api.spec.ts` when `installDebugPanel` lands.

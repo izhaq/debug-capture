@@ -702,7 +702,7 @@ illustration: **where it and this document differ, this document wins.**
 packages/debug-capture/                (becomes its own repository later — D-02)
   README.md · AGENTS.md · package.json · tsconfig*.json
   docs/  design/ (HLD, mockup) · specs/ (S-00…S-10) · research/ · v1/
-  scripts/  check-layers.js · contrast-check.js · …
+  scripts/  check-layers.mjs · contrast-check.mjs · build.mjs · size.mjs · …
   src/
     contract/ core/ adapters/ install/ index.ts   ← entry "debug-capture"         (from v1, L1–L5)
     angular/                                      ← entry "debug-capture/angular"  (L6)
@@ -958,7 +958,7 @@ v2 adopts the v2 rule set in `docs/research/practices-baseline.md` §3 (31
 | Format | Prettier, single quotes, 2 spaces | Proposed |
 | Layers | `check-layers.js` from v1, re-rooted for the package, plus P1–P5 | Proposed |
 | End-to-end, perf, hostile host | Playwright with the installed Chromium; hosts: Angular (this app), React 19, plain HTML | Proposed |
-| Contrast | `contrast-check.js` reads the token table and fails under 4.5:1 / 3:1 | Proposed |
+| Contrast | `contrast-check.mjs` reads the token table and fails under 4.5:1 / 3:1 | Proposed |
 | Size | A size check on the loader, the UI chunk and the core (`NFR-SIZE-01`) | Proposed |
 | `AGENTS.md` | At the package root; the single source for agent rules | Proposed |
 | CI | Once the repository's home is known (GitHub or Azure DevOps — `OPEN-06`) | Open |
