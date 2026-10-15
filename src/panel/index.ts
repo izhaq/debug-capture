@@ -1,39 +1,29 @@
 /**
  * P5 panel loader — entry point `debug-capture/panel` (L6, a sibling of the
  * Angular and React seams). May import the L5 barrel ('..') and P4 ('./app')
- * only by `import type` and one dynamic `import()`, so the UI chunk stays
- * lazy; never `export *` from P4. No packages. Kept tiny (≤ 4 kB, NFR-SIZE-01).
+ * only by `import type` and the one dynamic `import()` below, so the UI chunk
+ * stays lazy; never `export *` from P4. No packages. Kept tiny (≤ 4 kB,
+ * NFR-SIZE-01).
  */
-import type { CaptureController } from '..';
+import type { DebugPanelHandle, DebugPanelOptions, InstallDebugPanel } from './api';
+import { createDebugPanel, inertHandle } from './loader';
+import { isProblemEntry } from './problem-rule-stub';
 
-/** Options for `installDebugPanel()` (HLD §6.4). Every field is optional. */
-export interface DebugPanelOptions {
-  /** Show the launcher button. Default `true`. */
-  readonly launcher?: boolean;
-  /** Toggle chord, matched on `KeyboardEvent.code`. Default `'ctrl+alt+shift+p'`; `false` binds none. */
-  readonly shortcut?: string | false;
-  /** Default `'bottom'`. */
-  readonly defaultDock?: 'bottom' | 'right';
-  /** `localStorage` key for settings and filter chips. Default `'debug-capture:panel'`; `false` keeps nothing. */
-  readonly storageKey?: string | false;
-}
-
-/** What `installDebugPanel()` returns (HLD §6.4). Inert when installed with `null`. */
-export interface DebugPanelHandle {
-  open(): void;
-  /** Closes; focus returns to where it was (ISO-16). */
-  close(): void;
-  readonly isOpen: boolean;
-  /** Closes (focus returns), unsubscribes, removes the launcher, the shortcut listener and the element. */
-  dispose(): void;
-}
+export type { DebugPanelHandle, DebugPanelOptions, InstallDebugPanel } from './api';
+export { PANEL_ELEMENT_NAME } from './api';
 
 /**
- * `installDebugPanel(controller, options)` — mounts the host element, the
- * launcher and the shortcut; loads the UI chunk on first open (`FR-ACT-02`).
- * `null` (capture not requested) returns an inert handle. S-02 implements it.
+ * `installDebugPanel(controller, options)` (HLD §6.6): the launcher, the
+ * toggle shortcut and the badge now; the UI chunk on first open. `null`
+ * (capture not requested) returns an inert handle and touches nothing. Never
+ * throws: a host page that cannot hold the panel gets the inert handle.
  */
-export type InstallDebugPanel = (controller: CaptureController | null, options?: DebugPanelOptions) => DebugPanelHandle;
-
-/** The host element's tag: prefixed and versioned so it never clashes with v1 or the host (D-11, ISO-14). */
-export const PANEL_ELEMENT_NAME = 'debug-capture-panel-v2';
+export const installDebugPanel: InstallDebugPanel = (controller, options?: DebugPanelOptions): DebugPanelHandle =>
+  controller === null || typeof window === 'undefined'
+    ? inertHandle()
+    : createDebugPanel(controller, options, {
+        scope: window,
+        isProblemEntry,
+        // The one dynamic import(): the UI chunk loads on first open only (FR-ACT-02, D-10).
+        loadUi: () => import('./app'),
+      });

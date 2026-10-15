@@ -6,4 +6,5 @@
  */
 export * from '../views';
 
+export { mountPanelUi } from './mount-panel-ui';
 export type { MountPanelUi, MountPanelUiOptions, PanelUiHandle } from './mount-panel-ui';
