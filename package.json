@@ -57,7 +57,7 @@
     "size": "node scripts/size.mjs",
     "pack:check": "node scripts/pack-check.mjs",
     "e2e": "playwright test",
-    "contrast": "node scripts/contrast-check.mjs --self-test && node scripts/contrast-check.mjs",
+    "contrast": "node scripts/contrast-check.mjs --self-test && node scripts/contrast-check.mjs && node scripts/theme-check.mjs --self-test && node scripts/theme-check.mjs",
     "check": "npm run typecheck && npm run lint && npm run lint:layers && npm run format:check && npm run contrast && npm test && npm run build && npm run size && npm run pack:check && npm run e2e"
   },
   "peerDependencies": {
