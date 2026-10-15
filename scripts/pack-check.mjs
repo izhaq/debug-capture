@@ -16,7 +16,8 @@
  *
  * The consumer lives in node_modules/.cache/ so it finds `@angular/core` (an
  * optional peer) and `typescript` in this package's own install, as an app
- * would find them in its own.
+ * would find them in its own. It is removed after a pass and kept after a
+ * failure, on purpose, so the failing consumer can be inspected.
  *
  * Usage: node scripts/pack-check.mjs
  */

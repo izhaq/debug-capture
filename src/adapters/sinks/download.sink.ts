@@ -5,6 +5,7 @@
  * Takes a plain string and knows nothing about entries or serialization, so
  * the caller decides what goes in the file.
  */
+import { SinkOptions } from '../../core';
 
 /**
  * The globals the download touches. Injected so specs can pass fakes and never
@@ -36,12 +37,17 @@ function realDownloadHost(): DownloadHost {
  * Throws if the click throws; the caller decides how to report that. The
  * anchor is removed and the object URL released either way, so a failed
  * download leaks nothing.
+ *
+ * `options.root` (C-5): where the temporary anchor goes instead of `<body>` —
+ * the panel passes its shadow root, so a download from the panel adds no node
+ * to the host page (`ISO-04`).
  */
 export function downloadText(
   text: string,
   filename: string,
   mimeType = 'application/json',
   host: DownloadHost = realDownloadHost(),
+  options: SinkOptions = {},
 ): void {
   // Anchor first: if creating it throws, no object URL has been made to leak.
   const anchor = host.document.createElement('a');
@@ -51,7 +57,7 @@ export function downloadText(
     anchor.download = filename;
     anchor.rel = 'noopener';
     anchor.style.display = 'none';
-    host.document.body.appendChild(anchor);
+    (options.root ?? host.document.body).appendChild(anchor);
     anchor.click();
   } finally {
     anchor.remove();
