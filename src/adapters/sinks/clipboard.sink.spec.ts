@@ -156,6 +156,102 @@ describe('copyText', () => {
     expect(doc.body.querySelector('textarea')).toBeNull();
   });
 
+  describe('with options.root (C-5)', () => {
+    let shadowHost: HTMLElement;
+    let root: ShadowRoot;
+
+    beforeEach(() => {
+      shadowHost = doc.createElement('div');
+      doc.body.appendChild(shadowHost);
+      root = shadowHost.attachShadow({ mode: 'open' });
+    });
+
+    it('puts the fallback textarea inside root, never in body, and removes it', async () => {
+      const seen: { parent: ParentNode | null } = { parent: null };
+      execCommand.and.callFake(() => {
+        seen.parent = root.querySelector('textarea')?.parentNode ?? null;
+        snapshot = snapshotTextarea();
+        return true;
+      });
+
+      await expectAsync(copyText('hello', plainHttpHost(), { root })).toBeResolvedTo(true);
+
+      expect(seen.parent).toBe(root);
+      expect(snapshot).toBeUndefined();
+      expect(root.childNodes.length).toBe(0);
+      expect(doc.body.childNodes.length).toBe(1);
+    });
+
+    it('keeps the same textarea setup inside root', async () => {
+      let selected = '';
+      let style = '';
+      execCommand.and.callFake(() => {
+        const textarea = root.querySelector('textarea');
+        selected = textarea ? textarea.value.slice(textarea.selectionStart, textarea.selectionEnd) : '';
+        style = textarea
+          ? `${textarea.readOnly} ${textarea.style.position} ${textarea.style.top} ${textarea.style.opacity}`
+          : '';
+        return true;
+      });
+
+      await expectAsync(copyText('hello', plainHttpHost(), { root })).toBeResolvedTo(true);
+
+      expect(selected).toBe('hello');
+      expect(style).toBe('true fixed -9999px 0');
+    });
+
+    it('gives focus back to the element focused inside the shadow root', async () => {
+      // From inside a shadow root, document.activeElement is only the shadow
+      // host; the element to re-focus is the one the root itself reports.
+      const input = doc.createElement('input');
+      root.appendChild(input);
+      fakeActiveElement(shadowHost);
+      Object.defineProperty(root, 'activeElement', { configurable: true, get: () => input });
+      const focusInput = spyOn(input, 'focus');
+      const focusHost = spyOn(shadowHost, 'focus');
+
+      await expectAsync(copyText('hello', plainHttpHost(), { root })).toBeResolvedTo(true);
+
+      expect(focusInput).toHaveBeenCalledTimes(1);
+      expect(focusHost).not.toHaveBeenCalled();
+    });
+
+    it('falls back to the document focus when nothing inside root was focused', async () => {
+      const input = doc.createElement('input');
+      doc.body.appendChild(input);
+      fakeActiveElement(input);
+      const focus = spyOn(input, 'focus');
+
+      await expectAsync(copyText('hello', plainHttpHost(), { root })).toBeResolvedTo(true);
+
+      expect(focus).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not touch root when navigator.clipboard works', async () => {
+      const appendChild = spyOn(root, 'appendChild').and.callThrough();
+
+      await expectAsync(copyText('hello', secureHost(), { root })).toBeResolvedTo(true);
+
+      expect(writeText).toHaveBeenCalledOnceWith('hello');
+      expect(appendChild).not.toHaveBeenCalled();
+    });
+
+    it('resolves false, and leaves nothing behind, when root refuses the node', async () => {
+      spyOn(root, 'appendChild').and.throwError('detached');
+
+      await expectAsync(copyText('hello', plainHttpHost(), { root })).toBeResolvedTo(false);
+
+      expect(execCommand).not.toHaveBeenCalled();
+      expect(doc.body.childNodes.length).toBe(1);
+    });
+  });
+
+  it('uses document.body when options has no root', async () => {
+    await expectAsync(copyText('hello', plainHttpHost(), {})).toBeResolvedTo(true);
+
+    expect(snapshot?.value).toBe('hello');
+  });
+
   it('does not try to restore focus when nothing was focused', async () => {
     fakeActiveElement(null);
 

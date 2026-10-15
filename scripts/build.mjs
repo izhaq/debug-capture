@@ -103,10 +103,15 @@ function addExtensionsToDeclarations(dir) {
 }
 
 function withFileName(fromFile, specifier) {
+  const where = `${path.relative(root, fromFile)}: '${specifier}'`;
+  if (/\.(m|c)?js$/.test(specifier)) throw new Error(`${where} — write relative imports without an extension`);
   const base = path.resolve(path.dirname(fromFile), specifier);
-  if (fs.existsSync(`${base}.d.ts`)) return `${specifier}.js`;
+  // '.', '..' and a trailing slash name a directory: only its index can match
+  // (never a same-named sibling file, which would give '..js' or './x/.js').
+  const directoryOnly = /(^|\/)\.{1,2}$|\/$/.test(specifier);
+  if (!directoryOnly && fs.existsSync(`${base}.d.ts`)) return `${specifier}.js`;
   if (fs.existsSync(path.join(base, 'index.d.ts'))) return `${specifier.replace(/\/$/, '')}/index.js`;
-  throw new Error(`${path.relative(root, fromFile)}: '${specifier}' matches no .d.ts file`);
+  throw new Error(`${where} matches no .d.ts file`);
 }
 
 function walk(dir) {
