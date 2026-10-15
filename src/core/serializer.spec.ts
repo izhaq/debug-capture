@@ -1,4 +1,4 @@
-import { CAPTURE_SCHEMA_VERSION, CaptureEntry, CaptureStats } from '../contract';
+import { CAPTURE_SCHEMA_VERSION, CaptureEntry, CaptureStats, PendingRequest } from '../contract';
 import { buildCaptureFile, CaptureMeta, defaultCaptureFileName, serializeCaptureFile } from './serializer';
 
 describe('serializer', () => {
@@ -24,6 +24,21 @@ describe('serializer', () => {
       stats,
       entries,
     });
+  });
+
+  it('lists requests in flight as the optional pending field, and leaves it out when there are none', () => {
+    const pending: PendingRequest[] = [
+      { id: 3, t: 12, transport: 'xhr', method: 'GET', url: 'http://localhost/slow', reqHeaders: {} },
+    ];
+
+    const file = buildCaptureFile(entries, stats, meta, pending);
+    pending.pop();
+
+    expect(file.pending).toEqual([
+      { id: 3, t: 12, transport: 'xhr', method: 'GET', url: 'http://localhost/slow', reqHeaders: {} },
+    ]);
+    expect('pending' in buildCaptureFile(entries, stats, meta, [])).toBeFalse();
+    expect('pending' in buildCaptureFile(entries, stats, meta)).toBeFalse();
   });
 
   it('serializes to JSON that round-trips', () => {

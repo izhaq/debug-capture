@@ -5,7 +5,15 @@ import {
   EntryDraft,
   EntryListener,
   HeaderMap,
-  Recorder,
+  LiveRecorder,
+  MAX_PENDING_REQUESTS,
+  PendingDraft,
+  PendingEvent,
+  PendingListener,
+  PendingRequest,
+  ProbeRecorder,
+  RecorderChange,
+  RecorderChangeListener,
   Unsubscribe,
 } from '../contract';
 import { toJsonSafe } from './json-safe';
@@ -35,10 +43,21 @@ import { truncate, truncateThen } from './truncate';
  *
  * Stored entries are deeply frozen — every part is frozen as it is built —
  * so a listener cannot change what a later export contains.
+ *
+ * v2 (HLD C-1, C-2, C-6): requests in flight are policed by the very same
+ * URL and header functions as the stored entry, so the live list can never
+ * show a secret the export would not; ids (entries, requests, sockets) live
+ * here, so they never restart while the recorder lives.
  */
-export function createRecorder(policy: CapturePolicy): Recorder {
+export function createRecorder(policy: CapturePolicy): LiveRecorder & ProbeRecorder {
   const buffer = new RingBuffer<CaptureEntry>(policy.maxEntries);
   const listeners: EntryListener[] = [];
+  const pendingListeners: PendingListener[] = [];
+  const changeListeners: RecorderChangeListener[] = [];
+  /** Insertion order is start order, so the first key is always the oldest. */
+  const inFlight = new Map<number, PendingRequest>();
+  let lastRequestId = 0;
+  let lastSocketId = 0;
   let lastSeq = 0;
   let recorded = 0;
   let dropped = 0;
@@ -159,6 +178,9 @@ export function createRecorder(policy: CapturePolicy): Recorder {
           resBody: policedBody(draft.resBody, draft.url, draft.resHeaders),
           bytes: draft.bytes,
           error: draft.error,
+          // Only when present, so a v1 draft still stores exactly the v1 shape.
+          ...(typeof draft.requestId === 'number' ? { requestId: draft.requestId } : null),
+          ...(draft.resBodyCapped === true ? { resBodyCapped: true as const } : null),
         };
       case 'ws':
         return {
@@ -194,31 +216,95 @@ export function createRecorder(policy: CapturePolicy): Recorder {
     try {
       return sample(draft) !== false;
     } catch {
-      failed++;
+      countFailed();
       return true;
     }
   }
 
-  function notify(entry: CaptureEntry): void {
-    // A copy, so a listener can unsubscribe itself without making the loop skip the next one.
-    for (const listener of listeners.slice()) {
-      try {
-        listener(entry);
-      } catch {
-        // A broken listener (e.g. a panel) must not stop capture or the other listeners.
-      }
+  /**
+   * Events raised while listeners run (a listener that records, clears or
+   * starts a request) wait until the current event reached every listener:
+   * each listener then sees every event in the order it happened — never a
+   * request's `end` before its `start`, never a higher `seq` first.
+   */
+  const backlog: Array<() => void> = [];
+  let delivering = false;
+
+  function emit<T>(targets: Array<(event: T) => void>, event: T): void {
+    if (targets.length === 0) {
+      return;
     }
+    backlog.push(() => {
+      // A copy, so a listener can unsubscribe itself without making the loop skip the next one.
+      for (const listener of targets.slice()) {
+        try {
+          listener(event);
+        } catch {
+          // A broken listener (e.g. a panel) must not stop capture or the other listeners.
+        }
+      }
+    });
+    if (delivering) {
+      return;
+    }
+    delivering = true;
+    try {
+      for (let job = backlog.shift(); job; job = backlog.shift()) {
+        job();
+      }
+    } finally {
+      delivering = false;
+    }
+  }
+
+  const STATS: RecorderChange = Object.freeze({ type: 'stats' });
+  const CLEARED: RecorderChange = Object.freeze({ type: 'cleared' });
+
+  /** `dropped` or `failed` moved: the panel's status bar reads `stats()` again (C-6). */
+  function countDropped(): void {
+    dropped++;
+    emit(changeListeners, STATS);
+  }
+
+  function countFailed(): void {
+    failed++;
+    emit(changeListeners, STATS);
+  }
+
+  function endPending(id: number): void {
+    if (inFlight.delete(id)) {
+      emit<PendingEvent>(pendingListeners, Object.freeze({ type: 'end', id }));
+    }
+  }
+
+  function subscribe<T>(targets: T[], listener: T): Unsubscribe {
+    targets.push(listener);
+    let subscribed = true;
+    return () => {
+      if (!subscribed) {
+        return;
+      }
+      subscribed = false;
+      const index = targets.indexOf(listener);
+      if (index !== -1) {
+        targets.splice(index, 1);
+      }
+    };
   }
 
   return {
     record(draft: EntryDraft): void {
       try {
+        // First, whatever happens to the draft next: its request is no longer in flight (C-1).
+        if (draft.kind === 'http' && draft.requestId !== undefined) {
+          endPending(draft.requestId);
+        }
         if ((draft.kind === 'http' || draft.kind === 'ws') && matchesAny(draft.url, policy.ignoreUrls)) {
-          dropped++;
+          countDropped();
           return;
         }
         if (!sampled(draft)) {
-          dropped++;
+          countDropped();
           return;
         }
         // seq is consumed only once the entry is built, so a failed draft leaves no gap.
@@ -228,12 +314,10 @@ export function createRecorder(policy: CapturePolicy): Recorder {
           evicted++;
         }
         recorded++;
-        if (listeners.length > 0) {
-          notify(entry);
-        }
+        emit(listeners, entry);
       } catch {
         // Capture must never throw into the code it observes.
-        failed++;
+        countFailed();
       }
     },
 
@@ -247,25 +331,65 @@ export function createRecorder(policy: CapturePolicy): Recorder {
       dropped = 0;
       evicted = 0;
       failed = 0;
+      // Oldest first, each with its `end`, so a listener drops every row before `cleared`.
+      for (const id of Array.from(inFlight.keys())) {
+        endPending(id);
+      }
+      emit(changeListeners, CLEARED);
     },
 
     stats(): CaptureStats {
       return { recorded, dropped, evicted, failed };
     },
 
-    onEntry(listener: EntryListener): Unsubscribe {
-      listeners.push(listener);
-      let subscribed = true;
-      return () => {
-        if (!subscribed) {
-          return;
+    onEntry: (listener: EntryListener): Unsubscribe => subscribe(listeners, listener),
+
+    onChange: (listener: RecorderChangeListener): Unsubscribe => subscribe(changeListeners, listener),
+
+    onPending: (listener: PendingListener): Unsubscribe => subscribe(pendingListeners, listener),
+
+    pending(): readonly PendingRequest[] {
+      return Array.from(inFlight.values());
+    },
+
+    /**
+     * Polices the start of a request with the stored entry's own code path:
+     * `ignoreUrls` on the original URL, then `policedUrl` / `policedHeaders`.
+     * `sample()` waits for the finished draft (C-1).
+     */
+    startPending(draft: PendingDraft): number | null {
+      try {
+        if (matchesAny(draft.url, policy.ignoreUrls)) {
+          return null;
         }
-        subscribed = false;
-        const index = listeners.indexOf(listener);
-        if (index !== -1) {
-          listeners.splice(index, 1);
+        const request: PendingRequest = Object.freeze({
+          id: lastRequestId + 1,
+          t: draft.t,
+          transport: draft.transport,
+          method: draft.method.toUpperCase(),
+          url: policedUrl(draft.url),
+          reqHeaders: policedHeaders(draft.reqHeaders),
+        });
+        lastRequestId = request.id;
+        inFlight.set(request.id, request);
+        if (inFlight.size > MAX_PENDING_REQUESTS) {
+          endPending(inFlight.keys().next().value as number);
         }
-      };
+        emit<PendingEvent>(pendingListeners, Object.freeze({ type: 'start', request }));
+        return request.id;
+      } catch {
+        // The finished draft is still recorded as in v1, just never shown as pending.
+        countFailed();
+        return null;
+      }
+    },
+
+    endPending(id: number): void {
+      endPending(id);
+    },
+
+    nextSocketId(): number {
+      return ++lastSocketId;
     },
   };
 }

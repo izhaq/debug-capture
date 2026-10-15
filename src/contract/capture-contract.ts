@@ -75,7 +75,11 @@ export type WebSocketEvent = 'open' | 'send' | 'receive' | 'close' | 'error';
 /** One entry per socket event; `socketId` groups the frames of one connection. */
 export interface WebSocketEntry extends CaptureEntryBase {
   readonly kind: 'ws';
-  /** 1-based per probe install, in creation order. */
+  /**
+   * 1-based, in creation order. The counter lives in the recorder
+   * (`ProbeRecorder.nextSocketId`, C-2), so ids never restart while the
+   * recorder lives — not after `clear()`, not across a controller's stop/start.
+   */
   readonly socketId: number;
   /** Secret query parameters redacted, like `HttpEntry.url`. */
   readonly url: string;
@@ -272,6 +276,13 @@ export interface DebugCaptureOptions {
   readonly policy?: Partial<CapturePolicy>;
   /** `false` disables keyboard shortcuts. */
   readonly shortcuts?: Partial<ShortcutConfig> | false;
+  /**
+   * C-2: install on this recorder instead of a new one, so a controller's
+   * stop/start keeps one buffer and one set of counters (`seq`, request and
+   * socket ids). Its policy is the one applied: `policy` then only describes
+   * it (and is still validated).
+   */
+  readonly recorder?: LiveRecorder & ProbeRecorder;
 }
 
 /** What installDebugCapture() returns — the handle the app and the Angular layer hold. */

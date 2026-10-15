@@ -343,6 +343,12 @@ describe('capture contract v2 (HLD §6.4, §6.5)', () => {
     expect(v1).toBe(probeSide);
   });
 
+  it('C-2: DebugCaptureOptions takes the recorder to install on (S01-07)', () => {
+    assertType<Equals<DebugCaptureOptions['recorder'], (LiveRecorder & ProbeRecorder) | undefined>>();
+    const v1Options: DebugCaptureOptions = { policy: { maxEntries: 10 }, shortcuts: false };
+    expect(v1Options.recorder).toBeUndefined();
+  });
+
   it('C-5: SinkOptions takes a shadow root (or any node to append to)', () => {
     const host = document.createElement('div');
     const options: SinkOptions = { root: host.attachShadow({ mode: 'open' }) };

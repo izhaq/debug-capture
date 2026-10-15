@@ -1,4 +1,4 @@
-import { CAPTURE_SCHEMA_VERSION, CaptureEntry, CaptureFile, CaptureStats } from '../contract';
+import { CAPTURE_SCHEMA_VERSION, CaptureEntry, CaptureFile, CaptureStats, PendingRequest } from '../contract';
 
 /** What the caller reads from the environment at export time — core reads no globals itself. */
 export interface CaptureMeta {
@@ -7,10 +7,15 @@ export interface CaptureMeta {
   readonly userAgent: string;
 }
 
+/**
+ * `pending` (C-1) is written only when something is in flight, so a file
+ * with none is byte-for-byte the v1 shape.
+ */
 export function buildCaptureFile(
   entries: readonly CaptureEntry[],
   stats: CaptureStats,
   meta: CaptureMeta,
+  pending: readonly PendingRequest[] = [],
 ): CaptureFile {
   return {
     schemaVersion: CAPTURE_SCHEMA_VERSION,
@@ -20,6 +25,7 @@ export function buildCaptureFile(
     // Copies, so a recorder that keeps recording cannot change a built file.
     stats: { ...stats },
     entries: entries.slice(),
+    ...(pending.length > 0 ? { pending: pending.slice() } : null),
   };
 }
 
