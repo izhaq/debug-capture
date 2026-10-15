@@ -157,8 +157,10 @@ export function createCaptureController(
         reportFailure(recorder, clock, 'capture not started', 'another capture is already on');
         return;
       }
-      uninstall = installCapture(recorder, env, options.shortcuts, session);
+      // Claimed first: a listener that calls installDebugCapture() while the
+      // probes go in gets this session instead of patching everything twice.
       activeSession = session;
+      uninstall = installCapture(recorder, env, options.shortcuts, session);
       changed(true);
     },
     stop(): void {

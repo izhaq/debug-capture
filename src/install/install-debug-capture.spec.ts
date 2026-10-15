@@ -642,6 +642,25 @@ describe('createCaptureController', () => {
     expect(second.on).toBeTrue();
   });
 
+  it('a listener that installs while the probes go in gets this session, not a second capture', () => {
+    const recorder = createRecorder(resolvePolicy());
+    const nested: CaptureSession[] = [];
+    recorder.onEntry(() => {
+      if (nested.length === 0) nested.push(installDebugCapture({}, fake.env));
+    });
+
+    // The failed WebSocket probe records an error while the others are going in.
+    const controller = createCaptureController({ recorder }, { ...fake.env, webSocket: {} as WebSocketHost });
+    const patchedLog = fake.consoleHost.log;
+    fake.consoleHost.log('once');
+
+    expect(nested).toEqual([controller.session]);
+    expect(kinds(controller.session)).toEqual(['error', 'log']);
+    controller.stop();
+    expect(fake.consoleHost.log).toBe(fake.originalLog);
+    expect(patchedLog).not.toBe(fake.originalLog);
+  });
+
   it('rejects an invalid policy before patching anything', () => {
     expect(() => createCaptureController({ policy: { maxBodyLength: -1 } }, fake.env)).toThrowError(RangeError);
     expect(getActiveCaptureSession()).toBeNull();
