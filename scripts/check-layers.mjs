@@ -54,9 +54,13 @@
  *     import, so the kind of each import comes from the TS AST.
  *   - `import { type A } from './x'` counts as a value import: whether it is
  *     erased depends on compiler flags. Write `import type { A }` instead.
- *   - Non-relative specifiers that resolve against the package root (tsconfig
- *     `baseUrl: './'`, e.g. `src/core`) are path imports, so they cannot get
- *     around the rules.
+ *   - There is no tsconfig `baseUrl`: a non-relative specifier is a package.
+ *     One that names `src/` (`'src/core'`) or climbs out of a package with
+ *     `.`/`..` segments (`'rxjs/../../src/core'`) is an error, so no import
+ *     reaches src/ around the rules (and the published .d.ts never holds a
+ *     path a consumer cannot resolve).
+ *   - `require(x)` and `import(x)` with a non-literal argument are errors:
+ *     they cannot be checked.
  *   - `checkImport` and `checkTree` are pure: files are passed in, so
  *     `--self-test` never touches the file system.
  *   - Exit code 1 on any violation, 0 on a clean run.
@@ -133,7 +137,18 @@ export function checkImport(from, specifier, exists, kind = 'value') {
   if (layer === UNCLASSIFIED) {
     return `fits no layer — files under ${SRC}/ belong in contract/, core/, adapters/, install/, angular/, react/, panel/{model,ui,views,app}/, panel/ or directly in ${SRC}/`;
   }
-  if (specifier === null) return `import() needs a string literal, or it cannot be checked (rule 4)`;
+  if (specifier === null) {
+    return `${kind === 'dynamic' ? 'import()' : 'require()'} needs a string literal, or it cannot be checked (rule 4)`;
+  }
+  if (!isRelative(specifier)) {
+    const segments = specifier.split('/');
+    if (segments[0] === SRC) {
+      return `non-relative path into ${SRC}/ — import it by a relative path (there is no baseUrl; rule 4)`;
+    }
+    if (segments.some((s) => s === '.' || s === '..')) {
+      return `a package specifier may not contain '.' or '..' segments — it could reach back into ${SRC}/ (rule 5)`;
+    }
+  }
 
   const { id, above, lazy, packages } = LAYERS[layer];
   const target = resolveSpecifier(from, specifier, exists);
@@ -179,14 +194,13 @@ export function checkImport(from, specifier, exists, kind = 'value') {
 }
 
 /**
- * Resolves the way tsconfig does: relative to the importing file, or to the
- * package root (`baseUrl: './'`), trying `<p>`, `<p>.ts` then `<p>/index.ts`.
- * Returns `null` for a package, and for a relative path that matches no file.
+ * Resolves a relative specifier the way tsc does, trying `<p>`, `<p>.ts` then
+ * `<p>/index.ts`. Returns `null` for a package, and for a relative path that
+ * matches no file.
  */
 function resolveSpecifier(from, specifier, exists) {
-  const base = isRelative(specifier)
-    ? path.posix.normalize(path.posix.join(path.posix.dirname(from), specifier))
-    : path.posix.normalize(specifier);
+  if (!isRelative(specifier)) return null;
+  const base = path.posix.normalize(path.posix.join(path.posix.dirname(from), specifier));
   const candidates = [`${base}.ts`, `${base}/index.ts`];
   if (base.endsWith('.ts')) candidates.unshift(base);
   return candidates.find((c) => !c.startsWith('../') && exists(c)) ?? null;
@@ -208,7 +222,8 @@ function isIndex(file) {
  * Every module reference in a file, with its kind:
  *   'type'    — `import type`, `export type … from`, `import('./x').T` in a type
  *   'dynamic' — `import(…)` as an expression (`specifier: null` if not a literal)
- *   'value'   — everything else (`import`, `export … from`, `require`)
+ *   'value'   — everything else (`import`, `export … from`, `require(…)`;
+ *               `specifier: null` if require's argument is not a literal)
  */
 export function extractImports(text, fileName = 'file.ts') {
   const found = [];
@@ -227,8 +242,7 @@ export function extractImports(text, fileName = 'file.ts') {
     } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
       found.push({ specifier: literal(node.arguments[0]), kind: 'dynamic' });
     } else if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'require') {
-      const specifier = literal(node.arguments[0]);
-      if (specifier !== null) found.push({ specifier, kind: 'value' });
+      found.push({ specifier: literal(node.arguments[0]), kind: 'value' });
     }
     ts.forEachChild(node, visit);
   };
@@ -271,7 +285,9 @@ export function checkTree(files) {
     for (const { specifier, kind } of extractImports(text, file)) {
       const reason = checkImport(file, specifier, exists, kind);
       if (reason !== null) {
-        violations.push(`${file}: ${kind === 'value' ? 'imports' : `${kind} import of`} '${specifier}' — ${reason}`);
+        violations.push(
+          `${file}: ${kind === 'value' ? 'imports' : `${kind} import of`} ${specifier === null ? '<non-literal>' : `'${specifier}'`} — ${reason}`,
+        );
       } else if (kind === 'dynamic' && LAYERS[layer]?.lazy) {
         const target = resolveSpecifier(file, specifier, exists);
         if (target === LAYERS[LAYERS[layer].lazy].barrel) lazyLoads.push(file);
@@ -367,7 +383,15 @@ const SELF_TEST_CASES = [
   // L1–L5, as in v1.
   ['src/core/recorder.ts', '../contract', 'value', null],
   ['src/core/recorder.ts', '../contract/capture-contract', 'value', 'rule 3'],
-  ['src/core/recorder.ts', 'src/contract/capture-contract', 'value', 'rule 3'],
+  // No non-relative path into src/ (there is no baseUrl; dist would not resolve it).
+  ['src/core/recorder.ts', 'src/contract/capture-contract', 'value', 'non-relative'],
+  ['src/core/recorder.ts', 'src/contract', 'value', 'non-relative'],
+  ['src/angular/providers.ts', 'src', 'value', 'non-relative'],
+  ['src/angular/providers.ts', 'src/index', 'type', 'non-relative'],
+  ['src/panel/model/store.ts', 'src/index.ts', 'value', 'non-relative'],
+  ['src/angular/providers.ts', 'rxjs/../../src/core/recorder', 'value', "'..'"],
+  ['src/angular/providers.ts', '@angular/core/../../../src/core', 'value', "'..'"],
+  ['src/angular/providers.ts', '@angular/core/./testing', 'value', "'..'"],
   ['src/contract/capture-contract.ts', '../core', 'value', 'rule 4'],
   ['src/adapters/probes/http/xhr.probe.ts', '../../../core', 'value', null],
   ['src/adapters/probes/http/xhr.probe.ts', '../../../core/recorder', 'value', 'rule 3'],
@@ -453,6 +477,7 @@ const SELF_TEST_CASES = [
   ['src/panel/index.ts', '../core', 'value', 'rule 4'],
   ['src/panel/element.ts', 'lit', 'value', 'rule 5'],
   ['src/panel/element.ts', null, 'dynamic', 'string literal'],
+  ['src/core/recorder.ts', null, 'value', 'string literal'],
   ['src/panel/misc/stray.ts', '.', 'value', 'fits no layer'],
 ];
 
@@ -484,6 +509,7 @@ const EXTRACT_CASES = [
   [`const f = (p: string) => import(p);`, [[null, 'dynamic']]],
   [`type T = import('./t').T;`, [['./t', 'type']]],
   [`const x = require('./r');`, [['./r', 'value']]],
+  [`const x = (p: string) => require(p);`, [[null, 'value']]],
   [`// import x from './commented';\nconst s = "import y from './in-string'";`, []],
 ];
 
@@ -530,6 +556,17 @@ const TREE_CASES = [
       ['src/panel/launcher.ts', `export const b = () => import('./app');`],
     ],
     ['2 dynamic import()s of the P4 barrel'],
+  ],
+  [
+    'require() of a variable',
+    [
+      ...BARRELS,
+      [
+        'src/core/loader.ts',
+        `declare const require: (s: string) => unknown;\nconst p = './x';\nexport const a = require(p);`,
+      ],
+    ],
+    ['src/core/loader.ts: imports <non-literal>', 'require() needs a string literal'],
   ],
 ];
 
