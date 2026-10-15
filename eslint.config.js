@@ -44,6 +44,15 @@ const HTML_SINKS = [
   { property: 'srcdoc', message: `No srcdoc: it parses HTML. ${SEC}` },
   { object: 'document', property: 'write', message: SEC },
   { object: 'document', property: 'writeln', message: SEC },
+  // String evaluation reached through a built-in global object (`self.eval`,
+  // `document.defaultView.eval`, `globalThis.Function`): no-eval and
+  // no-new-func only know the bare names and `window.` / `globalThis.eval`.
+  { property: 'eval', message: `No eval. ${SEC}` },
+  ...['globalThis', 'window', 'self'].map((object) => ({
+    object,
+    property: 'Function',
+    message: `No Function(). ${SEC}`,
+  })),
 ];
 const DATE_NOW = {
   object: 'Date',
@@ -139,6 +148,16 @@ export default defineConfig(
           property,
           message: 'Every end-to-end test runs (AGENTS rule 19).',
         })),
+      ],
+      // `test.describe.skip(…)`, an aliased `t.skip(…)`: any `.skip` / `.fixme`
+      // / `.only` member in test code. A first line only — the e2e guard
+      // reporter (test/e2e-guard-reporter.mjs) fails the run on any skip.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "MemberExpression[object.name!='test'][property.name=/^(skip|fixme|only)$/]",
+          message: 'Every end-to-end test runs (AGENTS rule 19).',
+        },
       ],
     },
   },
