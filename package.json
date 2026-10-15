@@ -3,7 +3,76 @@
   "version": "2.0.0-alpha.0",
   "private": true,
   "description": "Debug capture v2: framework-free recorder + on-screen panel for air-gapped apps. Seeded from v1 (src/debug-capture in the host app).",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./angular": {
+      "types": "./dist/angular/index.d.ts",
+      "import": "./dist/angular/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js"
+    },
+    "./panel": {
+      "types": "./dist/panel/index.d.ts",
+      "import": "./dist/panel/index.js"
+    },
+    "./dist/*": "./dist/*"
+  },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "lint:layers": "node scripts/check-layers.mjs && node scripts/check-layers.mjs --self-test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "node scripts/bundle-specs.mjs && karma start karma.conf.cjs",
+    "build": "node scripts/build.mjs",
+    "size": "node scripts/size.mjs",
+    "e2e": "playwright test",
+    "contrast": "node scripts/contrast-check.mjs",
+    "check": "npm run typecheck && npm run lint && npm run lint:layers && npm run format:check && npm run contrast && npm test && npm run build && npm run size && npm run e2e"
+  },
+  "peerDependencies": {
+    "@angular/core": ">=16 <21"
+  },
+  "peerDependenciesMeta": {
+    "@angular/core": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@angular/common": "16.2.12",
+    "@angular/compiler": "16.2.12",
+    "@angular/core": "16.2.12",
+    "@angular/platform-browser": "16.2.12",
+    "@angular/platform-browser-dynamic": "16.2.12",
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.56.1",
+    "@types/jasmine": "4.6.6",
+    "esbuild": "0.28.2",
+    "eslint": "10.11.0",
+    "istanbul-lib-instrument": "6.0.3",
+    "jasmine-core": "4.6.1",
+    "karma": "6.4.4",
+    "karma-chrome-launcher": "3.2.0",
+    "karma-coverage": "2.2.1",
+    "karma-jasmine": "5.1.0",
+    "prettier": "3.9.9",
+    "rxjs": "7.8.2",
+    "typescript": "5.1.6",
+    "typescript-eslint": "8.71.0",
+    "zone.js": "0.13.3"
   }
 }
