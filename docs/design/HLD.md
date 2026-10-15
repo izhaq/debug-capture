@@ -1,8 +1,9 @@
 # Debug Capture v2 — High-Level Design (HLD)
 
-**Status:** Draft 0.4 — for owner review. Written 2026-10-14; revised the same day after a
+**Status:** Draft 0.5 — for owner review. Written 2026-10-14; revised the same day after a
 fresh-context review (33 findings), a confirmation review (14 findings) and the
-mockup build (14 questions), all applied.
+mockup build (14 questions), all applied. 0.5 (2026-10-15): the P4 frame moves
+from S-02 to S-08, so wave 2 has no track waiting on another (§9).
 **Scope:** the whole of v2: the capture layer it inherits from v1, and the new
 on-screen **debug panel**.
 **This document is the source of truth.** Every v2 spec and plan is cut from
@@ -1020,13 +1021,13 @@ Each spec lives in `docs/specs/<nn>-<slug>/` with `spec.md`, `plan.md` and a
 |---|---|---|
 | **S-00 Foundation** | Tooling (§7.2), `AGENTS.md`, layer checker for the package, size baseline. **Contracts fixed for the parallel wave:** `PanelDataSource`, `PanelDataEvent`, `PendingRequest`, `CaptureController`, `recorder.onChange`, `isProblemEntry` signature, `mountPanelUi`, panel options. Core change C-4, mockup | — |
 | **S-01 Core changes** | C-1 pending requests, C-2 controller (one recorder, stable session, socket ids), C-3 policy, C-5 copy/download spike, C-6 change events, C-7 capped-body flag, C-8 problem rule | S-00 |
-| **S-02 Panel shell** | P5 loader: element, mount, top layer, lockdown, event wall, zone, toggle, launcher (+ badge), lazy chunk load. P4 app frame: top tabs and Network sub-tab routing, open/close/resize/dock/maximize, scheduler, settings storage, banners. Hostile-host fixture | S-00 |
+| **S-02 Panel loader** | P5 loader: element, mount, top layer, lockdown, event wall, zone, toggle, launcher (+ badge), lazy chunk load, open/close and focus return. A placeholder P4 `mountPanelUi` (an empty panel root with a close button) so the lazy path is real end to end. Hostile-host fixture | S-00 |
 | **S-03 Panel model** | P1: local data source (incl. download/copy pass-through), store, batching contract, selectors, filters, formatting, cURL | S-00 |
 | **S-04 UI building blocks** | P2: safe DOM builder, virtual list (bidi-safe), JSON viewer (paged), split pane, tabs, chips, empty/no-match block, icons, theme sheet + contrast check | S-00 |
 | **S-05 Network › HTTP** | P3 list + detail sub-tabs + copy | S-02, S-03, S-04 (S-01 for pending) |
 | **S-06 Network › WebSocket** | P3 connections + messages + detail | S-02, S-03, S-04 |
 | **S-07 Console** | P3 list + detail + stacks | S-02, S-03, S-04 |
-| **S-08 Toolbar and status** | Pause/follow, clear, export/copy, capture on/off, buffer gauge, settings popover, states | S-02, S-03, S-04, S-01 |
+| **S-08 Frame, toolbar and status** | P4 app frame (replaces S-02's placeholder): title bar, top tabs and Network sub-tab routing, resize/dock/maximize, scheduler (rAF batching), settings storage, banners. Toolbar: pause/follow, clear, export/copy, capture on/off. Status bar, settings popover, states | S-02, S-03, S-04, S-01 |
 | **S-09 Accessibility** | Keyboard map, focus, forced colours, reduced motion | S-05 … S-08 |
 | **S-10 Integration and verification** | Angular + React + plain hosts, end-to-end, performance, security, packaging (`npm pack`), README | all |
 
@@ -1035,7 +1036,7 @@ Each spec lives in `docs/specs/<nn>-<slug>/` with `spec.md`, `plan.md` and a
 ```
 Wave 1:  S-00
 Wave 2:  S-01 ║ S-02 ║ S-03 ║ S-04            (parallel — they code against the S-00 contract)
-Wave 3:  S-05 ║ S-06 ║ S-07 ║ S-08            (parallel — one view each; they plug into the S-02 frame, no shared files)
+Wave 3:  S-05 ║ S-06 ║ S-07 ║ S-08            (parallel — one view each, plus the frame; a small contract PR first fixes the view interface the frame mounts)
 Wave 4:  S-09 ─► S-10                         (sequential — S-09 touches every view, after wave 3 is merged)
 ```
 
@@ -1051,9 +1052,10 @@ end to end that every `MUST` is covered.
 |---|---|
 | BR-01…07 | S-10 (verified end to end) |
 | FR-ACT-01, 02, 03, 04, 05, 06, 07 | S-02 (badge rule `isProblemEntry` from S-01) |
-| FR-ACT-08 | S-02 |
-| FR-ACT-09 | S-01 (controller) + S-02 (banner in the frame) + S-08 (the switch) |
-| FR-WIN-01…07 | S-02 |
+| FR-ACT-08 | S-08 (settings storage) |
+| FR-ACT-09 | S-01 (controller) + S-08 (banner and switch) |
+| FR-WIN-01, 05 | S-02 (overlay, close) |
+| FR-WIN-02, 03, 04, 06, 07 | S-08 (dock, resize, maximize, tabs, host-modal banner) |
 | FR-HTTP-01…07 | S-05 (pending rows need S-01; cURL builder from S-03) |
 | FR-WS-01…05 | S-06 |
 | FR-CON-01…05 | S-07 |
@@ -1064,7 +1066,7 @@ end to end that every `MUST` is covered.
 | FR-COM-05 | S-09 |
 | NFR-ISO-01 | S-02 (fixture and shell rules) + every view spec for its own rules |
 | NFR-PERF-01, 05 | S-02 |
-| NFR-PERF-02, 03, 04, 06 | S-02 (scheduler) + S-03 + S-04 (built), S-10 (measured) |
+| NFR-PERF-02, 03, 04, 06 | S-08 (scheduler) + S-03 + S-04 (built), S-10 (measured) |
 | NFR-SIZE-01 | S-00 (baseline and check), S-10 (final) |
 | NFR-SEC-01…04 | S-04 (safe builder), S-05 (cURL, copy), S-08 (export), S-10 (CSP page) |
 | NFR-REL-01 | S-02 + every spec (lint rule, guard) |
