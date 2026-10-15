@@ -16,6 +16,32 @@ own repository: everything it needs lives inside this folder.
 | v1 background | [`docs/v1/`](docs/v1/) — v1's usage guide and decision record, as they were when v2 started. |
 | Code | `src/` — see below. |
 
+## Develop
+
+Everything runs from this folder, with its own install:
+
+```bash
+cd packages/debug-capture
+npm ci
+npm run check        # every check below, in order
+```
+
+| Command | What it checks |
+|---|---|
+| `npm run typecheck` | TypeScript, strict, specs included |
+| `npm run lint` | ESLint rules (no `any`, no `console`, no HTML strings…) |
+| `npm run lint:layers` | each layer imports only the one above it (HLD §6.2) |
+| `npm run format:check` | Prettier formatting (`npm run format` fixes it) |
+| `npm run contrast` | the HLD §5.4 colour tokens meet WCAG contrast |
+| `npm test` | all unit specs, headless Chromium |
+| `npm run build` | ESM + `.d.ts` per entry point, and `dist/*.mjs` bundles |
+| `npm run size` | bundle size budgets |
+| `npm run e2e` | Playwright smoke test on a plain HTML page |
+
+- **Rules** for people and agents: [`AGENTS.md`](AGENTS.md).
+- **Design** (source of truth): [`docs/design/HLD.md`](docs/design/HLD.md).
+- **Specs** (one folder per piece of work): [`docs/specs/`](docs/specs/README.md).
+
 ## Status
 
 **Seed.** `src/` is a copy of v1 as of host-app commit `8fb0a0d`
