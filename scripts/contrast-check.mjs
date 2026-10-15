@@ -115,9 +115,7 @@ function sectionText(markdown, heading) {
  * `--dcp-` prefix removed.
  */
 export function parseTokenTable(markdown) {
-  const text = /^### 5\.4 /m.test(markdown)
-    ? sectionText(markdown, '### 5.4 ')
-    : markdown;
+  const text = /^### 5\.4 /m.test(markdown) ? sectionText(markdown, '### 5.4 ') : markdown;
   const dark = {};
   const light = {};
   const row =
@@ -200,12 +198,7 @@ export function checkTheme(theme) {
   const plainBgs = BASES.map((b) => ({ label: b, hex: need(theme, b) }));
   pairs('border-control', need(theme, 'border-control'), plainBgs, NON_TEXT_FLOOR);
 
-  pairs(
-    'text on match-bg',
-    need(theme, 'text'),
-    [{ label: 'match-bg', hex: need(theme, 'match-bg') }],
-    TEXT_FLOOR,
-  );
+  pairs('text on match-bg', need(theme, 'text'), [{ label: 'match-bg', hex: need(theme, 'match-bg') }], TEXT_FLOOR);
 
   for (const b of BADGES) {
     const fg = need(theme, b.token);
@@ -237,10 +230,7 @@ export function compareMeasured(written, computed) {
       problems.push(`no computed value for "${name}"`);
       continue;
     }
-    const want =
-      values.length === 1
-        ? fmt(values[0])
-        : `${fmt(Math.min(...values))}–${fmt(Math.max(...values))}`;
+    const want = values.length === 1 ? fmt(values[0]) : `${fmt(Math.min(...values))}–${fmt(Math.max(...values))}`;
     const have = written[name];
     if (have === undefined) problems.push(`"${name}" is missing (computed ${want})`);
     else if (have !== want) problems.push(`"${name}" says ${have}, computed ${want}`);

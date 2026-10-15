@@ -83,7 +83,8 @@ export function installWebSocketProbe(recorder: Recorder, clock: Clock, host: We
       data.arrayBuffer().then(
         (buffer) => guard(() => emit(socketId, url, event, t, binary(new Uint8Array(buffer)))),
         // Unreadable Blob: the frame still happened, so keep it, with its size.
-        () => guard(() => emit(socketId, url, event, t, { opcode: 'binary', bytes: data.size, data: null, code: null })),
+        () =>
+          guard(() => emit(socketId, url, event, t, { opcode: 'binary', bytes: data.size, data: null, code: null })),
       );
     } else if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
       emit(socketId, url, event, t, binary(bytesOf(data)));
@@ -103,8 +104,14 @@ export function installWebSocketProbe(recorder: Recorder, clock: Clock, host: We
       // Outside the app's zone: under zone.js each listener would otherwise be
       // one more task in Angular's zone — a change detection pass per frame.
       outsideZones(() => {
-        socket.addEventListener('open', lifecycle('open', () => NO_PAYLOAD));
-        socket.addEventListener('error', lifecycle('error', () => NO_PAYLOAD));
+        socket.addEventListener(
+          'open',
+          lifecycle('open', () => NO_PAYLOAD),
+        );
+        socket.addEventListener(
+          'error',
+          lifecycle('error', () => NO_PAYLOAD),
+        );
         socket.addEventListener('message', (event: MessageEvent<unknown>) =>
           guard(() => recordFrame(socket, socketId, 'receive', event.data)),
         );

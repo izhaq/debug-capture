@@ -14,13 +14,7 @@ export type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
 export const LOG_LEVELS: readonly LogLevel[] = Object.freeze(['log', 'info', 'warn', 'error', 'debug']);
 
 /** What survives JSON.stringify unchanged — the shape stored entries use. */
-export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | readonly JsonValue[]
-  | { readonly [key: string]: JsonValue };
+export type JsonValue = string | number | boolean | null | readonly JsonValue[] | { readonly [key: string]: JsonValue };
 
 /** Header name → value. Keys are always lower-case. */
 export type HeaderMap = Readonly<Record<string, string>>;
@@ -330,8 +324,7 @@ export interface PendingRequest {
  * a row that will not finish.
  */
 export type PendingEvent =
-  | { readonly type: 'start'; readonly request: PendingRequest }
-  | { readonly type: 'end'; readonly id: number };
+  { readonly type: 'start'; readonly request: PendingRequest } | { readonly type: 'end'; readonly id: number };
 
 /** C-1. A throwing listener is isolated, like `EntryListener`. */
 export type PendingListener = (event: PendingEvent) => void;

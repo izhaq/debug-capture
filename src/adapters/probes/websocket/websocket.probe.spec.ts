@@ -193,7 +193,7 @@ describe('installWebSocketProbe', () => {
     socket.close();
   });
 
-  it('records open, receive, close and error with the socket\'s url', () => {
+  it("records open, receive, close and error with the socket's url", () => {
     const host = fakeHost();
     install(host);
     const socket = openFake(host);
@@ -269,7 +269,10 @@ describe('installWebSocketProbe', () => {
     socket.send(new Blob(['ok']));
     await until(() => recorder.ws().length === 4);
 
-    const frames = recorder.ws().slice(1).map(({ event, opcode, bytes, data }) => ({ event, opcode, bytes, data }));
+    const frames = recorder
+      .ws()
+      .slice(1)
+      .map(({ event, opcode, bytes, data }) => ({ event, opcode, bytes, data }));
     expect(frames).toContain({ event: 'receive', opcode: 'binary', bytes: 4, data: btoa('hi\x00\xff') });
     expect(frames).toContain({ event: 'receive', opcode: 'binary', bytes: 3, data: btoa('\x07\x08\x09') });
     expect(frames).toContain({ event: 'send', opcode: 'binary', bytes: 2, data: btoa('ok') });
@@ -359,8 +362,28 @@ describe('installWebSocketProbe', () => {
     await closed;
 
     expect(recorder.ws()).toEqual([
-      { kind: 'ws', t: 777, socketId: 1, url: 'ws://127.0.0.1:9/', event: 'error', opcode: null, bytes: null, data: null, code: null },
-      { kind: 'ws', t: 777, socketId: 1, url: 'ws://127.0.0.1:9/', event: 'close', opcode: null, bytes: null, data: null, code: 1006 },
+      {
+        kind: 'ws',
+        t: 777,
+        socketId: 1,
+        url: 'ws://127.0.0.1:9/',
+        event: 'error',
+        opcode: null,
+        bytes: null,
+        data: null,
+        code: null,
+      },
+      {
+        kind: 'ws',
+        t: 777,
+        socketId: 1,
+        url: 'ws://127.0.0.1:9/',
+        event: 'close',
+        opcode: null,
+        bytes: null,
+        data: null,
+        code: 1006,
+      },
     ]);
   });
 
@@ -455,7 +478,7 @@ describe('installWebSocketProbe', () => {
     expect(host.WebSocket).toBe(later);
   });
 
-  it('probe listeners run outside the app\'s zone', () => {
+  it("probe listeners run outside the app's zone", () => {
     const host = fakeHost();
     install(host);
     const app = countingZone();

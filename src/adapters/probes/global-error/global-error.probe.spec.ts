@@ -78,14 +78,20 @@ describe('installGlobalErrorProbe', () => {
     ]);
   });
 
-  it('uses the error\'s stack when present', () => {
+  it("uses the error's stack when present", () => {
     installGlobalErrorProbe(recorder, clock, host);
     const error = new TypeError('bad type');
 
     host.dispatchEvent(new ErrorEvent('error', { message: 'Uncaught TypeError: bad type', error }));
 
     expect(drafts).toEqual([
-      { kind: 'error', source: 'window', t: 2_000, message: 'Uncaught TypeError: bad type', stack: error.stack ?? null },
+      {
+        kind: 'error',
+        source: 'window',
+        t: 2_000,
+        message: 'Uncaught TypeError: bad type',
+        stack: error.stack ?? null,
+      },
     ]);
     expect(typeof error.stack).toBe('string');
   });
@@ -134,10 +140,7 @@ describe('installGlobalErrorProbe', () => {
     host.addEventListener('error', later);
     host.addEventListener('unhandledrejection', later);
 
-    const events: Event[] = [
-      new ErrorEvent('error', { message: 'x', cancelable: true }),
-      rejection(new Error('y')),
-    ];
+    const events: Event[] = [new ErrorEvent('error', { message: 'x', cancelable: true }), rejection(new Error('y'))];
     for (const event of events) {
       const preventDefault = spyOn(event, 'preventDefault').and.callThrough();
       const stopPropagation = spyOn(event, 'stopPropagation').and.callThrough();

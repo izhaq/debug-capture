@@ -89,9 +89,19 @@ describe('toJsonSafe', () => {
 
     const result = toJsonSafe(map, DEPTH);
 
-    expect(result).toEqual({ '[Map]': [['a', 1], [{ id: 1 }, '1970-01-01T00:00:00.000Z']] });
+    expect(result).toEqual({
+      '[Map]': [
+        ['a', 1],
+        [{ id: 1 }, '1970-01-01T00:00:00.000Z'],
+      ],
+    });
     key.id = 2;
-    expect(result).toEqual({ '[Map]': [['a', 1], [{ id: 1 }, '1970-01-01T00:00:00.000Z']] });
+    expect(result).toEqual({
+      '[Map]': [
+        ['a', 1],
+        [{ id: 1 }, '1970-01-01T00:00:00.000Z'],
+      ],
+    });
   });
 
   it('clones a Set as its values', () => {
@@ -311,9 +321,7 @@ describe('toJsonSafe', () => {
     });
 
     it('counts object keys against the character budget', () => {
-      expect(cloneArgs([{ abc: 'def', ghi: 'jkl' }], { maxBodyLength: 8 })).toEqual([
-        { abc: 'def', '…': '[…]' },
-      ]);
+      expect(cloneArgs([{ abc: 'def', ghi: 'jkl' }], { maxBodyLength: 8 })).toEqual([{ abc: 'def', '…': '[…]' }]);
     });
 
     it('marks values beyond the budget with [the budget marker]', () => {
@@ -365,16 +373,30 @@ describe('toJsonSafe', () => {
       const value = {
         newPassword: 'a',
         tokenCount: 3,
-        headers: new Map([['x-api-key', 'b'], ['passwordPolicy', 'kept']]),
-        fields: [{ name: 'confirm_password', value: 'c' }, { name: 'secretary', value: 'kept' }],
+        headers: new Map([
+          ['x-api-key', 'b'],
+          ['passwordPolicy', 'kept'],
+        ]),
+        fields: [
+          { name: 'confirm_password', value: 'c' },
+          { name: 'secretary', value: 'kept' },
+        ],
       };
 
       expect(cloneArgs([value], SECRETS)).toEqual([
         {
           newPassword: R,
           tokenCount: 3,
-          headers: { '[Map]': [['x-api-key', R], ['passwordPolicy', 'kept']] },
-          fields: [{ name: 'confirm_password', value: R }, { name: 'secretary', value: 'kept' }],
+          headers: {
+            '[Map]': [
+              ['x-api-key', R],
+              ['passwordPolicy', 'kept'],
+            ],
+          },
+          fields: [
+            { name: 'confirm_password', value: R },
+            { name: 'secretary', value: 'kept' },
+          ],
         },
       ]);
     });
@@ -398,11 +420,7 @@ describe('toJsonSafe', () => {
         SECRETS,
       );
 
-      expect(result).toEqual([
-        'req',
-        { '[Map]': [['authorization', R]] },
-        { headers: { '[Map]': [['token', R]] } },
-      ]);
+      expect(result).toEqual(['req', { '[Map]': [['authorization', R]] }, { headers: { '[Map]': [['token', R]] } }]);
     });
 
     it('redacts the value of a { name, value } pair that names a secret', () => {

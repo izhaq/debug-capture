@@ -48,7 +48,13 @@ describe('http helpers', () => {
     });
 
     it('reads pairs and joins duplicates', () => {
-      expect(headersToMap([['X-A', '1'], ['x-a', '2'], ['B', '3']])).toEqual({ 'x-a': '1, 2', b: '3' });
+      expect(
+        headersToMap([
+          ['X-A', '1'],
+          ['x-a', '2'],
+          ['B', '3'],
+        ]),
+      ).toEqual({ 'x-a': '1, 2', b: '3' });
     });
 
     it('reads a record and handles undefined', () => {

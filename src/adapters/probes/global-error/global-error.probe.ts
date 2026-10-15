@@ -15,11 +15,7 @@ export interface ErrorEventHost {
  * loads also fire `error`, but those do not bubble to `window` — they are not
  * uncaught errors and would only add noise.
  */
-export function installGlobalErrorProbe(
-  recorder: Recorder,
-  clock: Clock,
-  host: ErrorEventHost = globalThis,
-): Probe {
+export function installGlobalErrorProbe(recorder: Recorder, clock: Clock, host: ErrorEventHost = globalThis): Probe {
   /** Dropped on dispose, so a listener someone still holds cannot keep the buffer alive. */
   let sink: Recorder | null = recorder;
 

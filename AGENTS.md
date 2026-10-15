@@ -49,7 +49,7 @@ and the HLD disagree, the HLD wins — or change the HLD first, in its own PR.
 12. Never feed the recorder: no `console.*` in `src/` (lint lists the few
     files that call it on purpose); every callback in `try/catch`; every
     promise has a `.catch` (`ISO-12`).
-13. Doc comments say *why*, not *what*.
+13. Doc comments say _why_, not _what_.
 14. Specs sit next to the code (`x.ts`, `x.spec.ts`). `TestBed` only in
     `src/angular/` specs; framework-free code is tested without it.
 
@@ -58,21 +58,21 @@ and the HLD disagree, the HLD wins — or change the HLD first, in its own PR.
 Each layer imports only the barrel of the layer directly above it (the
 "May import" column).
 
-| Layer | Path | May import |
-|---|---|---|
-| L1 contract | `src/contract/` | nothing |
-| L2 core | `src/core/` | L1 |
-| L3 adapters | `src/adapters/` | L2 |
-| L4 install | `src/install/` | L3 |
-| L5 public | `src/index.ts` | L4 |
-| L6 angular | `src/angular/` | L5 (as `'..'`), `@angular/*`, `rxjs` |
-| L6 react | `src/react/` | L5 only (no packages, not even React) |
-| L6 panel | `src/panel/` | see P1–P5 |
-| P1 model | `src/panel/model/` | L5 (as `'../..'`). Pure: no DOM, no timers, no globals |
-| P2 ui | `src/panel/ui/` | P1, and the `document` passed in |
-| P3 views | `src/panel/views/` | P2 |
-| P4 app | `src/panel/app/` | P3 |
-| P5 loader | `src/panel/index.ts` | L5; P4 **only** by `import type` and **one** dynamic `import()` |
+| Layer       | Path                 | May import                                                      |
+| ----------- | -------------------- | --------------------------------------------------------------- |
+| L1 contract | `src/contract/`      | nothing                                                         |
+| L2 core     | `src/core/`          | L1                                                              |
+| L3 adapters | `src/adapters/`      | L2                                                              |
+| L4 install  | `src/install/`       | L3                                                              |
+| L5 public   | `src/index.ts`       | L4                                                              |
+| L6 angular  | `src/angular/`       | L5 (as `'..'`), `@angular/*`, `rxjs`                            |
+| L6 react    | `src/react/`         | L5 only (no packages, not even React)                           |
+| L6 panel    | `src/panel/`         | see P1–P5                                                       |
+| P1 model    | `src/panel/model/`   | L5 (as `'../..'`). Pure: no DOM, no timers, no globals          |
+| P2 ui       | `src/panel/ui/`      | P1, and the `document` passed in                                |
+| P3 views    | `src/panel/views/`   | P2                                                              |
+| P4 app      | `src/panel/app/`     | P3                                                              |
+| P5 loader   | `src/panel/index.ts` | L5; P4 **only** by `import type` and **one** dynamic `import()` |
 
 - L6 seams never import each other. No packages anywhere in `src/panel/`.
 - The P5 rule keeps the UI chunk lazy: a static value import of P4 would pull
@@ -104,18 +104,18 @@ Each layer imports only the barrel of the layer directly above it (the
 Run from `packages/debug-capture/` after `npm ci`. All must pass before a
 commit.
 
-| Command | What it checks |
-|---|---|
-| `npm run typecheck` | `tsc`, strict, specs included |
-| `npm run lint` | ESLint: no `any`, no `console`, no `innerHTML`-family or `eval`, no `Date.now()` |
-| `npm run lint:layers` | the layer rules above (has a `--self-test`) |
-| `npm run format:check` | Prettier (`npm run format` fixes it) |
-| `npm run contrast` | HLD §5.4 tokens meet 4.5:1 / 3:1 (has a `--self-test`) |
-| `npm test` | every `src/**/*.spec.ts`, headless Chromium, one run |
-| `npm run build` | `tsc` ESM + `.d.ts`, and the `dist/*.mjs` bundles |
-| `npm run size` | size budgets (`NFR-SIZE-01`) |
-| `npm run e2e` | Playwright smoke on a plain HTML page |
-| `npm run check` | all of the above, in that order (not `format`) |
+| Command                | What it checks                                                                   |
+| ---------------------- | -------------------------------------------------------------------------------- |
+| `npm run typecheck`    | `tsc`, strict, specs included                                                    |
+| `npm run lint`         | ESLint: no `any`, no `console`, no `innerHTML`-family or `eval`, no `Date.now()` |
+| `npm run lint:layers`  | the layer rules above (has a `--self-test`)                                      |
+| `npm run format:check` | Prettier (`npm run format` fixes it)                                             |
+| `npm run contrast`     | HLD §5.4 tokens meet 4.5:1 / 3:1 (has a `--self-test`)                           |
+| `npm test`             | every `src/**/*.spec.ts`, headless Chromium, one run                             |
+| `npm run build`        | `tsc` ESM + `.d.ts`, and the `dist/*.mjs` bundles                                |
+| `npm run size`         | size budgets (`NFR-SIZE-01`)                                                     |
+| `npm run e2e`          | Playwright smoke on a plain HTML page                                            |
+| `npm run check`        | all of the above, in that order (not `format`)                                   |
 
 21. A PR that changes what ships reports the `npm run size` numbers and the
     change.
@@ -147,12 +147,12 @@ commit.
 
 31. Put each thing where it belongs:
 
-| Path | Holds |
-|---|---|
-| `docs/design/` | the HLD (why, what, and the decisions in §10) and the mockup |
-| `docs/specs/` | specs, plans and PR briefs, one folder per spec |
-| `docs/research/` | evidence behind the HLD (isolation cases, practices) |
-| `docs/v1/` | v1's guide and decision record, as they were |
-| `scripts/` | check scripts (`lint:layers`, `contrast`, `size`…) |
-| `src/` | the code, with its specs next to it |
-| `test/` | test hosts, the hostile host, end-to-end and perf tests |
+| Path             | Holds                                                        |
+| ---------------- | ------------------------------------------------------------ |
+| `docs/design/`   | the HLD (why, what, and the decisions in §10) and the mockup |
+| `docs/specs/`    | specs, plans and PR briefs, one folder per spec              |
+| `docs/research/` | evidence behind the HLD (isolation cases, practices)         |
+| `docs/v1/`       | v1's guide and decision record, as they were                 |
+| `scripts/`       | check scripts (`lint:layers`, `contrast`, `size`…)           |
+| `src/`           | the code, with its specs next to it                          |
+| `test/`          | test hosts, the hostile host, end-to-end and perf tests      |

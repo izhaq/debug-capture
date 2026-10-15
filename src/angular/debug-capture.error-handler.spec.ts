@@ -83,9 +83,7 @@ describe('DebugCaptureErrorHandler', () => {
     handler.handleError(wrapper);
 
     expect(drafts.length).toBe(1);
-    expect(drafts[0]).toEqual(
-      jasmine.objectContaining({ message: 'request failed', stack: cause.stack ?? null }),
-    );
+    expect(drafts[0]).toEqual(jasmine.objectContaining({ message: 'request failed', stack: cause.stack ?? null }));
   });
 
   it('describes string and object errors', () => {

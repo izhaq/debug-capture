@@ -435,7 +435,11 @@ describe('installXhrProbe', () => {
   });
 
   it('restores the prototype on dispose (own and inherited methods)', () => {
-    const originals = { open: Fake.prototype.open, setRequestHeader: Fake.prototype.setRequestHeader, send: Fake.prototype.send };
+    const originals = {
+      open: Fake.prototype.open,
+      setRequestHeader: Fake.prototype.setRequestHeader,
+      send: Fake.prototype.send,
+    };
 
     // Own methods (like the real XMLHttpRequest.prototype): assigned back.
     const probe = installXhrProbe(rec.recorder, time.clock, hostFor(Fake));
@@ -601,7 +605,10 @@ describe('installXhrProbe', () => {
 
   it('keeps the failure kind when the app retries inside an earlier error or timeout listener', () => {
     const probe = installXhrProbe(rec.recorder, time.clock, hostFor(Fake));
-    for (const [type, timeout] of [['timeout', 50], ['error', 0]] as const) {
+    for (const [type, timeout] of [
+      ['timeout', 50],
+      ['error', 0],
+    ] as const) {
       const xhr = new Fake() as InstanceType<FakeXhrClass> & { timeout: number };
       xhr.timeout = timeout;
       let retried = false;
@@ -643,7 +650,7 @@ describe('installXhrProbe', () => {
     probe.dispose();
   });
 
-  it('probe listeners run outside the app\'s zone', async () => {
+  it("probe listeners run outside the app's zone", async () => {
     const HostXhr = class extends XMLHttpRequest {};
     const probe = installXhrProbe(rec.recorder, time.clock, hostFor(HostXhr));
     const url = jsonBlobUrl('{"a":1}');

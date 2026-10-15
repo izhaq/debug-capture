@@ -260,11 +260,17 @@ function readResponse(xhr: XMLHttpRequest): { text: string | null; described: st
       return { text: null, described: xhr.response === null ? null : JSON.stringify(xhr.response) };
     case 'arraybuffer': {
       const buffer: unknown = xhr.response;
-      return { text: null, described: buffer instanceof ArrayBuffer ? `[arraybuffer ${buffer.byteLength} bytes]` : null };
+      return {
+        text: null,
+        described: buffer instanceof ArrayBuffer ? `[arraybuffer ${buffer.byteLength} bytes]` : null,
+      };
     }
     case 'blob': {
       const blob: unknown = xhr.response;
-      return { text: null, described: typeof Blob !== 'undefined' && blob instanceof Blob ? `[blob ${blob.size} bytes]` : null };
+      return {
+        text: null,
+        described: typeof Blob !== 'undefined' && blob instanceof Blob ? `[blob ${blob.size} bytes]` : null,
+      };
     }
     case 'document':
       return { text: null, described: '[document]' };

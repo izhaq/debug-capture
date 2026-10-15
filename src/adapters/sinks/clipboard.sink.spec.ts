@@ -89,7 +89,7 @@ describe('copyText', () => {
     });
   });
 
-  it('resolves with execCommand\'s result when the browser refuses the copy', async () => {
+  it("resolves with execCommand's result when the browser refuses the copy", async () => {
     execCommand.and.returnValue(false);
 
     await expectAsync(copyText('hello', plainHttpHost())).toBeResolvedTo(false);

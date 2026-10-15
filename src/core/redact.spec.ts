@@ -49,7 +49,7 @@ describe('redact', () => {
     expect(redactJsonText('null', keys, R)).toBe('null');
   });
 
-  it('redacts the login request body\'s password', () => {
+  it("redacts the login request body's password", () => {
     const body = '{"username":"op","password":"s3cret","mode":"operation","position":"active"}';
 
     const result = redactJsonText(body, DEFAULT_CAPTURE_POLICY.redactJsonKeys, R);

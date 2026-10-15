@@ -92,7 +92,7 @@ describe('installConsoleProbe', () => {
     }
   });
 
-  it('returns the original\'s return value', () => {
+  it("returns the original's return value", () => {
     installConsoleProbe(recorder, clock, host);
 
     for (const level of LOG_LEVELS) {

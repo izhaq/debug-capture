@@ -415,7 +415,7 @@ export function looksLikeJsonContainer(text: string): boolean {
     if (c === 0x20 || c === 0x09 || c === 0x0a || c === 0x0d) {
       continue;
     }
-    return c === 0x7b /* { */ || c === 0x5b /* [ */;
+    return c === 0x7b /* { */ || c === 0x5b; /* [ */
   }
   return false;
 }

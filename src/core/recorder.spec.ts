@@ -642,7 +642,10 @@ describe('createRecorder', () => {
 
       urls.forEach((url, i) => recorder.record(wsDraft({ socketId: i, event: 'open', opcode: null, data: null, url })));
 
-      const stored = recorder.snapshot().map((e) => (e as WebSocketEntry).url).join(' ');
+      const stored = recorder
+        .snapshot()
+        .map((e) => (e as WebSocketEntry).url)
+        .join(' ');
       const kept = stored.match(/S\d+/g) ?? [];
       // `code`, `auth`, `jwt` and `key` are too generic for the defaults (documented).
       expect(kept).toEqual(['S12', 'S15', 'S16', 'S17']);

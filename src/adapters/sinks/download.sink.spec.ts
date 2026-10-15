@@ -97,9 +97,7 @@ describe('downloadText', () => {
   it('cleans up even if click throws, and rethrows', () => {
     click.and.throwError('click blocked');
 
-    expect(() => downloadText('{}', 'capture.json', 'application/json', host)).toThrowError(
-      'click blocked',
-    );
+    expect(() => downloadText('{}', 'capture.json', 'application/json', host)).toThrowError('click blocked');
 
     expect(doc.body.childNodes.length).toBe(0);
     flushDeferred();

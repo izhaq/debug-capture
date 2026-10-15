@@ -26,14 +26,26 @@ describe('parseShortcut', () => {
 
     expect(letter).not.toBeNull();
     expect(letter?.(keydown({ code: 'KeyD', ctrl: true, alt: true, shift: true }))).toBeTrue();
-    expect(parseShortcut(' ctrl + alt + shift + d ')?.(keydown({ code: 'KeyD', ctrl: true, alt: true, shift: true })))
-      .toBeTrue();
+    expect(
+      parseShortcut(' ctrl + alt + shift + d ')?.(keydown({ code: 'KeyD', ctrl: true, alt: true, shift: true })),
+    ).toBeTrue();
     expect(digit?.(keydown({ code: 'Digit1', meta: true }))).toBeTrue();
     expect(parseShortcut('d')?.(keydown({ code: 'KeyD' }))).toBeTrue();
   });
 
   it('rejects malformed specs', () => {
-    for (const spec of ['', 'ctrl', 'ctrl+', 'ctrl+alt', 'ctrl+dd', 'ctrl+d+e', 'ctrl+ctrl+d', 'hyper+d', 'ctrl+f1', 'ctrl+-']) {
+    for (const spec of [
+      '',
+      'ctrl',
+      'ctrl+',
+      'ctrl+alt',
+      'ctrl+dd',
+      'ctrl+d+e',
+      'ctrl+ctrl+d',
+      'hyper+d',
+      'ctrl+f1',
+      'ctrl+-',
+    ]) {
       expect(parseShortcut(spec)).withContext(spec).toBeNull();
     }
   });

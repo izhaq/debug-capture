@@ -199,7 +199,11 @@ describe('installFetchProbe', () => {
   it('takes method, headers and body from init over a Request', async () => {
     const { host } = fakeHost(() => Promise.resolve(new Response('')));
     const probe = installFetchProbe(rec.recorder, time.clock, host);
-    const request = new Request('http://other.test/r', { method: 'PUT', headers: { 'X-A': 'req' }, body: 'from request' });
+    const request = new Request('http://other.test/r', {
+      method: 'PUT',
+      headers: { 'X-A': 'req' },
+      body: 'from request',
+    });
 
     await host.fetch(request, { method: 'patch', headers: [['X-B', 'init']], body: new URLSearchParams({ q: '1' }) });
     await host.fetch(new Request('http://other.test/plain', { method: 'DELETE', headers: { 'X-C': 'c' } }));
@@ -369,7 +373,9 @@ describe('installFetchProbe', () => {
         stream.error(new DOMException('The user aborted a request.', 'AbortError'));
       },
     });
-    const fake = fakeHost(() => Promise.resolve(new Response(aborting, { headers: { 'Content-Type': 'application/json' } })));
+    const fake = fakeHost(() =>
+      Promise.resolve(new Response(aborting, { headers: { 'Content-Type': 'application/json' } })),
+    );
     const fakeProbe = installFetchProbe(rec.recorder, time.clock, fake.host);
     await fake.host.fetch('/aborted');
 
@@ -382,7 +388,7 @@ describe('installFetchProbe', () => {
     fakeProbe.dispose();
   });
 
-  it('stops reading an endless text body at the cap and leaves the app\'s body readable', async () => {
+  it("stops reading an endless text body at the cap and leaves the app's body readable", async () => {
     const chunk = new TextEncoder().encode('{"tick":1}\n'.repeat(1000));
     let cancelled = false;
     const endless = new ReadableStream<Uint8Array>({
@@ -429,7 +435,7 @@ describe('installFetchProbe', () => {
     probe.dispose();
   });
 
-  it('probe listeners run outside the app\'s zone', async () => {
+  it("probe listeners run outside the app's zone", async () => {
     const app = countingZone();
     const recordedIn: string[] = [];
     const recorder: Recorder = {
