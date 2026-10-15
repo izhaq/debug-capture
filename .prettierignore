@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+.test-out/
+test-results/
+playwright-report/
+package-lock.json
+# Design documents and the mockup are hand-laid-out; prettier would rewrap their tables.
+docs/

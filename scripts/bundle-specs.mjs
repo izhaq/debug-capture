@@ -41,7 +41,9 @@ await esbuild.build({
   plugins: coverage ? [istanbulPlugin()] : [],
   logLevel: 'warning',
 });
-console.log(`bundled ${specs.length} spec files${coverage ? ' (with coverage)' : ''} → ${toPosix(path.relative(root, outFile))}`);
+console.log(
+  `bundled ${specs.length} spec files${coverage ? ' (with coverage)' : ''} → ${toPosix(path.relative(root, outFile))}`,
+);
 
 /** Instruments `src/**\/*.ts` except specs. */
 function istanbulPlugin() {

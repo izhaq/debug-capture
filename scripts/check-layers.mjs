@@ -141,7 +141,9 @@ export function checkImport(from, specifier, exists, kind = 'value') {
   if (target === null) {
     if (isRelative(specifier)) return `cannot be resolved to a .ts file, so it cannot be checked (rule 4)`;
     if (packages) {
-      return packages.some((re) => re.test(specifier)) ? null : `${id} angular may import only @angular/*, rxjs and rxjs/* packages (rule 6)`;
+      return packages.some((re) => re.test(specifier))
+        ? null
+        : `${id} angular may import only @angular/*, rxjs and rxjs/* packages (rule 6)`;
     }
     return `only ${SRC}/angular/ may import packages (rule 5)`;
   }
@@ -159,7 +161,8 @@ export function checkImport(from, specifier, exists, kind = 'value') {
 
   if (lazy && classify(target) === lazy) {
     const lazyLayer = LAYERS[lazy];
-    if (target !== lazyLayer.barrel) return `${id} may reach ${lazyLayer.id} only through its barrel, and only as types or by import() (rule 8)`;
+    if (target !== lazyLayer.barrel)
+      return `${id} may reach ${lazyLayer.id} only through its barrel, and only as types or by import() (rule 8)`;
     return kind === 'type' || kind === 'dynamic'
       ? null
       : `${id} may import the ${lazyLayer.id} barrel only by \`import type\`/\`export type\` or a dynamic import() — a value import would pull the UI chunk into the loader (rule 8)`;
@@ -210,7 +213,8 @@ function isIndex(file) {
 export function extractImports(text, fileName = 'file.ts') {
   const found = [];
   const source = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-  const literal = (node) => (node && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) ? node.text : null);
+  const literal = (node) =>
+    node && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) ? node.text : null;
   const visit = (node) => {
     if (ts.isImportDeclaration(node)) {
       found.push({ specifier: literal(node.moduleSpecifier), kind: node.importClause?.isTypeOnly ? 'type' : 'value' });
@@ -275,7 +279,9 @@ export function checkTree(files) {
     }
   }
   if (lazyLoads.length > 1) {
-    violations.push(`${lazyLoads.join(', ')}: ${lazyLoads.length} dynamic import()s of the P4 barrel — P5 loads the UI chunk from one place only (rule 8)`);
+    violations.push(
+      `${lazyLoads.join(', ')}: ${lazyLoads.length} dynamic import()s of the P4 barrel — P5 loads the UI chunk from one place only (rule 8)`,
+    );
   }
   return violations;
 }
@@ -295,7 +301,9 @@ function main(root) {
     console.error(`\n${violations.length} layer violation${violations.length === 1 ? '' : 's'}.`);
     process.exit(1);
   }
-  const panel = [...files.keys()].some((f) => isInside(f, `${SRC}/panel`)) ? '' : ' (no src/panel/ yet — P1–P5 not checked)';
+  const panel = [...files.keys()].some((f) => isInside(f, `${SRC}/panel`))
+    ? ''
+    : ' (no src/panel/ yet — P1–P5 not checked)';
   console.log(`ok — layer rules hold across ${files.size} files in ${SRC}/${panel}`);
 }
 
@@ -450,10 +458,28 @@ const SELF_TEST_CASES = [
 
 const EXTRACT_CASES = [
   [`import type { A } from './a';`, [['./a', 'type']]],
-  [`import { A } from './a';\nimport './side-effect';`, [['./a', 'value'], ['./side-effect', 'value']]],
+  [
+    `import { A } from './a';\nimport './side-effect';`,
+    [
+      ['./a', 'value'],
+      ['./side-effect', 'value'],
+    ],
+  ],
   [`import { type A } from './a';`, [['./a', 'value']]],
-  [`export * from '../b';\nexport { c } from './c';`, [['../b', 'value'], ['./c', 'value']]],
-  [`export type { A } from './a';\nexport type * from './b';`, [['./a', 'type'], ['./b', 'type']]],
+  [
+    `export * from '../b';\nexport { c } from './c';`,
+    [
+      ['../b', 'value'],
+      ['./c', 'value'],
+    ],
+  ],
+  [
+    `export type { A } from './a';\nexport type * from './b';`,
+    [
+      ['./a', 'type'],
+      ['./b', 'type'],
+    ],
+  ],
   [`async function f() { await import('./dyn'); }`, [['./dyn', 'dynamic']]],
   [`const f = (p: string) => import(p);`, [[null, 'dynamic']]],
   [`type T = import('./t').T;`, [['./t', 'type']]],
@@ -467,7 +493,11 @@ const CORE_ONLY = BARRELS.filter(([f]) => !f.startsWith('src/panel/'));
 /** [name, files (path → text), substrings every one of which must appear in the violations; [] = clean]. */
 const TREE_CASES = [
   ['no panel yet: panel barrels not required', CORE_ONLY, []],
-  ['panel started: every panel barrel required', [...CORE_ONLY, ['src/panel/index.ts', '']], ['src/panel/app/index.ts: missing']],
+  [
+    'panel started: every panel barrel required',
+    [...CORE_ONLY, ['src/panel/index.ts', '']],
+    ['src/panel/app/index.ts: missing'],
+  ],
   [
     'P5 re-exports P4 types and loads it once',
     [
@@ -481,7 +511,10 @@ const TREE_CASES = [
   ],
   [
     'P5 static value import of P4 (AST, not preProcessFile)',
-    [...BARRELS.filter(([f]) => f !== 'src/panel/index.ts'), ['src/panel/index.ts', `import { mountPanelUi } from './app';`]],
+    [
+      ...BARRELS.filter(([f]) => f !== 'src/panel/index.ts'),
+      ['src/panel/index.ts', `import { mountPanelUi } from './app';`],
+    ],
     ["src/panel/index.ts: imports './app'", 'rule 8'],
   ],
   [
@@ -508,19 +541,26 @@ function selfTest() {
     const got = checkImport(from, specifier, exists, kind);
     const pass = expected === null ? got === null : got !== null && got.includes(expected);
     if (!pass) {
-      failures.push(`${from} → ${kind} '${specifier}': expected ${expected === null ? 'ok' : `a '${expected}' violation`}, got ${got === null ? 'ok' : `'${got}'`}`);
+      failures.push(
+        `${from} → ${kind} '${specifier}': expected ${expected === null ? 'ok' : `a '${expected}' violation`}, got ${got === null ? 'ok' : `'${got}'`}`,
+      );
     }
   }
   for (const [text, expected] of EXTRACT_CASES) {
     const got = extractImports(text).map((i) => [i.specifier, i.kind]);
     if (JSON.stringify(got) !== JSON.stringify(expected)) {
-      failures.push(`extract ${JSON.stringify(text)}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(got)}`);
+      failures.push(
+        `extract ${JSON.stringify(text)}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(got)}`,
+      );
     }
   }
   for (const [name, entries, expected] of TREE_CASES) {
     const got = checkTree(new Map(entries));
     const pass = expected.length === 0 ? got.length === 0 : expected.every((e) => got.some((v) => v.includes(e)));
-    if (!pass) failures.push(`tree '${name}': expected ${expected.length === 0 ? 'clean' : JSON.stringify(expected)}, got ${JSON.stringify(got)}`);
+    if (!pass)
+      failures.push(
+        `tree '${name}': expected ${expected.length === 0 ? 'clean' : JSON.stringify(expected)}, got ${JSON.stringify(got)}`,
+      );
   }
 
   const total = SELF_TEST_CASES.length + EXTRACT_CASES.length + TREE_CASES.length;
@@ -542,7 +582,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     selfTest();
   } else {
     const at = args.indexOf('--root');
-    const root = at >= 0 ? path.resolve(args[at + 1]) : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+    const root =
+      at >= 0 ? path.resolve(args[at + 1]) : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
     main(root);
   }
 }

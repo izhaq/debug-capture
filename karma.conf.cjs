@@ -6,8 +6,6 @@
  * Browser: `CHROME_BIN` if set; otherwise the Chromium that the pinned
  * `@playwright/test` uses (found in `PLAYWRIGHT_BROWSERS_PATH`).
  */
-/* eslint-disable @typescript-eslint/no-require-imports */
-
 if (!process.env.CHROME_BIN) {
   try {
     process.env.CHROME_BIN = require('playwright-core').chromium.executablePath();
@@ -26,7 +24,14 @@ module.exports = (config) => {
     customLaunchers: {
       ChromeHeadlessNoSandbox: {
         base: 'ChromeHeadless',
-        flags: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
+        flags: [
+          '--no-sandbox',
+          '--disable-gpu',
+          '--disable-dev-shm-usage',
+          // No calls home: the tests need no network beyond Karma's own server.
+          '--disable-background-networking',
+          '--disable-component-update',
+        ],
       },
     },
     reporters: ['progress', 'coverage'],
