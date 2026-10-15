@@ -1,4 +1,4 @@
-import { ErrorHandler, Injectable, inject } from '@angular/core';
+import { ErrorHandler, inject } from '@angular/core';
 
 import { DEBUG_CAPTURE_SESSION } from './debug-capture.tokens';
 
@@ -11,8 +11,18 @@ import { DEBUG_CAPTURE_SESSION } from './debug-capture.tokens';
  * exactly as without capture. The console probe also records that
  * console.error line; the duplicate is intentional and cheap — the `angular`
  * entry is the one carrying the stack.
+ *
+ * No `@Injectable()` on purpose (HLD C-4, D-09): the package is built with
+ * plain `tsc`, not the Angular compiler, so a decorated class would carry no
+ * factory in an AOT host and would ask for the JIT compiler at run time.
+ * provideDebugCapture() builds it with a factory instead, which runs inside
+ * the injector, so the `inject()` below has an injection context.
+ *
+ * Built by hand, it needs one too: `new DebugCaptureErrorHandler()` in plain
+ * code throws Angular's NG0203 ("inject() must be called from an injection
+ * context"). Use provideDebugCapture(), or wrap the call in
+ * `runInInjectionContext(injector, ...)`.
  */
-@Injectable()
 export class DebugCaptureErrorHandler extends ErrorHandler {
   private readonly session = inject(DEBUG_CAPTURE_SESSION, { optional: true });
 

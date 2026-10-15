@@ -11,9 +11,14 @@ import { DEBUG_CAPTURE_SESSION } from './debug-capture.tokens';
  *
  * Safe when capture is off: with no session (or a `null` one) the handler
  * only delegates to Angular's default ErrorHandler.
+ *
+ * A factory, not `useClass`: the handler has no decorator (HLD C-4), so it
+ * has no Angular factory of its own. The injector calls this factory inside
+ * its injection context, which is what the handler's `inject()` needs. It
+ * works the same in JIT and AOT hosts and needs no Angular build step.
  */
 export function provideDebugCapture(): Provider[] {
-  return [{ provide: ErrorHandler, useClass: DebugCaptureErrorHandler }];
+  return [{ provide: ErrorHandler, useFactory: () => new DebugCaptureErrorHandler() }];
 }
 
 /**
