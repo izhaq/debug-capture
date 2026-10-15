@@ -19,7 +19,8 @@ export default defineConfig({
   outputDir: 'test-results',
   forbidOnly: true,
   retries: 0,
-  reporter: 'list',
+  // The guard fails the run on any skipped test or below test/e2e-floor.json.
+  reporter: [['list'], ['./test/e2e-guard-reporter.mjs']],
   use: { baseURL: `http://127.0.0.1:${port}` },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
