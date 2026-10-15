@@ -12,12 +12,10 @@ export interface LocalDataSourceDeps {
   readonly downloadText?: (text: string, filename: string, root: ShadowRoot) => void;
 }
 
-// TODO(wave-2 merge): once 01b's `SinkOptions` are in L5, pass the root:
-//   copyText(text, undefined, { root })
-//   downloadText(text, filename, 'application/json', undefined, { root })
-// Until then the L5 sinks put their temporary node in `document.body`.
-const defaultCopyText = (text: string, _root: ShadowRoot): Promise<boolean> => copyText(text);
-const defaultDownloadText = (text: string, filename: string, _root: ShadowRoot): void => downloadText(text, filename);
+/** The L5 sinks, with the temporary node placed in `root` (C-5). */
+const defaultCopyText = (text: string, root: ShadowRoot): Promise<boolean> => copyText(text, undefined, { root });
+const defaultDownloadText = (text: string, filename: string, root: ShadowRoot): void =>
+  downloadText(text, filename, 'application/json', undefined, { root });
 
 /**
  * The `PanelDataSource` for a panel on the same page as the capture (§6.4),

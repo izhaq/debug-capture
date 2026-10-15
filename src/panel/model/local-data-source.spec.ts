@@ -124,7 +124,11 @@ describe('createLocalDataSource (S03-01)', () => {
     expect(await ok.copyText('abc', ROOT)).toBe(true);
     expect(copies).toEqual([['abc', ROOT]]);
 
-    const rejecting = createLocalDataSource(controller, { copyText: () => Promise.reject(new Error('denied')) });
+    const rejecting = createLocalDataSource(controller, {
+      copyText: async () => {
+        throw new Error('copy refused');
+      },
+    });
     expect(await rejecting.copyText('abc', ROOT)).toBe(false);
     const throwing = createLocalDataSource(controller, {
       copyText: () => {
@@ -134,11 +138,23 @@ describe('createLocalDataSource (S03-01)', () => {
     expect(await throwing.copyText('abc', ROOT)).toBe(false);
   });
 
-  it('the default sinks are the L5 ones and still resolve without rejecting', async () => {
+  it('the default copy is the L5 sink with the root: nothing is added to the host page', async () => {
     const { controller } = fakeCapture();
-    const source = createLocalDataSource(controller);
-    // Headless Chromium: the real clipboard may refuse; either answer is fine, a rejection is not.
-    const result = await source.copyText('x', ROOT);
-    expect(typeof result).toBe('boolean');
+    const host = document.createElement('div');
+    const root = host.attachShadow({ mode: 'open' });
+    document.body.appendChild(host);
+    const added: Node[] = [];
+    const observer = new MutationObserver((records) => records.forEach((r) => added.push(...Array.from(r.addedNodes))));
+    observer.observe(document.body, { childList: true });
+    try {
+      // Headless Chromium may refuse the clipboard; either answer is fine, a rejection is not.
+      const result = await createLocalDataSource(controller).copyText('x', root);
+      observer.takeRecords().forEach((r) => added.push(...Array.from(r.addedNodes)));
+      expect(typeof result).toBe('boolean');
+      expect(added).toEqual([]);
+    } finally {
+      observer.disconnect();
+      host.remove();
+    }
   });
 });
