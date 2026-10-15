@@ -6,7 +6,7 @@
   "type": "module",
   "sideEffects": false,
   "engines": {
-    "node": ">=18"
+    "node": "^20.19.0 || ^22.13.0 || >=24"
   },
   "files": [
     "dist",
@@ -34,14 +34,14 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "lint": "node scripts/eslint-self-test.mjs && eslint .",
-    "lint:layers": "node scripts/check-layers.mjs && node scripts/check-layers.mjs --self-test",
+    "lint:layers": "node scripts/check-layers.mjs --self-test && node scripts/check-layers.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "node scripts/bundle-specs.mjs && karma start karma.conf.cjs",
     "build": "node scripts/build.mjs",
     "size": "node scripts/size.mjs",
     "e2e": "playwright test",
-    "contrast": "node scripts/contrast-check.mjs",
+    "contrast": "node scripts/contrast-check.mjs --self-test && node scripts/contrast-check.mjs",
     "check": "npm run typecheck && npm run lint && npm run lint:layers && npm run format:check && npm run contrast && npm test && npm run build && npm run size && npm run e2e"
   },
   "peerDependencies": {
