@@ -12,24 +12,39 @@
     "dist",
     "README.md"
   ],
+  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "angular": [
+        "./dist/angular/index.d.ts"
+      ],
+      "react": [
+        "./dist/react/index.d.ts"
+      ],
+      "panel": [
+        "./dist/panel/index.d.ts"
+      ]
+    }
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.mjs"
     },
     "./angular": {
       "types": "./dist/angular/index.d.ts",
-      "import": "./dist/angular/index.js"
+      "import": "./dist/angular.mjs"
     },
     "./react": {
       "types": "./dist/react/index.d.ts",
-      "import": "./dist/react/index.js"
+      "import": "./dist/react.mjs"
     },
     "./panel": {
       "types": "./dist/panel/index.d.ts",
-      "import": "./dist/panel/index.js"
+      "import": "./dist/panel.mjs"
     },
-    "./dist/*": "./dist/*"
+    "./dist/*.mjs": "./dist/*.mjs",
+    "./package.json": "./package.json"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
@@ -40,9 +55,10 @@
     "test": "node scripts/bundle-specs.mjs && karma start karma.conf.cjs",
     "build": "node scripts/build.mjs",
     "size": "node scripts/size.mjs",
+    "pack:check": "node scripts/pack-check.mjs",
     "e2e": "playwright test",
     "contrast": "node scripts/contrast-check.mjs --self-test && node scripts/contrast-check.mjs",
-    "check": "npm run typecheck && npm run lint && npm run lint:layers && npm run format:check && npm run contrast && npm test && npm run build && npm run size && npm run e2e"
+    "check": "npm run typecheck && npm run lint && npm run lint:layers && npm run format:check && npm run contrast && npm test && npm run build && npm run size && npm run pack:check && npm run e2e"
   },
   "peerDependencies": {
     "@angular/core": ">=16 <21"

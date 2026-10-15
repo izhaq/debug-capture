@@ -3,7 +3,7 @@
   "compilerOptions": {
     "noEmit": false,
     "declaration": true,
-    "sourceMap": true,
+    "emitDeclarationOnly": true,
     "rootDir": "src",
     "outDir": "dist",
     "target": "ES2020",
