@@ -23,3 +23,4 @@ export type {
 export { highlightText } from './highlight';
 export { createIcon, ICON_NAMES } from './icons';
 export type { IconName, IconOptions } from './icons';
+export * from './theme';
