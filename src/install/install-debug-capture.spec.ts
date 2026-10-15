@@ -4,12 +4,18 @@ import {
   CaptureSession,
   ClipboardHost,
   ConsoleHost,
+  CreateCaptureController,
   DownloadHost,
+  FetchHost,
+  RecorderChange,
+  WebSocketEntry,
   WebSocketHost,
+  createRecorder,
   defaultCaptureFileName,
+  resolvePolicy,
 } from '../adapters';
 import { CaptureEnvironment } from './environment';
-import { getActiveCaptureSession, installDebugCapture } from './install-debug-capture';
+import { createCaptureController, getActiveCaptureSession, installDebugCapture } from './install-debug-capture';
 
 /**
  * Everything here runs against a fake CaptureEnvironment: the real console,
@@ -375,5 +381,270 @@ describe('installDebugCapture', () => {
     fake.consoleHost.log('again');
     expect(entries(second).length).toBe(1);
     expect(entries(first).length).toBe(0);
+  });
+});
+
+describe('createCaptureController', () => {
+  let fake: Fake;
+
+  beforeEach(() => {
+    fake = fakeEnvironment();
+  });
+
+  afterEach(() => {
+    getActiveCaptureSession()?.dispose();
+  });
+
+  /** A fetch that settles only when the spec says so. */
+  function heldFetch(): { host: FetchHost; resolve(response: Response): void } {
+    let resolve: (response: Response) => void = () => undefined;
+    const host: FetchHost = {
+      fetch: () =>
+        new Promise<Response>((done) => {
+          resolve = done;
+        }),
+      location: { href: PAGE },
+    };
+    return { host, resolve: (response) => resolve(response) };
+  }
+
+  function wsIds(session: CaptureSession): number[] {
+    return entries(session)
+      .filter((e): e is WebSocketEntry => e.kind === 'ws')
+      .map((e) => e.socketId);
+  }
+
+  it('matches the contract type', () => {
+    const create: CreateCaptureController = createCaptureController;
+    expect(typeof create).toBe('function');
+  });
+
+  it('installs capture at once and hands out the session as the active one', () => {
+    const controller = createCaptureController({}, fake.env);
+
+    expect(controller.on).toBeTrue();
+    expect(controller.session.active).toBeTrue();
+    expect(getActiveCaptureSession()).toBe(controller.session);
+    fake.consoleHost.log('captured');
+    expect(kinds(controller.session)).toEqual(['log']);
+  });
+
+  it('stop() removes probes and shortcuts and keeps the buffer; start() reinstalls on the same recorder', () => {
+    const consoleBefore = { ...fake.consoleHost };
+    const controller = createCaptureController({}, fake.env);
+    const { session } = controller;
+    const recorder = session.recorder;
+    fake.consoleHost.log('before');
+
+    controller.stop();
+
+    expect(controller.on).toBeFalse();
+    expect(session.active).toBeFalse();
+    expect(getActiveCaptureSession()).toBeNull();
+    expect({ ...fake.consoleHost }).toEqual(consoleBefore);
+    expect(fake.fetchHost.fetch).toBe(fake.fetchFn);
+    expect(fake.webSocketHost.WebSocket).toBe(FakeWebSocket as unknown as typeof WebSocket);
+    fake.consoleHost.log('while off');
+    fake.keyboard.dispatchEvent(chord('KeyD'));
+    expect(fake.anchors.length).toBe(0);
+    expect(entries(session).length).toBe(1);
+
+    controller.start();
+
+    expect(controller.session).toBe(session);
+    expect(session.recorder).toBe(recorder);
+    expect(session.active).toBeTrue();
+    expect(getActiveCaptureSession()).toBe(session);
+    fake.consoleHost.log('after');
+    expect(entries(session).map((e) => e.seq)).toEqual([1, 2]);
+    fake.keyboard.dispatchEvent(chord('KeyD'));
+    expect(fake.anchors.length).toBe(1);
+  });
+
+  it('start() and stop() are no-ops in the matching state; onChange fires on real changes only', () => {
+    const controller = createCaptureController({}, fake.env);
+    const seen: boolean[] = [];
+    const off = controller.onChange((on) => seen.push(on));
+
+    controller.start();
+    controller.stop();
+    controller.stop();
+    controller.start();
+    controller.start();
+    off();
+    off();
+    controller.stop();
+
+    expect(seen).toEqual([false, true]);
+  });
+
+  it('isolates a throwing onChange listener and keeps the order when a listener changes state', () => {
+    const controller = createCaptureController({}, fake.env);
+    const first: boolean[] = [];
+    const second: boolean[] = [];
+    controller.onChange(() => {
+      throw new Error('listener bug');
+    });
+    controller.onChange((on) => {
+      first.push(on);
+      if (on) controller.stop();
+    });
+    controller.onChange((on) => second.push(on));
+    controller.stop();
+
+    controller.start();
+
+    expect(first).toEqual([false, true, false]);
+    expect(second).toEqual([false, true, false]);
+    expect(controller.on).toBeFalse();
+  });
+
+  it('session.dispose() acts as stop(), and capture can be turned on again', () => {
+    const controller = createCaptureController({}, fake.env);
+    const seen: boolean[] = [];
+    controller.onChange((on) => seen.push(on));
+
+    controller.session.dispose();
+    controller.session.dispose();
+
+    expect(controller.on).toBeFalse();
+    expect(seen).toEqual([false]);
+    controller.start();
+    expect(controller.session.active).toBeTrue();
+  });
+
+  it('session.policy is the resolved, frozen policy', () => {
+    const controller = createCaptureController({ policy: { maxEntries: 42 } }, fake.env);
+    const { policy } = controller.session;
+
+    expect(policy.maxEntries).toBe(42);
+    expect(policy.redactedValue).toBe('[redacted]');
+    expect(Object.isFrozen(policy)).toBeTrue();
+    expect(Object.isFrozen(policy.redactHeaders)).toBeTrue();
+  });
+
+  it('toJson, download, copy and clear work while off', async () => {
+    const controller = createCaptureController({}, fake.env);
+    fake.consoleHost.info('kept');
+    controller.stop();
+
+    expect((JSON.parse(controller.session.toJson()) as CaptureFile).entries.length).toBe(1);
+    controller.session.download('off.json');
+    expect(fake.anchors[0].download).toBe('off.json');
+    expect(await controller.session.copy()).toBeTrue();
+    controller.session.clear();
+    expect(entries(controller.session)).toEqual([]);
+  });
+
+  it('seq, request ids and socket ids never restart across stop/start', async () => {
+    const held = heldFetch();
+    const controller = createCaptureController({}, { ...fake.env, fetch: held.host });
+    const { session } = controller;
+    new fake.webSocketHost.WebSocket('ws://app.test/a').dispatchEvent(new Event('open'));
+    void held.host.fetch('/one');
+    expect(session.recorder.pending().map((p) => p.id)).toEqual([1]);
+
+    controller.stop();
+    controller.start();
+
+    new fake.webSocketHost.WebSocket('ws://app.test/b').dispatchEvent(new Event('open'));
+    void held.host.fetch('/two');
+    expect(session.recorder.pending().map((p) => p.id)).toEqual([2]);
+    expect(wsIds(session)).toEqual([1, 2]);
+    expect(entries(session).map((e) => e.seq)).toEqual([1, 2]);
+  });
+
+  it('stop() ends every request in flight, and the late response records nothing', async () => {
+    const held = heldFetch();
+    const controller = createCaptureController({}, { ...fake.env, fetch: held.host });
+    const recorder = controller.session.recorder;
+    const ended: number[] = [];
+    recorder.onPending((event) => {
+      if (event.type === 'end') ended.push(event.id);
+    });
+    const call = held.host.fetch('/slow');
+    expect((JSON.parse(controller.session.toJson()) as CaptureFile).pending?.length).toBe(1);
+
+    controller.stop();
+
+    expect(ended).toEqual([1]);
+    expect(recorder.pending()).toEqual([]);
+    held.resolve(new Response('late'));
+    await call;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(entries(controller.session)).toEqual([]);
+    expect('pending' in (JSON.parse(controller.session.toJson()) as CaptureFile)).toBeFalse();
+  });
+
+  it('stop() empties the pending list even when a probe left a request behind', () => {
+    const recorder = createRecorder(resolvePolicy());
+    const controller = createCaptureController({ recorder }, fake.env);
+    // As if a probe had started a request and then failed to end it on dispose.
+    recorder.startPending({ t: 1, transport: 'xhr', method: 'GET', url: 'http://app.test/x', reqHeaders: {} });
+
+    controller.stop();
+
+    expect(recorder.pending()).toEqual([]);
+  });
+
+  it('the clear shortcut announces cleared (S01-04)', () => {
+    const controller = createCaptureController({}, fake.env);
+    const changes: RecorderChange[] = [];
+    controller.session.recorder.onChange((change) => changes.push(change));
+    fake.consoleHost.log('x');
+
+    fake.keyboard.dispatchEvent(chord('KeyX'));
+
+    expect(changes).toEqual([{ type: 'cleared' }]);
+  });
+
+  it('installs on options.recorder when given (S01-07)', () => {
+    const recorder = createRecorder(resolvePolicy({ maxEntries: 3 }));
+
+    const controller = createCaptureController({ recorder }, fake.env);
+    fake.consoleHost.log('into the given recorder');
+
+    expect(controller.session.recorder).toBe(recorder);
+    expect(recorder.snapshot().length).toBe(1);
+  });
+
+  it('installDebugCapture({ recorder }) installs on that recorder (S01-07)', () => {
+    const recorder = createRecorder(resolvePolicy());
+
+    const session = installDebugCapture({ recorder }, fake.env);
+    fake.consoleHost.log('given');
+
+    expect(session.recorder).toBe(recorder);
+    expect(recorder.snapshot().length).toBe(1);
+  });
+
+  it('installDebugCapture() while a controller is on returns its session, patching nothing twice', () => {
+    const controller = createCaptureController({}, fake.env);
+    const patchedLog = fake.consoleHost.log;
+
+    expect(installDebugCapture({}, fake.env)).toBe(controller.session);
+    expect(fake.consoleHost.log).toBe(patchedLog);
+  });
+
+  it('stays off, and says why, while another capture is installed', () => {
+    const first = installDebugCapture({}, fake.env);
+    const patchedLog = fake.consoleHost.log;
+
+    const second = createCaptureController({}, fake.env);
+
+    expect(second.on).toBeFalse();
+    expect(getActiveCaptureSession()).toBe(first);
+    expect(fake.consoleHost.log).toBe(patchedLog);
+    const [failure] = entries(second.session);
+    expect(failure.kind === 'error' && failure.source === 'capture').toBeTrue();
+    first.dispose();
+    second.start();
+    expect(second.on).toBeTrue();
+  });
+
+  it('rejects an invalid policy before patching anything', () => {
+    expect(() => createCaptureController({ policy: { maxBodyLength: -1 } }, fake.env)).toThrowError(RangeError);
+    expect(getActiveCaptureSession()).toBeNull();
+    expect(fake.consoleHost.log).toBe(fake.originalLog);
   });
 });
