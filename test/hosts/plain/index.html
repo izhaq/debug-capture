@@ -5,10 +5,15 @@
     <title>debug-capture — plain HTML host</title>
   </head>
   <body>
-    <p>Plain page: no framework, no bundler. Loads the prebuilt <code>dist/index.mjs</code>.</p>
+    <p>
+      Plain page: no framework, no bundler. Loads the prebuilt <code>dist/index.mjs</code> and
+      <code>dist/panel.mjs</code>.
+    </p>
     <script type="module">
       import { installDebugCapture } from '/dist/index.mjs';
+      import { PANEL_ELEMENT_NAME } from '/dist/panel.mjs';
 
+      window.panelElementName = PANEL_ELEMENT_NAME;
       installDebugCapture();
       window.hostDone = fetch('/api/ping').then((response) => response.json());
     </script>
