@@ -34,7 +34,8 @@ track's paths, so the merges cannot conflict.
 - npm scripts (00a writes them all, including ones whose files another track
   creates): `typecheck`, `lint`, `lint:layers`, `format`, `format:check`,
   `test`, `build`, `size`, `e2e`, `contrast` (→ `node scripts/contrast-check.mjs`,
-  file by 00d), `check` (runs all of the above except `format`).
+  file by 00d), `check` (runs all of the above except `format`). The review
+  round added `pack:check` (in `check`, before `e2e`).
 - Panel paths and barrels (00b creates, 00a's layer checker knows them):
   `src/panel/model/index.ts` (P1), `src/panel/ui/index.ts` (P2),
   `src/panel/views/index.ts` (P3), `src/panel/app/index.ts` (P4),
@@ -57,10 +58,11 @@ track's paths, so the merges cannot conflict.
 
 | Track | PR | State |
 |---|---|---|
-| 00a Tooling | #57 | merged — 336 specs, coverage 96.4 % statements; core baseline 10,316 B min+gz |
+| 00a Tooling | #57 | merged — 336 specs, coverage 96.4 % statements |
 | 00b Contracts | #55 | merged — types only, contract JS byte-identical |
 | 00c Angular seam | #56 | merged — AOT production build proven in a scratch copy |
 | 00d Standards | #54 | merged — contrast check 34 pairs + drift check |
+| 00e Review fixes | #58 | merged — lint self-test 42, layers self-test 107, pack:check, spec floor 339; core baseline **10,320 B** min+gzip (level 6), budget 12,368 B |
 
 **Deviations recorded in the track PRs:** eslint 10 (9 is deprecated; Node ≥ 20.19
 to develop); `CaptureFile.pending?` added per HLD C-1; TS 5.1 does not reject a

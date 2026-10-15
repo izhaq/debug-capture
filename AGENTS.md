@@ -46,8 +46,8 @@ and the HLD disagree, the HLD wins — or change the HLD first, in its own PR.
     strings, no
     `innerHTML`/`outerHTML`/`insertAdjacentHTML`, no `eval`/`new Function`,
     no `href`/`src` from captured data (`ISO-04`, `NFR-SEC-01`).
-12. Never feed the recorder: no `console.*` in `src/` (lint lists the few
-    files that call it on purpose); every callback in `try/catch`; every
+12. Never feed the recorder: no `console.*` in `src/` (lint allows none;
+    the console probe uses the injected console); every callback in `try/catch`; every
     promise has a `.catch` (`ISO-12`).
 13. Doc comments say _why_, not _what_.
 14. Specs sit next to the code (`x.ts`, `x.spec.ts`). `TestBed` only in
@@ -104,18 +104,22 @@ Each layer imports only the barrel of the layer directly above it (the
 Run from `packages/debug-capture/` after `npm ci`. All must pass before a
 commit.
 
-| Command                | What it checks                                                                   |
-| ---------------------- | -------------------------------------------------------------------------------- |
-| `npm run typecheck`    | `tsc`, strict, specs included                                                    |
-| `npm run lint`         | ESLint: no `any`, no `console`, no `innerHTML`-family or `eval`, no `Date.now()` |
-| `npm run lint:layers`  | the layer rules above (has a `--self-test`)                                      |
-| `npm run format:check` | Prettier (`npm run format` fixes it)                                             |
-| `npm run contrast`     | HLD §5.4 tokens meet 4.5:1 / 3:1 (has a `--self-test`)                           |
-| `npm test`             | every `src/**/*.spec.ts`, headless Chromium, one run                             |
-| `npm run build`        | `tsc` ESM + `.d.ts`, and the `dist/*.mjs` bundles                                |
-| `npm run size`         | size budgets (`NFR-SIZE-01`)                                                     |
-| `npm run e2e`          | Playwright smoke on a plain HTML page                                            |
-| `npm run check`        | all of the above, in that order (not `format`)                                   |
+| Command                | What it checks                                                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `npm run typecheck`    | `tsc`, strict, specs included                                                                                      |
+| `npm run lint`         | its self-test, then ESLint: no `any`, `console`, `innerHTML`-family, `eval`, decorators, `Date.now()`, `fit`/`xit` |
+| `npm run lint:layers`  | its self-test, then the layer rules above                                                                          |
+| `npm run format:check` | Prettier (`npm run format` fixes it)                                                                               |
+| `npm run contrast`     | its self-test, then HLD §5.4 tokens meet 4.5:1 / 3:1                                                               |
+| `npm test`             | every `src/**/*.spec.ts`, headless Chromium, one run; fails on a skipped spec or below `test/unit/spec-floor.json` |
+| `npm run build`        | `.d.ts` (tsc) and the `dist/*.mjs` bundles (esbuild) — the bundles are what ships                                  |
+| `npm run size`         | size budgets (`NFR-SIZE-01`), min + gzip level 6                                                                   |
+| `npm run pack:check`   | the packed tarball installs and type-checks in a temp consumer (`node`, `bundler`, `node16`, `nodenext`)           |
+| `npm run e2e`          | Playwright smoke on a plain HTML page                                                                              |
+| `npm run check`        | all of the above, in that order (not `format`)                                                                     |
+
+20a. A spec that adds tests raises `test/unit/spec-floor.json` to the new
+count, so a lost spec file fails the run.
 
 21. A PR that changes what ships reports the `npm run size` numbers and the
     change.
