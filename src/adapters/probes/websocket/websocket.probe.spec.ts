@@ -1,4 +1,13 @@
-import { CaptureStats, Clock, EntryDraft, Probe, Recorder, WebSocketEntry } from '../../../core';
+import {
+  CaptureStats,
+  Clock,
+  EntryDraft,
+  Probe,
+  Recorder,
+  WebSocketEntry,
+  createRecorder,
+  resolvePolicy,
+} from '../../../core';
 import { installWebSocketProbe, WebSocketHost } from './index';
 
 type WsDraft = Omit<WebSocketEntry, 'seq'>;
@@ -528,5 +537,26 @@ describe('installWebSocketProbe', () => {
 
     expect(touched).toEqual([]);
     expect(recorder.ws().map((d) => d.event)).toEqual(['open']);
+  });
+});
+
+describe('installWebSocketProbe — socket ids from the recorder (C-2)', () => {
+  it('takes ids from nextSocketId(), so they continue across installs and clear()', () => {
+    const recorder = createRecorder(resolvePolicy());
+    const clock = new FakeClock();
+    const host = fakeHost();
+    expect(recorder.nextSocketId()).toBe(1);
+
+    const first = installWebSocketProbe(recorder, clock, host);
+    openFake(host).fireOpen();
+    openFake(host).fireOpen();
+    first.dispose();
+    recorder.clear();
+    const second = installWebSocketProbe(recorder, clock, host);
+    openFake(host).fireOpen();
+    second.dispose();
+
+    expect(recorder.snapshot().map((e) => (e as WebSocketEntry).socketId)).toEqual([4]);
+    expect(recorder.nextSocketId()).toBe(5);
   });
 });

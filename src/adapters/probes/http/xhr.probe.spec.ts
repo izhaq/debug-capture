@@ -1,4 +1,4 @@
-import { Clock, EntryDraft, HttpEntry, Recorder } from '../../../core';
+import { Clock, EntryDraft, HttpEntry, Recorder, createRecorder, resolvePolicy } from '../../../core';
 import { XhrHost, installXhrProbe } from './xhr.probe';
 
 type HttpDraft = Omit<HttpEntry, 'seq'>;
@@ -701,5 +701,160 @@ describe('installXhrProbe', () => {
     after.respond(200, '', 'ok');
     expect(watched.touched).toEqual([]);
     expect(watched.base.http().length).toBe(1);
+  });
+});
+
+describe('installXhrProbe — pending requests (C-1)', () => {
+  let Fake: FakeXhrClass;
+  let time: ReturnType<typeof fakeClock>;
+  let recorder: ReturnType<typeof createRecorder>;
+  let events: string[];
+  let probe: { dispose(): void };
+
+  beforeEach(() => {
+    Fake = createFakeXhrClass();
+    time = fakeClock();
+    recorder = createRecorder(resolvePolicy({ ignoreUrls: [/\/health/] }));
+    events = [];
+    recorder.onPending((e) => events.push(e.type === 'start' ? `start ${e.request.id}` : `end ${e.id}`));
+    probe = installXhrProbe(recorder, time.clock, hostFor(Fake));
+  });
+
+  afterEach(() => probe.dispose());
+
+  const stored = () => recorder.snapshot() as HttpEntry[];
+
+  it('starts at send() with the absolute URL and the headers set so far, redacted like the entry', () => {
+    const xhr = new Fake();
+    xhr.open('post', 'api/login?access_token=SECRET1');
+    xhr.setRequestHeader('Authorization', 'Bearer SECRET2');
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    expect(recorder.pending()).toEqual([]);
+
+    xhr.send('{"password":"SECRET3"}');
+
+    const [pending] = recorder.pending();
+    expect(pending).toEqual({
+      id: 1,
+      t: 1000,
+      transport: 'xhr',
+      method: 'POST',
+      url: 'http://app.test/base/api/login?access_token=[redacted]',
+      reqHeaders: { authorization: '[redacted]', 'content-type': 'application/json' },
+    });
+    expect(JSON.stringify(recorder.pending())).not.toContain('SECRET');
+
+    xhr.respond(200, '', '{}');
+    expect(events).toEqual(['start 1', 'end 1']);
+    expect(recorder.pending()).toEqual([]);
+    expect(stored()[0].requestId).toBe(1);
+    expect(stored()[0].url).toBe(pending.url);
+    expect(stored()[0].reqHeaders).toEqual(pending.reqHeaders);
+  });
+
+  it('gives a reused instance a new id per send()', () => {
+    const xhr = new Fake();
+    xhr.open('GET', '/first');
+    xhr.send();
+    xhr.respond(200, '', 'ok');
+    xhr.open('GET', '/second');
+    xhr.send();
+    xhr.fail('error');
+
+    expect(stored().map((e) => [e.url, e.requestId])).toEqual([
+      ['http://app.test/first', 1],
+      ['http://app.test/second', 2],
+    ]);
+    expect(events).toEqual(['start 1', 'end 1', 'start 2', 'end 2']);
+  });
+
+  it('ends a request that open() replaces while in flight', () => {
+    const xhr = new Fake();
+    xhr.open('GET', '/replaced');
+    xhr.send();
+    xhr.open('GET', '/next');
+
+    expect(recorder.pending()).toEqual([]);
+    expect(stored().map((e) => [e.error, e.requestId])).toEqual([['abort', 1]]);
+  });
+
+  it('ends the request when the original send() throws, and rethrows the same error', () => {
+    const failure = new DOMException('sync request failed', 'NetworkError');
+    const Failing = class extends Fake {
+      override send(): unknown {
+        throw failure;
+      }
+    };
+    probe.dispose();
+    probe = installXhrProbe(recorder, time.clock, hostFor(Failing));
+    const xhr = new Failing();
+    xhr.open('GET', '/sync');
+
+    expect(() => xhr.send()).toThrow(failure);
+
+    expect(events).toEqual(['start 1', 'end 1']);
+    expect(recorder.pending()).toEqual([]);
+  });
+
+  it('ends the replaced request even when building its entry fails', () => {
+    const xhr = new Fake();
+    xhr.open('GET', '/broken');
+    xhr.send();
+    // The replaced request is read at open(); a throwing getter makes that fail.
+    Object.defineProperty(xhr, 'status', {
+      get: () => {
+        throw new Error('host bug');
+      },
+    });
+    xhr.open('GET', '/next');
+
+    expect(recorder.pending()).toEqual([]);
+    expect(events).toEqual(['start 1', 'end 1']);
+  });
+
+  it('dispose() ends every request still in flight; their completion records nothing', () => {
+    const first = new Fake();
+    first.open('GET', '/a');
+    first.send();
+    const second = new Fake();
+    second.open('GET', '/b');
+    second.send();
+    const done = new Fake();
+    done.open('GET', '/c');
+    done.send();
+    done.respond(200, '', 'ok');
+
+    probe.dispose();
+    probe.dispose();
+
+    expect(recorder.pending()).toEqual([]);
+    expect(events).toEqual(['start 1', 'start 2', 'start 3', 'end 3', 'end 1', 'end 2']);
+    first.respond(200, '', 'late');
+    second.fail('abort');
+    expect(stored().length).toBe(1);
+  });
+
+  it('never lists an ignored URL', () => {
+    const xhr = new Fake();
+    xhr.open('GET', '/health?token=SECRET');
+    xhr.send();
+
+    expect(recorder.pending()).toEqual([]);
+    xhr.respond(200, '', 'ok');
+    expect(events).toEqual([]);
+    expect(recorder.stats().dropped).toBe(1);
+  });
+
+  it('works as v1 with a recorder that has no pending side', () => {
+    const v1 = fakeRecorder();
+    probe.dispose();
+    probe = installXhrProbe(v1.recorder, time.clock, hostFor(Fake));
+    const xhr = new Fake();
+    xhr.open('GET', '/v1');
+    xhr.send();
+    xhr.respond(200, '', 'ok');
+
+    expect(v1.http().length).toBe(1);
+    expect('requestId' in v1.http()[0]).toBeFalse();
   });
 });

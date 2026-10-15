@@ -1,4 +1,4 @@
-import { Clock, Probe, Recorder, WebSocketEntry, WebSocketEvent } from '../../../core';
+import { Clock, Probe, ProbeRecorder, Recorder, WebSocketEntry, WebSocketEvent } from '../../../core';
 import { bytesOf, toBase64, utf8Length } from './frame-data';
 import { outsideZones } from './outside-zones';
 
@@ -9,6 +9,8 @@ export interface WebSocketHost {
 
 type Payload = Pick<WebSocketEntry, 'opcode' | 'bytes' | 'data' | 'code'>;
 type SendData = Parameters<WebSocket['send']>[0];
+/** A v1 `Recorder` still works: it gets a per-install counter, as in v1 (C-2). */
+type Sink = Recorder & Partial<ProbeRecorder>;
 
 const NO_PAYLOAD: Payload = Object.freeze({ opcode: null, bytes: null, data: null, code: null });
 
@@ -38,14 +40,15 @@ function text(value: string): Payload {
  * Sockets created before install are not captured — there is nothing to
  * hook into after the fact.
  */
-export function installWebSocketProbe(recorder: Recorder, clock: Clock, host: WebSocketHost = globalThis): Probe {
+export function installWebSocketProbe(recorder: Sink, clock: Clock, host: WebSocketHost = globalThis): Probe {
   const Original = host.WebSocket;
   /**
    * Dropped on dispose: listeners on sockets that stay open, and our subclass
    * left under someone else's, must not keep the recorder's buffer alive.
    */
-  let sink: Recorder | null = recorder;
-  let nextSocketId = 1;
+  let sink: Sink | null = recorder;
+  /** Only for a v1 recorder; a v2 recorder owns the counter, so ids survive stop/start. */
+  let localSocketId = 0;
   /** Kept off the socket itself so the app never sees a stray property on its objects. */
   const socketIds = new WeakMap<WebSocket, number>();
 
@@ -96,7 +99,7 @@ export function installWebSocketProbe(recorder: Recorder, clock: Clock, host: We
 
   function attach(socket: WebSocket): void {
     guard(() => {
-      const socketId = nextSocketId++;
+      const socketId = sink?.nextSocketId ? sink.nextSocketId() : ++localSocketId;
       socketIds.set(socket, socketId);
       const lifecycle = (event: WebSocketEvent, payload: () => Payload) => () =>
         guard(() => emit(socketId, socket.url, event, clock.now(), payload()));
