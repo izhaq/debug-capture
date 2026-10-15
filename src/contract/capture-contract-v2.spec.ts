@@ -314,7 +314,7 @@ describe('capture contract v2 (HLD §6.4, §6.5)', () => {
     expect(MAX_PENDING_REQUESTS).toBe(200);
   });
 
-  it('C-1 / C-2: a ProbeRecorder is a v1 Recorder with the probes\' write side', () => {
+  it("C-1 / C-2: a ProbeRecorder is a v1 Recorder with the probes' write side", () => {
     assertType<Equals<PendingDraft, Omit<PendingRequest, 'id'>>>();
     let nextId = 0;
     let nextSocket = 0;
