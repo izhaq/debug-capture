@@ -83,3 +83,13 @@ fixes in track 00e.
   function (type `IsProblemEntry`) or a local stub until S-01 is merged, and
   build fakes against `LiveRecorder` only (never `ProbeRecorder`).
 - S-02: update `src/panel/public-api.spec.ts` when `installDebugPanel` lands.
+- S-03 runs beside S-01: it types the copy/download functions it needs in
+  its own code and takes them injected; the default that calls the L5 sinks
+  with `{ root }` waits for S-01.
+
+**Confirmation review (second round, no blockers):** fixed on this branch —
+an e2e guard reporter fails the run on any skipped test or below
+`test/e2e-floor.json`; lint also bans `.skip`/`.fixme` members in test code,
+`<obj>.eval` and `globalThis|window|self.Function`; Karma fails a spec with no
+expectation; the `.d.ts` rewriter rejects odd specifiers clearly; lockfile
+engines refreshed; `.nvmrc` (22) in the package.

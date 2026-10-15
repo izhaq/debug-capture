@@ -14,3 +14,4 @@ export { resolvePolicy } from './policy';
 export { createRecorder } from './recorder';
 export type { CaptureMeta } from './serializer';
 export { buildCaptureFile, defaultCaptureFileName, serializeCaptureFile } from './serializer';
+export { isProblemEntry } from './problem-rule';

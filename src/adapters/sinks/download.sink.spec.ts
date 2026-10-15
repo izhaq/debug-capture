@@ -104,6 +104,55 @@ describe('downloadText', () => {
     expect(revokeObjectURL).toHaveBeenCalledOnceWith('blob:fake-url');
   });
 
+  describe('with options.root (C-5)', () => {
+    let root: ShadowRoot;
+
+    beforeEach(() => {
+      const shadowHost = doc.createElement('div');
+      doc.body.appendChild(shadowHost);
+      root = shadowHost.attachShadow({ mode: 'open' });
+    });
+
+    it('clicks the anchor inside root, never in body, then removes it', () => {
+      const seen: { parent: ParentNode | null } = { parent: null };
+      click.and.callFake(function (this: HTMLAnchorElement) {
+        seen.parent = this.parentNode;
+      });
+
+      downloadText('{}', 'capture.json', 'application/json', host, { root });
+
+      expect(click).toHaveBeenCalledTimes(1);
+      expect(seen.parent).toBe(root);
+      expect(root.childNodes.length).toBe(0);
+      expect(doc.body.childNodes.length).toBe(1);
+      flushDeferred();
+      expect(revokeObjectURL).toHaveBeenCalledOnceWith('blob:fake-url');
+    });
+
+    it('cleans up inside root even if click throws, and rethrows', () => {
+      click.and.throwError('click blocked');
+
+      expect(() => downloadText('{}', 'capture.json', 'application/json', host, { root })).toThrowError(
+        'click blocked',
+      );
+
+      expect(root.childNodes.length).toBe(0);
+      flushDeferred();
+      expect(revokeObjectURL).toHaveBeenCalledOnceWith('blob:fake-url');
+    });
+  });
+
+  it('uses document.body when options has no root', () => {
+    let attached = false;
+    click.and.callFake(function (this: HTMLAnchorElement) {
+      attached = this.parentNode === doc.body;
+    });
+
+    downloadText('{}', 'capture.json', 'application/json', host, {});
+
+    expect(attached).toBe(true);
+  });
+
   it('defaults the MIME type to application/json', () => {
     downloadText('{}', 'capture.json', undefined, host);
 
