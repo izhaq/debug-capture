@@ -45,7 +45,7 @@ if asked).
 
 - `createCaptureController(options?: DebugCaptureOptions): CaptureController` (01a).
 - `createRecorder(policy)` returns `LiveRecorder & ProbeRecorder` (01a).
-- `DebugCaptureOptions.recorder?: LiveRecorder & ProbeRecorder` (01a).
+- ~~`DebugCaptureOptions.recorder`~~ — removed after the S-01 review (see S01-07).
 - `isProblemEntry(entry: CaptureEntry): boolean` (01b).
 - `copyText(text, host?, options?: SinkOptions)`, `downloadText(text, filename, mimeType?, host?, options?: SinkOptions)` (01b).
 
