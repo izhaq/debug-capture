@@ -151,6 +151,20 @@ export function hiddenValue<T>(value: T, replacement: string): T | string {
  * a secret key from `secretKeys` (`x-access-token` ends with `accesstoken`);
  * the others are cut to `maxValueLength`.
  */
+/**
+ * `scheme://user:password@host` → `scheme://<replacement>@host`. The whole
+ * user info goes, not only the password: a token is often sent as the user
+ * name (`https://<token>@host`). Done before truncation, so a cut can never
+ * leave part of it behind. Only the authority is looked at — an `@` in the
+ * path or query is kept; the last `@` before the path ends the user info, as
+ * in the URL parser. Linear: one scan of the authority.
+ */
+export function redactUserinfo(url: string, replacement: string): string {
+  return url.replace(USERINFO, `$1${replacement}@`);
+}
+
+const USERINFO = /^([a-z][a-z0-9+.-]*:\/\/)[^/?#\\]*@/i;
+
 export function redactHeaders(
   headers: HeaderMap,
   names: readonly string[],

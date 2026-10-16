@@ -522,15 +522,26 @@ describe('toJsonSafe', () => {
         dict[`id${i}`] = i;
       }
       const rows = Array.from({ length: 100 }, (_, i) => ({ i, lookup: dict }));
+      const times: number[] = [];
+      let result: readonly unknown[] = [];
 
-      const start = performance.now();
-      const result = cloneArgs([rows], { maxBodyLength: DEFAULT_CAPTURE_POLICY.maxBodyLength });
-      const elapsed = performance.now() - start;
+      for (let run = 0; run < 5; run++) {
+        const start = performance.now();
+        result = cloneArgs([rows], { maxBodyLength: DEFAULT_CAPTURE_POLICY.maxBodyLength });
+        times.push(performance.now() - start);
+      }
+      const median = times.slice().sort((a, b) => a - b)[2];
 
-      // Wall-clock guard against the pre-fix blow-up (343 ms), not a benchmark:
-      // the limit sits several times above the cost measured on a loaded
-      // 4-CPU runner (~35 ms) and several times below the regression.
-      expect(elapsed).toBeLessThan(150);
+      // Wall-clock guard, not a benchmark, on the MEDIAN of 5 runs: one run can
+      // spike under parallel load (253 ms seen once at load average 9.3, while
+      // its neighbours ran at ~40 ms). Re-measured with coverage on the shared
+      // 4-CPU runner (load average 4–8, 27 runs): 35–71 ms per run, median ~42
+      // ms. The regression it guards — key budget and memo reverted, so every
+      // row enumerates the 200k keys again — measured 376–628 ms, median ~420
+      // ms. 150 ms is ~3.5× today's median and ~2.8× below the regression's.
+      expect(median)
+        .withContext(`runs: ${times.map((t) => Math.round(t)).join(', ')} ms`)
+        .toBeLessThan(150);
       expect(JSON.stringify(result).length).toBeLessThanOrEqual(DEFAULT_CAPTURE_POLICY.maxBodyLength + 2048);
     });
 

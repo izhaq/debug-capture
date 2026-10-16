@@ -343,6 +343,12 @@ describe('capture contract v2 (HLD §6.4, §6.5)', () => {
     expect(v1).toBe(probeSide);
   });
 
+  it('C-2: DebugCaptureOptions keeps only the v1 fields — the controller owns its recorder (review 4)', () => {
+    assertType<Equals<keyof DebugCaptureOptions, 'policy' | 'shortcuts'>>();
+    const v1Options: DebugCaptureOptions = { policy: { maxEntries: 10 }, shortcuts: false };
+    expect(Object.keys(v1Options)).toEqual(['policy', 'shortcuts']);
+  });
+
   it('C-5: SinkOptions takes a shadow root (or any node to append to)', () => {
     const host = document.createElement('div');
     const options: SinkOptions = { root: host.attachShadow({ mode: 'open' }) };

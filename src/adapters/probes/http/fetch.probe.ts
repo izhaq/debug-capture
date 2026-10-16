@@ -1,4 +1,4 @@
-import { Clock, HeaderMap, HttpEntry, Probe, Recorder } from '../../../core';
+import { Clock, HeaderMap, HttpEntry, Probe, ProbeRecorder, Recorder } from '../../../core';
 import { describeBody, headersToMap, isTextual, responseBytes, toAbsoluteUrl } from './http-helpers';
 import { outsideZones } from './outside-zones';
 
@@ -16,6 +16,9 @@ export interface FetchHost {
 const MAX_CAPTURED_BODY_CHARS = 1_048_576;
 const CAP_NOTE = `…[capture stopped at ${MAX_CAPTURED_BODY_CHARS} chars]`;
 
+/** A v1 `Recorder` still works: the pending side is used only when it is there (C-1). */
+type Sink = Recorder & Partial<ProbeRecorder>;
+
 /** What is known about a request when it starts. */
 interface StartedRequest {
   method: string;
@@ -23,6 +26,8 @@ interface StartedRequest {
   reqHeaders: HeaderMap;
   reqBody: string | null;
   start: number;
+  /** The recorder's pending id (C-1); `null` when none or already ended. */
+  id: number | null;
 }
 
 /**
@@ -30,10 +35,12 @@ interface StartedRequest {
  * error or abort). `host` defaults to the real global; specs pass a host
  * around a bound real fetch or a fake.
  */
-export function installFetchProbe(recorder: Recorder, clock: Clock, host: FetchHost = globalThis): Probe {
+export function installFetchProbe(recorder: Sink, clock: Clock, host: FetchHost = globalThis): Probe {
   const original = host.fetch;
   /** Dropped on dispose: a wrapper left in someone else's chain must not keep the buffer alive. */
-  let sink: Recorder | null = recorder;
+  let sink: Sink | null = recorder;
+  /** Requests started and not yet recorded, by pending id: dispose() ends them (C-1). */
+  const inFlight = new Map<number, StartedRequest>();
 
   /**
    * The original is called exactly once, with `host` as `this` and the
@@ -44,24 +51,54 @@ export function installFetchProbe(recorder: Recorder, clock: Clock, host: FetchH
    */
   const wrapper = function (...args: Parameters<typeof fetch>): Promise<Response> {
     const started = sink ? attempt(() => startRequest(args)) : null;
-    const pending = original.apply(host, args);
+    let pending: Promise<Response>;
+    try {
+      pending = original.apply(host, args);
+    } catch (error) {
+      // Someone else's patched fetch threw: nothing will settle this request.
+      if (started) endPending(started);
+      throw error;
+    }
     if (started === null) return pending;
     try {
       return pending.then(
         (response) => {
-          safely(() => onResponse(started, response));
+          settle(started, () => onResponse(started, response));
           return response;
         },
         (error: unknown) => {
-          safely(() => onFailure(started, error));
+          settle(started, () => onFailure(started, error));
           throw error;
         },
       );
     } catch {
       // Not a real promise (someone else's patched fetch): hand it back untouched.
+      endPending(started);
       return pending;
     }
   };
+
+  /** Bookkeeping that fails before recording must not leave the request pending forever. */
+  function settle(started: StartedRequest, work: () => void): void {
+    try {
+      work();
+    } catch {
+      endPending(started);
+    }
+  }
+
+  /** The request will never be recorded: take it off the pending list. */
+  function endPending(started: StartedRequest): void {
+    const id = takeId(started);
+    if (id !== null) safely(() => sink?.endPending?.(id));
+  }
+
+  function takeId(started: StartedRequest): number | null {
+    const id = started.id;
+    started.id = null;
+    if (id !== null) inFlight.delete(id);
+    return id;
+  }
 
   /** What `fetch` itself does: `init` wins over the `Request`'s own method, headers and body. */
   function startRequest([input, init]: Parameters<typeof fetch>): StartedRequest {
@@ -75,7 +112,14 @@ export function installFetchProbe(recorder: Recorder, clock: Clock, host: FetchH
     if (init?.body !== undefined) reqBody = describeBody(init.body);
     // Reading the Request's stream would consume the body the original is about to send.
     else if (request && request.body !== null && request.body !== undefined) reqBody = '[Request body]';
-    return { method, url, reqHeaders, reqBody, start: clock.now() };
+    const started: StartedRequest = { method, url, reqHeaders, reqBody, start: clock.now(), id: null };
+    // Guarded on its own: a recorder that throws here costs the request only its pending row.
+    const id = attempt(() => sink?.startPending?.({ t: started.start, transport: 'fetch', method, url, reqHeaders }));
+    if (typeof id === 'number') {
+      started.id = id;
+      inFlight.set(id, started);
+    }
+    return started;
   }
 
   /**
@@ -95,7 +139,7 @@ export function installFetchProbe(recorder: Recorder, clock: Clock, host: FetchH
     outsideZones(() =>
       readCapped(clone).then(
         ({ text, complete }) =>
-          record(started, { status, resHeaders, resBody: text, error: null }, complete ? text : null),
+          record(started, { status, resHeaders, resBody: text, error: null }, complete ? text : null, !complete),
         // The body failed mid-read (the caller aborted, or the connection
         // dropped): the request did not succeed, whatever its status said.
         (error: unknown) => record(started, { status, resHeaders, resBody: null, error: errorKind(error) }),
@@ -107,14 +151,20 @@ export function installFetchProbe(recorder: Recorder, clock: Clock, host: FetchH
     record(started, { status: null, resHeaders: {}, resBody: null, error: errorKind(error) });
   }
 
-  /** `fullText` is the whole body as read — it sizes `bytes` when there is no `content-length`. */
+  /**
+   * `fullText` is the whole body as read — it sizes `bytes` when there is no
+   * `content-length`. `capped`: reading stopped at the cap (C-7). The
+   * draft's `requestId` ends the pending request in the recorder (C-1).
+   */
   function record(
     started: StartedRequest,
     outcome: Pick<HttpEntry, 'status' | 'resHeaders' | 'resBody' | 'error'>,
     fullText: string | null = outcome.resBody,
+    capped = false,
   ): void {
     if (!sink) return;
     const target = sink;
+    const requestId = takeId(started);
     safely(() =>
       target.record({
         kind: 'http',
@@ -130,6 +180,8 @@ export function installFetchProbe(recorder: Recorder, clock: Clock, host: FetchH
         resBody: outcome.resBody,
         bytes: outcome.status === null ? null : responseBytes(outcome.resHeaders, fullText),
         error: outcome.error,
+        ...(requestId === null ? null : { requestId }),
+        ...(capped ? { resBodyCapped: true as const } : null),
       }),
     );
   }
@@ -140,6 +192,8 @@ export function installFetchProbe(recorder: Recorder, clock: Clock, host: FetchH
     name: 'fetch',
     dispose(): void {
       if (!sink) return;
+      // Cut off: these will never be recorded, so no listener may keep their rows (C-1).
+      for (const started of Array.from(inFlight.values())) endPending(started);
       sink = null;
       // Someone patched on top of us: unwrapping would drop their patch, so
       // ours stays in their chain as a pass-through (`sink` is null).

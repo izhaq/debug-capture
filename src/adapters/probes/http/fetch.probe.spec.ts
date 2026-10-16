@@ -1,4 +1,4 @@
-import { Clock, EntryDraft, HttpEntry, Recorder } from '../../../core';
+import { Clock, EntryDraft, HttpEntry, Recorder, createRecorder, resolvePolicy } from '../../../core';
 import { FetchHost, installFetchProbe } from './fetch.probe';
 
 type HttpDraft = Omit<HttpEntry, 'seq'>;
@@ -493,5 +493,202 @@ describe('installFetchProbe', () => {
     await flush();
     expect(watched.touched).toEqual([]);
     expect(watched.base.http().length).toBe(1);
+  });
+});
+
+describe('installFetchProbe — pending requests (C-1) and the capped-body flag (C-7)', () => {
+  let time: ReturnType<typeof fakeClock>;
+  let recorder: ReturnType<typeof createRecorder>;
+  let events: string[];
+  const probes: Array<{ dispose(): void }> = [];
+
+  function install(host: FetchHost, sink: Recorder = recorder): void {
+    probes.push(installFetchProbe(sink, time.clock, host));
+  }
+
+  /** Waits for `count` stored entries (bodies are read asynchronously). */
+  async function storedAfter(count: number): Promise<HttpEntry[]> {
+    for (let i = 0; i < 200 && recorder.snapshot().length < count; i++) await flush();
+    return recorder.snapshot() as HttpEntry[];
+  }
+
+  beforeEach(() => {
+    time = fakeClock();
+    recorder = createRecorder(resolvePolicy({ ignoreUrls: [/\/health/] }));
+    events = [];
+    recorder.onPending((e) => events.push(e.type === 'start' ? `start ${e.request.id}` : `end ${e.id}`));
+  });
+
+  afterEach(() => probes.splice(0).forEach((probe) => probe.dispose()));
+
+  it('starts at call time, redacted like the entry, and ends when the body was read', async () => {
+    const response = deferred<Response>();
+    const { host } = fakeHost(() => response.promise);
+    install(host);
+
+    const call = host.fetch('/api/items?token=SECRET1', {
+      method: 'put',
+      headers: { 'X-Api-Key': 'SECRET2', Accept: 'application/json' },
+      body: '{"password":"SECRET3"}',
+    });
+
+    const [pending] = recorder.pending();
+    expect(pending).toEqual({
+      id: 1,
+      t: 1000,
+      transport: 'fetch',
+      method: 'PUT',
+      url: 'http://app.test/api/items?token=[redacted]',
+      reqHeaders: { 'x-api-key': '[redacted]', accept: 'application/json' },
+    });
+    expect(JSON.stringify(recorder.pending())).not.toContain('SECRET');
+
+    response.resolve(new Response('{"ok":true}', { headers: { 'Content-Type': 'application/json' } }));
+    await call;
+    const [entry] = await storedAfter(1);
+    expect(entry.requestId).toBe(1);
+    expect(entry.url).toBe(pending.url);
+    expect(entry.reqHeaders).toEqual(pending.reqHeaders);
+    expect(events).toEqual(['start 1', 'end 1']);
+    expect('resBodyCapped' in entry).toBeFalse();
+  });
+
+  it('ends a request that fails', async () => {
+    const { host } = fakeHost(() => Promise.reject(new TypeError('Failed to fetch')));
+    install(host);
+
+    await host.fetch('/down').catch(() => null);
+    const [entry] = await storedAfter(1);
+
+    expect([entry.error, entry.requestId]).toEqual(['network', 1]);
+    expect(events).toEqual(['start 1', 'end 1']);
+  });
+
+  it('ends a request whose original fetch throws synchronously, and rethrows the same error', () => {
+    const failure = new TypeError('patched fetch threw');
+    const host: FetchHost = {
+      fetch: () => {
+        throw failure;
+      },
+      location,
+    };
+    install(host);
+
+    expect(() => host.fetch('/sync-throw')).toThrow(failure);
+    expect(events).toEqual(['start 1', 'end 1']);
+    expect(recorder.pending()).toEqual([]);
+  });
+
+  it('ends a request whose original fetch returns no promise, and hands the value back untouched', () => {
+    const odd = { not: 'a promise' };
+    const host: FetchHost = { fetch: (() => odd) as unknown as typeof fetch, location };
+    install(host);
+
+    expect(host.fetch('/odd') as unknown).toBe(odd);
+    expect(events).toEqual(['start 1', 'end 1']);
+  });
+
+  it('ends a request whose response cannot be read', async () => {
+    const used = new Response('already read', { headers: { 'Content-Type': 'text/plain' } });
+    await used.text();
+    const { host } = fakeHost(() => Promise.resolve(used));
+    install(host);
+
+    expect(await host.fetch('/used')).toBe(used);
+    await flush();
+
+    expect(recorder.pending()).toEqual([]);
+    expect(events).toEqual(['start 1', 'end 1']);
+  });
+
+  it('dispose() ends every request still in flight; their settling records nothing', async () => {
+    const slow = deferred<Response>();
+    const failing = deferred<Response>();
+    const queue = [Promise.resolve(new Response('fast')), slow.promise, failing.promise];
+    const { host } = fakeHost(() => queue.shift() as Promise<Response>);
+    install(host);
+    await (await host.fetch('/fast')).text();
+    await storedAfter(1);
+
+    const ok = host.fetch('/slow');
+    const bad = host.fetch('/broken').catch((error: unknown) => error);
+    probes.splice(0).forEach((probe) => {
+      probe.dispose();
+      probe.dispose();
+    });
+
+    expect(recorder.pending()).toEqual([]);
+    expect(events).toEqual(['start 1', 'end 1', 'start 2', 'start 3', 'end 2', 'end 3']);
+    slow.resolve(new Response('late'));
+    failing.reject(new TypeError('late'));
+    expect(await (await ok).text()).toBe('late');
+    await bad;
+    await flush();
+    expect(recorder.snapshot().length).toBe(1);
+    expect(events.length).toBe(6);
+  });
+
+  it('dispose() while the body is being read ends the request too', async () => {
+    let pull: (() => void) | null = null;
+    const stream = new ReadableStream<Uint8Array>({
+      pull: () =>
+        new Promise<void>((resolve) => {
+          pull = resolve;
+        }),
+    });
+    const { host } = fakeHost(() =>
+      Promise.resolve(new Response(stream, { headers: { 'Content-Type': 'text/plain' } })),
+    );
+    install(host);
+    await host.fetch('/streaming');
+    await flush();
+    expect(recorder.pending().length).toBe(1);
+
+    probes.splice(0).forEach((probe) => probe.dispose());
+
+    expect(recorder.pending()).toEqual([]);
+    expect(events).toEqual(['start 1', 'end 1']);
+    expect(pull).not.toBeNull();
+  });
+
+  it('never lists an ignored URL', async () => {
+    const { host } = fakeHost(() => Promise.resolve(new Response('ok')));
+    install(host);
+
+    await (await host.fetch('/health?token=SECRET')).text();
+    await flush();
+
+    expect(events).toEqual([]);
+    expect(recorder.stats().dropped).toBe(1);
+  });
+
+  it('flags a body it stopped reading at the cap, and the recorder keeps the flag', async () => {
+    const chunk = new TextEncoder().encode('x'.repeat(65_536));
+    const endless = new ReadableStream<Uint8Array>({ pull: (s) => s.enqueue(chunk) });
+    const { host } = fakeHost(() =>
+      Promise.resolve(new Response(endless, { headers: { 'Content-Type': 'text/plain' } })),
+    );
+    install(host);
+
+    const got = await host.fetch('/endless');
+    const [entry] = await storedAfter(1);
+
+    expect(entry.resBodyCapped).toBeTrue();
+    expect(entry.requestId).toBe(1);
+    await got.body?.cancel();
+  });
+
+  it('puts neither field on the draft for a v1 recorder or a whole body', async () => {
+    const v1 = fakeRecorder();
+    const { host } = fakeHost(() =>
+      Promise.resolve(new Response('whole', { headers: { 'Content-Type': 'text/plain' } })),
+    );
+    install(host, v1.recorder);
+
+    await host.fetch('/v1');
+    const [draft] = await v1.waitFor(1);
+
+    expect('requestId' in draft).toBeFalse();
+    expect('resBodyCapped' in draft).toBeFalse();
   });
 });

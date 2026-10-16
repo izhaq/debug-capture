@@ -1,11 +1,16 @@
 import {
+  CaptureController,
   CaptureSession,
-  Clock,
+  ControlledCaptureSession,
   DEFAULT_SHORTCUTS,
   DebugCaptureOptions,
+  LiveRecorder,
   Probe,
+  ProbeRecorder,
   Recorder,
   ShortcutConfig,
+  Unsubscribe,
+  Clock,
   buildCaptureFile,
   copyText,
   createRecorder,
@@ -29,32 +34,189 @@ import { bindShortcuts } from './shortcuts';
  */
 let activeSession: CaptureSession | null = null;
 
-/** The session `installDebugCapture` created and that is not yet disposed, if any. */
+/** The session of the capture that is on right now, if any (a controller's while it is on). */
 export function getActiveCaptureSession(): CaptureSession | null {
   return activeSession;
 }
 
 /**
- * The composition root: resolves the policy, builds the recorder, installs
- * every probe, binds the export shortcuts and returns the session handle.
- * Call it as early as possible — before bootstrap — so startup requests and
- * sockets are captured too.
+ * The v1 entry point: installs capture and returns its session, or returns
+ * the session of the capture already on. Call it as early as possible —
+ * before bootstrap — so startup requests and sockets are captured too.
  *
  * Throws only for an invalid policy, and does so before anything is patched.
  * After that it never throws: a probe that cannot install (a browser without
  * `WebSocket`, say) is skipped and recorded as a `capture` error, so the
  * other probes still run and the exported file says what is missing.
+ *
+ * It is a controller's session: `dispose()` turns that capture off for good,
+ * since nobody else holds the controller (C-2).
  */
 export function installDebugCapture(
   options: DebugCaptureOptions = {},
   env: CaptureEnvironment = browserEnvironment(),
 ): CaptureSession {
-  if (activeSession) {
-    return activeSession;
+  return activeSession ?? createCaptureController(options, env).session;
+}
+
+/**
+ * C-2 (HLD §6.4, `FR-ACT-09`): capture that turns off and on without losing
+ * anything. One recorder for the controller's life, so the buffer, `seq`,
+ * request ids and socket ids survive `stop()` / `start()`; one session
+ * object, so the Angular and React seams that hold it (and check `active`)
+ * keep working. Installs at once, unless another capture is already on —
+ * then it stays off and records why.
+ */
+export function createCaptureController(
+  options: DebugCaptureOptions = {},
+  env: CaptureEnvironment = browserEnvironment(),
+): CaptureController {
+  // Before anything is patched: a bad config fails loudly.
+  const policy = resolvePolicy(options.policy);
+  // Always built here from `policy`, so `session.policy` is the policy applied.
+  const recorder = createRecorder(policy);
+  const { clock } = env;
+  const listeners: Array<(on: boolean) => void> = [];
+  /** Changes made by a listener wait for the current one, so every listener sees them in order. */
+  const queue: boolean[] = [];
+  let notifying = false;
+  /** Set while on: removes the probes and shortcuts. */
+  let uninstall: (() => void) | null = null;
+
+  const toJson = (): string =>
+    serializeCaptureFile(
+      buildCaptureFile(
+        recorder.snapshot(),
+        recorder.stats(),
+        {
+          capturedAt: new Date(clock.now()).toISOString(),
+          page: env.page.location.href,
+          userAgent: env.page.userAgent,
+        },
+        recorder.pending(),
+      ),
+    );
+
+  const session: ControlledCaptureSession = {
+    recorder,
+    clock,
+    policy,
+    get active(): boolean {
+      return uninstall !== null;
+    },
+    toJson,
+    download(filename = defaultCaptureFileName(new Date(clock.now()))): void {
+      downloadText(toJson(), filename, 'application/json', env.download);
+    },
+    async copy(): Promise<boolean> {
+      try {
+        return await copyText(toJson(), env.clipboard);
+      } catch {
+        // The contract: resolve `false`, never reject.
+        return false;
+      }
+    },
+    clear(): void {
+      recorder.clear();
+    },
+    dispose(): void {
+      controller.stop();
+    },
+  };
+
+  function changed(on: boolean): void {
+    queue.push(on);
+    if (notifying) {
+      return;
+    }
+    notifying = true;
+    try {
+      for (let next = queue.shift(); next !== undefined; next = queue.shift()) {
+        for (const listener of listeners.slice()) {
+          try {
+            listener(next);
+          } catch {
+            // A broken listener (e.g. a panel) must not stop the switch or the other listeners.
+          }
+        }
+      }
+    } finally {
+      notifying = false;
+    }
   }
 
-  const policy = resolvePolicy(options.policy);
-  const recorder = createRecorder(policy);
+  const controller: CaptureController = {
+    session,
+    get on(): boolean {
+      return uninstall !== null;
+    },
+    start(): void {
+      if (uninstall) {
+        return;
+      }
+      if (activeSession) {
+        reportFailure(recorder, clock, 'capture not started', 'another capture is already on');
+        return;
+      }
+      // Claimed first: a listener that calls installDebugCapture() while the
+      // probes go in gets this session instead of patching everything twice.
+      activeSession = session;
+      uninstall = installCapture(recorder, env, options.shortcuts, session);
+      changed(true);
+    },
+    stop(): void {
+      const remove = uninstall;
+      if (!remove) {
+        return;
+      }
+      uninstall = null;
+      if (activeSession === session) {
+        activeSession = null;
+      }
+      remove();
+      // A listener turned capture back on while the probes came off (it saw
+      // an `end`): that start() already announced `true`, so `false` would lie.
+      if (uninstall) {
+        return;
+      }
+      // The probes end their own requests on dispose; this catches any they
+      // could not, so no listener keeps a row that will never finish (C-1).
+      for (const request of recorder.pending()) {
+        recorder.endPending(request.id);
+      }
+      changed(false);
+    },
+    onChange(listener: (on: boolean) => void): Unsubscribe {
+      listeners.push(listener);
+      let subscribed = true;
+      return () => {
+        if (!subscribed) {
+          return;
+        }
+        subscribed = false;
+        const index = listeners.indexOf(listener);
+        if (index !== -1) {
+          listeners.splice(index, 1);
+        }
+      };
+    },
+  };
+
+  controller.start();
+  return controller;
+}
+
+/**
+ * Installs every probe on `recorder` and binds the export shortcuts; returns
+ * the function that takes them all off again (shortcuts first, then the
+ * probes in reverse order).
+ */
+function installCapture(
+  recorder: LiveRecorder & ProbeRecorder,
+  env: CaptureEnvironment,
+  shortcuts: DebugCaptureOptions['shortcuts'],
+  session: CaptureSession,
+): () => void {
   const { clock } = env;
   const report = (message: string, error: unknown) => reportFailure(recorder, clock, message, error);
 
@@ -74,61 +236,9 @@ export function installDebugCapture(
     }
   }
 
-  const toJson = (): string =>
-    serializeCaptureFile(
-      buildCaptureFile(recorder.snapshot(), recorder.stats(), {
-        capturedAt: new Date(clock.now()).toISOString(),
-        page: env.page.location.href,
-        userAgent: env.page.userAgent,
-      }),
-    );
-
-  let active = true;
   let unbind = (): void => undefined;
-
-  const session: CaptureSession = {
-    recorder,
-    clock,
-    get active(): boolean {
-      return active;
-    },
-    toJson,
-    download(filename = defaultCaptureFileName(new Date(clock.now()))): void {
-      downloadText(toJson(), filename, 'application/json', env.download);
-    },
-    async copy(): Promise<boolean> {
-      try {
-        return await copyText(toJson(), env.clipboard);
-      } catch {
-        // The contract: resolve `false`, never reject.
-        return false;
-      }
-    },
-    clear(): void {
-      recorder.clear();
-    },
-    dispose(): void {
-      if (!active) {
-        return;
-      }
-      active = false;
-      unbind();
-      // Reverse order: the last patch applied is the first taken off.
-      for (const probe of probes.slice().reverse()) {
-        try {
-          probe.dispose();
-        } catch {
-          // One stuck probe must not keep the others patched.
-        }
-      }
-      if (activeSession === session) {
-        activeSession = null;
-      }
-    },
-  };
-
-  if (options.shortcuts !== false) {
-    const keys: ShortcutConfig = { ...DEFAULT_SHORTCUTS, ...options.shortcuts };
+  if (shortcuts !== false) {
+    const keys: ShortcutConfig = { ...DEFAULT_SHORTCUTS, ...shortcuts };
     try {
       unbind = bindShortcuts(env.keyboard, [
         [keys.download, () => session.download()],
@@ -140,8 +250,17 @@ export function installDebugCapture(
     }
   }
 
-  activeSession = session;
-  return session;
+  return () => {
+    unbind();
+    // Reverse order: the last patch applied is the first taken off.
+    for (const probe of probes.slice().reverse()) {
+      try {
+        probe.dispose();
+      } catch {
+        // One stuck probe must not keep the others patched.
+      }
+    }
+  };
 }
 
 /** Records the capture layer's own failure into its own buffer — the only place anyone will see it. */

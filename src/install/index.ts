@@ -4,7 +4,7 @@
  */
 export * from '../adapters';
 
-export { installDebugCapture, getActiveCaptureSession } from './install-debug-capture';
+export { createCaptureController, installDebugCapture, getActiveCaptureSession } from './install-debug-capture';
 export { isDebugRequested, DEBUG_STORAGE_KEY } from './debug-requested';
 export { browserEnvironment } from './environment';
 export type { CaptureEnvironment } from './environment';
