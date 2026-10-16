@@ -38,10 +38,16 @@ interface RequestState {
 
 type PatchedName = 'open' | 'setRequestHeader' | 'send' | 'abort';
 type XhrMethod = (this: XMLHttpRequest, ...args: unknown[]) => unknown;
-/** Runs before the original; the function it may return runs only after the original succeeded. */
-type Hook = (xhr: XMLHttpRequest, args: unknown[]) => (() => void) | void;
-/** Runs when the original threw, before the same error is rethrown. */
-type FailHook = (xhr: XMLHttpRequest) => void;
+/**
+ * What a hook, run before the original, leaves for this one call: `after`
+ * runs only when the original succeeded, `failed` only when it threw (before
+ * the same error is rethrown).
+ */
+interface Steps {
+  after?: () => void;
+  failed?: () => void;
+}
+type Hook = (xhr: XMLHttpRequest, args: unknown[]) => Steps | void;
 
 const DONE = 4;
 
@@ -86,13 +92,28 @@ export function installXhrProbe(recorder: Sink, clock: Clock, host: XhrHost = gl
     return readyState > 0 && readyState < DONE;
   }
 
-  /** Records the draft; `record()` ends the pending request through its `requestId`. */
+  /** Records the draft; `record()` ends the pending request through the draft's `requestId`. */
   function emit(state: RequestState, draft: HttpDraft): void {
     state.recorded = true;
     const id = state.id;
     state.id = null;
     if (id !== null) inFlight.delete(id);
-    if (sink) sink.record(id === null ? draft : { ...draft, requestId: id });
+    if (sink) sink.record(draft);
+  }
+
+  /**
+   * Records the request, or — when its entry cannot be built (a host that
+   * throws while being read) — at least ends it, so its pending row does not
+   * stay forever and no later event records it.
+   */
+  function finish(state: RequestState, build: () => HttpDraft): void {
+    const draft = attempt(build);
+    if (draft) {
+      emit(state, draft);
+    } else {
+      state.recorded = true;
+      endPending(state);
+    }
   }
 
   /** The request will never be recorded: take it off the pending list. */
@@ -109,7 +130,7 @@ export function installXhrProbe(recorder: Sink, clock: Clock, host: XhrHost = gl
    * entry is recorded only if the original then succeeds — an invalid
    * `open()` throws without touching the request in flight.
    */
-  function onOpen(xhr: XMLHttpRequest, args: unknown[]): () => void {
+  function onOpen(xhr: XMLHttpRequest, args: unknown[]): Steps {
     const replaced = unrecorded(xhr);
     // DONE: we are inside one of its handlers and the response is still
     // readable. Otherwise it is in flight, and the original open() aborts it
@@ -122,7 +143,7 @@ export function installXhrProbe(recorder: Sink, clock: Clock, host: XhrHost = gl
             : entryOf(xhr, replaced, 'abort'),
         )
       : null;
-    return () => {
+    const after = (): void => {
       if (replaced && draft) emit(replaced, draft);
       // Its entry could not be built: it still must not stay pending forever.
       else if (replaced) endPending(replaced);
@@ -137,6 +158,7 @@ export function installXhrProbe(recorder: Sink, clock: Clock, host: XhrHost = gl
         id: null,
       });
     };
+    return { after };
   }
 
   /**
@@ -148,7 +170,7 @@ export function installXhrProbe(recorder: Sink, clock: Clock, host: XhrHost = gl
   function onAbort(xhr: XMLHttpRequest): void {
     const state = unrecorded(xhr);
     if (!state) return;
-    if (xhr.readyState === DONE) emit(state, entryOf(xhr, state, state.error ?? failureGuess(xhr, state)));
+    if (xhr.readyState === DONE) finish(state, () => entryOf(xhr, state, state.error ?? failureGuess(xhr, state)));
     else state.error = 'abort';
   }
 
@@ -157,9 +179,10 @@ export function installXhrProbe(recorder: Sink, clock: Clock, host: XhrHost = gl
     if (state) addHeader(state.reqHeaders, String(name), String(value));
   }
 
-  function onSend(xhr: XMLHttpRequest, body: unknown): void {
+  function onSend(xhr: XMLHttpRequest, body: unknown): Steps | void {
     const state = states.get(xhr);
-    // Opened before install, or a second send() (which the original rejects): nothing to stamp.
+    // Opened before install, or a second send() (which the original rejects):
+    // nothing to stamp — and nothing of the live request to end if it throws.
     if (!state || state.start !== null) return;
     if (!listening.has(xhr)) {
       listening.add(xhr);
@@ -185,15 +208,9 @@ export function installXhrProbe(recorder: Sink, clock: Clock, host: XhrHost = gl
       state.id = id;
       inFlight.set(id, state);
     }
-  }
-
-  /**
-   * The original `send()` threw — a synchronous request that failed, or a
-   * state error: no event will report it, so it is not pending any more.
-   */
-  function onSendFailed(xhr: XMLHttpRequest): void {
-    const state = states.get(xhr);
-    if (state) endPending(state);
+    // This send() threw — a synchronous request that failed: no event will
+    // report it, so the request it started is not pending any more.
+    return { failed: () => endPending(state) };
   }
 
   function markError(xhr: XMLHttpRequest, error: NonNullable<XhrError>): void {
@@ -205,7 +222,7 @@ export function installXhrProbe(recorder: Sink, clock: Clock, host: XhrHost = gl
   function onLoadEnd(xhr: XMLHttpRequest): void {
     if (isStale(xhr)) return;
     const state = unrecorded(xhr);
-    if (state) emit(state, entryOf(xhr, state, state.error));
+    if (state) finish(state, () => entryOf(xhr, state, state.error));
   }
 
   /** The entry for `state`, from what the instance holds right now. */
@@ -228,6 +245,8 @@ export function installXhrProbe(recorder: Sink, clock: Clock, host: XhrHost = gl
       resBody: body.described,
       bytes: status === null ? null : responseBytes(resHeaders, body.text),
       error,
+      // The pending id, set on the fresh draft: `record()` ends the row with it (C-1).
+      ...(state.id === null ? null : { requestId: state.id }),
     };
   }
 
@@ -247,10 +266,10 @@ export function installXhrProbe(recorder: Sink, clock: Clock, host: XhrHost = gl
 
   const patches = [
     patch(proto, 'open', (xhr, args) => onOpen(xhr, args)),
-    patch(proto, 'setRequestHeader', (xhr, args) => () => onSetRequestHeader(xhr, args[0], args[1])),
+    patch(proto, 'setRequestHeader', (xhr, args) => ({ after: () => onSetRequestHeader(xhr, args[0], args[1]) })),
     // Booked before the original, so the start time and listeners precede any
     // event a synchronous request fires inside it.
-    patch(proto, 'send', (xhr, args) => onSend(xhr, args[0]), onSendFailed),
+    patch(proto, 'send', (xhr, args) => onSend(xhr, args[0])),
     patch(proto, 'abort', (xhr) => onAbort(xhr)),
   ].filter(<T>(entry: T | null): entry is T => entry !== null);
 
@@ -260,19 +279,21 @@ export function installXhrProbe(recorder: Sink, clock: Clock, host: XhrHost = gl
    * thrown, unchanged); bookkeeping is swallowed if it throws. A method the
    * prototype lacks is left alone.
    */
-  function patch(target: Record<PatchedName, XhrMethod>, name: PatchedName, hook: Hook, onThrow?: FailHook) {
+  function patch(target: Record<PatchedName, XhrMethod>, name: PatchedName, hook: Hook) {
     const original = target[name];
     if (typeof original !== 'function') return null;
     const wasOwn = Object.prototype.hasOwnProperty.call(target, name);
     const wrapper: XhrMethod = function (this: XMLHttpRequest, ...args: unknown[]) {
-      const after = sink ? attempt(() => hook(this, args)) : null;
+      const steps = sink ? attempt(() => hook(this, args)) : null;
       let result: unknown;
       try {
         result = original.apply(this, args);
       } catch (error) {
-        if (onThrow && sink) safely(() => onThrow(this));
+        const failed = steps?.failed;
+        if (failed) safely(failed);
         throw error;
       }
+      const after = steps?.after;
       if (after) safely(after);
       return result;
     };

@@ -845,6 +845,114 @@ describe('installXhrProbe — pending requests (C-1)', () => {
     expect(recorder.stats().dropped).toBe(1);
   });
 
+  it('a second send() while in flight throws without ending the live request (review R1)', () => {
+    const Strict = class extends Fake {
+      sent = false;
+      override open(method: string, url: string | URL): unknown {
+        this.sent = false;
+        return super.open(method, url);
+      }
+      override send(): unknown {
+        if (this.sent) throw new DOMException('The object is already sending.', 'InvalidStateError');
+        this.sent = true;
+        return undefined;
+      }
+    };
+    probe.dispose();
+    probe = installXhrProbe(recorder, time.clock, hostFor(Strict));
+    const xhr = new Strict();
+    xhr.open('GET', '/live');
+    xhr.send();
+
+    expect(() => xhr.send()).toThrowError(DOMException);
+
+    expect(recorder.pending().map((p) => p.id)).toEqual([1]);
+    xhr.respond(200, '', 'ok');
+    expect(stored().map((e) => e.requestId)).toEqual([1]);
+    expect(events).toEqual(['start 1', 'end 1']);
+  });
+
+  it('ends the request when its entry cannot be built at loadend (review R2)', () => {
+    const xhr = new Fake();
+    xhr.open('GET', '/broken');
+    xhr.send();
+    xhr.getAllResponseHeaders = () => {
+      throw new Error('host bug');
+    };
+
+    xhr.respond(200, 'X: 1', 'ok');
+
+    expect(recorder.pending()).toEqual([]);
+    expect(events).toEqual(['start 1', 'end 1']);
+    expect(stored()).toEqual([]);
+  });
+
+  it('ends the request when its entry cannot be built in abort() after it finished (review R2)', () => {
+    const WithAbort = class extends Fake {
+      abort(): unknown {
+        return undefined;
+      }
+    };
+    probe.dispose();
+    probe = installXhrProbe(recorder, time.clock, hostFor(WithAbort));
+    const xhr = new WithAbort();
+    xhr.open('GET', '/broken');
+    // An app listener, ahead of ours, that aborts the finished request.
+    xhr.addEventListener('load', () => xhr.abort());
+    xhr.send();
+    xhr.getAllResponseHeaders = () => {
+      throw new Error('host bug');
+    };
+
+    xhr.respond(200, 'X: 1', 'ok');
+
+    expect(recorder.pending()).toEqual([]);
+    expect(events).toEqual(['start 1', 'end 1']);
+  });
+
+  it('redacts the user info of a URL in the pending row and the entry (review 6)', () => {
+    const xhr = new Fake();
+    xhr.open('GET', 'http://op:SECRET@api.test/items?x=1');
+    xhr.setRequestHeader('Accept', 'text/plain');
+    xhr.send();
+
+    expect(recorder.pending()[0].url).toBe('http://[redacted]@api.test/items?x=1');
+    xhr.respond(200, '', 'ok');
+    expect(stored()[0].url).toBe('http://[redacted]@api.test/items?x=1');
+    expect(JSON.stringify(recorder.snapshot())).not.toContain('SECRET');
+  });
+
+  it('10,000 requests through the probe with pending tracking stay fast (S01-10)', () => {
+    const run = (sink: Recorder): number => {
+      const local = installXhrProbe(sink, time.clock, hostFor(Fake));
+      const start = performance.now();
+      for (let i = 0; i < 10_000; i++) {
+        const xhr = new Fake();
+        xhr.open('GET', `/api/items/${i}?token=SECRET`);
+        xhr.setRequestHeader('Authorization', 'Bearer SECRET');
+        xhr.send();
+        xhr.respond(200, 'Content-Type: application/json', '{}');
+      }
+      const elapsed = performance.now() - start;
+      local.dispose();
+      return elapsed;
+    };
+    probe.dispose();
+    recorder.onEntry(() => undefined);
+
+    const elapsed = run(recorder);
+
+    // Wall-clock guard, not a benchmark. Measured with coverage on the shared
+    // 4-CPU runner (load average up to 14): 524–953 ms, i.e. 50–95 µs per
+    // request including the fake XHR's own events; the same run with a real
+    // recorder but no pending side took 392–537 ms, the bare fake XHR 230–583
+    // ms. The limit is ~4× the worst; it fails once a request costs ~400 µs,
+    // about 5–8× today.
+    expect(elapsed).toBeLessThan(4000);
+    expect(recorder.pending()).toEqual([]);
+    expect(recorder.stats().recorded).toBe(10_000);
+  });
+
   it('works as v1 with a recorder that has no pending side', () => {
     const v1 = fakeRecorder();
     probe.dispose();
