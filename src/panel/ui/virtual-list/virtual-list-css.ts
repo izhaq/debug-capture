@@ -10,7 +10,9 @@
  * - Tints are an 8 % overlay (`::before` + opacity), not `color-mix()`, which
  *   Chromium only has from 111 (we support 90+).
  * - The grid holds focus (`aria-activedescendant`); the ring is drawn inset on
- *   the selected row, or on the grid when nothing is selected (§5.7).
+ *   the selected row, or on the grid when nothing is selected (§5.7). The
+ *   focus rules are (0,3,0) so they beat the theme's `.dcp-root
+ *   :focus-visible` (0,2,0): one ring, never a second one on the grid.
  */
 export const VIRTUAL_LIST_CSS = `
 .dcp-vlist {
@@ -28,6 +30,9 @@ export const VIRTUAL_LIST_CSS = `
 .dcp-vlist:focus-visible:not([aria-activedescendant]) {
   outline: 2px solid var(--dcp-accent);
   outline-offset: -2px;
+}
+.dcp-vlist[aria-activedescendant]:focus-visible {
+  outline: none;
 }
 .dcp-vlist__header {
   position: sticky;

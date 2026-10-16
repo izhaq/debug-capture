@@ -27,6 +27,12 @@ export interface VirtualListOptions<T> {
   rowClass?(item: T): string | undefined;
   /** The user moved the selection (keyboard or click). Not called for `select()` or `setItems`. */
   onSelect?(item: T, index: number): void;
+  /**
+   * `setItems` dropped the selection because its item left the list (e.g.
+   * evicted from the buffer), so the detail pane can say so without polling.
+   * Not called for `select(null)`.
+   */
+  onSelectionLost?(): void;
   /** The user opened a row (Enter or double-click). */
   onActivate?(item: T, index: number): void;
   /** Rows rendered above and below the visible ones. Default 8. */

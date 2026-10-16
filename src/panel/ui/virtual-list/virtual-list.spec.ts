@@ -56,10 +56,30 @@ function fakeFrames(): Frames {
   };
 }
 
-function makeFixture(): Fixture {
+/**
+ * 04a's focus rules, verbatim from `ui/theme/theme-css.ts` (branch 04a).
+ * TODO(wave-2 merge): use `createThemeSheet(doc, [VIRTUAL_LIST_CSS])` once 04a is in the wave branch.
+ */
+const THEME_FOCUS_CSS = [
+  '.dcp-root :focus{outline:none}',
+  '.dcp-root :focus-visible{outline:2px solid var(--dcp-accent);outline-offset:1px}',
+  '.dcp-root .dcp-tab:focus-visible,.dcp-root .dcp-row:focus-visible,.dcp-root [role="row"]:focus-visible,' +
+    '.dcp-root [role="option"]:focus-visible,.dcp-root [role="treeitem"]:focus-visible,' +
+    '.dcp-root .dcp-focus-inset:focus-visible{outline-offset:-2px}',
+].join('\n');
+
+interface FixtureOptions {
+  /** Height of the list's flex container. */
+  readonly height?: number;
+  /** Wrap the list in `.dcp-root` and add the theme's focus rules before ours. */
+  readonly theme?: boolean;
+}
+
+function makeFixture(fixtureOptions: FixtureOptions = {}): Fixture {
+  const height = fixtureOptions.height ?? HOST_HEIGHT;
   const iframe = document.createElement('iframe');
   iframe.style.width = '640px';
-  iframe.style.height = '600px';
+  iframe.style.height = `${height + 100}px`;
   iframe.style.border = '0';
   document.body.appendChild(iframe);
   iframes.push(iframe);
@@ -67,13 +87,18 @@ function makeFixture(): Fixture {
   const doc = iframe.contentDocument as Document;
   doc.body.style.margin = '0';
   const sheet = new win.CSSStyleSheet();
-  sheet.replaceSync(VIRTUAL_LIST_CSS);
+  sheet.replaceSync(fixtureOptions.theme ? `${THEME_FOCUS_CSS}\n${VIRTUAL_LIST_CSS}` : VIRTUAL_LIST_CSS);
   doc.adoptedStyleSheets = [sheet];
   const host = doc.createElement('div');
+  if (fixtureOptions.theme) {
+    host.className = 'dcp-root';
+    // 04a sets the tokens on .dcp-root; without one, `var(--dcp-accent)` makes every outline invalid.
+    host.style.setProperty('--dcp-accent', 'rgb(4, 4, 4)');
+  }
   host.style.display = 'flex';
   host.style.flexDirection = 'column';
   host.style.width = '600px';
-  host.style.height = `${HOST_HEIGHT}px`;
+  host.style.height = `${height}px`;
   doc.body.appendChild(host);
   return { win, doc, host, frames: fakeFrames() };
 }
@@ -478,6 +503,43 @@ describe('createVirtualList (S04-05, S04-07)', () => {
       expect(list.selectedIndex).toBe(3);
     });
 
+    it('onSelectionLost fires once when setItems drops the selection, never for select(null)', () => {
+      const fx = makeFixture();
+      const onSelectionLost = jasmine.createSpy('onSelectionLost');
+      const list = makeList(fx, { onSelectionLost });
+      list.setItems(makeItems(100));
+      list.select(5);
+
+      list.setItems(makeItems(100, 3));
+      expect(onSelectionLost).not.toHaveBeenCalled();
+      list.setItems(makeItems(100, 50));
+      expect(onSelectionLost).toHaveBeenCalledTimes(1);
+      list.setItems(makeItems(100, 60));
+      expect(onSelectionLost).toHaveBeenCalledTimes(1);
+
+      list.select(0);
+      list.select(null);
+      list.setItems(makeItems(10));
+      expect(onSelectionLost).toHaveBeenCalledTimes(1);
+    });
+
+    it('a throwing onSelectionLost is reported, and the selection is still cleared', () => {
+      const fx = makeFixture();
+      const onError = jasmine.createSpy('onError');
+      const list = makeList(fx, {
+        onError,
+        onSelectionLost: () => {
+          throw new Error('lost');
+        },
+      });
+      list.setItems(makeItems(10));
+      list.select(1);
+
+      expect(() => list.setItems(makeItems(10, 100))).not.toThrow();
+      expect(list.selectedIndex).toBeNull();
+      expect(onError).toHaveBeenCalledWith(jasmine.objectContaining({ message: 'lost' }));
+    });
+
     it('the selection follows its item across setItems and clears when the item leaves', () => {
       const fx = makeFixture();
       const list = makeList(fx);
@@ -632,13 +694,18 @@ describe('createVirtualList (S04-05, S04-07)', () => {
       // single steps spike to 140 ms when other processes take the CPU, so
       // the median step is asserted. Rendering all 5,000 rows costs
       // 147–322 ms. Limits: median step 8 ms (≥ 3× above, ≥ 18× below);
-      // build 50 ms (the NFR-PERF-04 long-task line, ≥ 3× below the regression).
+      // build: median of 7 fresh lists under 50 ms (the NFR-PERF-04 long-task
+      // line, ≥ 3× below the regression).
       const fx = makeFixture();
+      const items = makeItems(5_000);
+      const builds = timeEach(7, () => {
+        const fresh = makeList(fx);
+        showTop(fx, fresh, items);
+        fresh.destroy();
+      });
       const list = makeList(fx);
+      showTop(fx, list, items);
       let maxNodes = 0;
-      const buildStart = performance.now();
-      showTop(fx, list, makeItems(5_000));
-      const build = performance.now() - buildStart;
       const tops = range(0, Math.ceil(maxScrollTop(5_000) / (HOST_HEIGHT - ROW)) + 1).map((step) =>
         Math.min(step * (HOST_HEIGHT - ROW), maxScrollTop(5_000)),
       );
@@ -650,7 +717,7 @@ describe('createVirtualList (S04-05, S04-07)', () => {
 
       expect(visibleIds(list)).toContain(4_999);
       expect(maxNodes).toBeLessThan(2_000);
-      expect(build).toBeLessThan(50);
+      expect(median(builds)).toBeLessThan(50);
       expect(median(steps)).toBeLessThan(8);
     });
 
@@ -942,6 +1009,134 @@ describe('createVirtualList (S04-05, S04-07)', () => {
 
       list.destroy();
       expect(cancel).toHaveBeenCalled();
+    });
+  });
+
+  describe('node budget with a realistic row (ISO-10, review item 5)', () => {
+    interface Request {
+      readonly id: number;
+      readonly url: string;
+    }
+    const HTTP_ROW = 22;
+    /** The HTTP list's columns (HLD §5.6). */
+    const HTTP_COLUMNS: readonly VirtualListColumn[] = [
+      { key: 'time', label: 'Time', width: 104 },
+      { key: 'method', label: 'Method', width: 64 },
+      { key: 'status', label: 'Status', width: 88 },
+      { key: 'name', label: 'Name', width: 'flex' },
+      { key: 'type', label: 'Type', width: 52 },
+      { key: 'size', label: 'Size', width: 64 },
+      { key: 'duration', label: 'Duration', width: 72 },
+    ];
+
+    /** Like a real view: a status icon (svg + path) and a search-highlighted name (two marks). */
+    function httpList(fx: Fixture): VirtualList<Request> {
+      const list = createVirtualList<Request>(fx.doc, {
+        rowHeight: HTTP_ROW,
+        columns: HTTP_COLUMNS,
+        ariaLabel: 'HTTP requests',
+        getKey: (item) => item.id,
+        requestFrame: fx.frames.requestFrame,
+        renderCell(item, column, cell) {
+          const doc = cell.ownerDocument;
+          if (column === 'status') {
+            const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.appendChild(doc.createElementNS('http://www.w3.org/2000/svg', 'path'));
+            cell.append(svg, ' 200');
+          } else if (column === 'name') {
+            const [before, middle, after] = item.url.split('api');
+            const mark = (): HTMLElement => {
+              const m = doc.createElement('mark');
+              m.textContent = 'api';
+              return m;
+            };
+            cell.append(before ?? '', mark(), middle ?? '', mark(), after ?? '');
+          } else {
+            cell.textContent = `${column} ${item.id}`;
+          }
+        },
+      });
+      fx.host.appendChild(list.element);
+      list.setItems(Array.from({ length: 5_000 }, (_, i) => ({ id: i, url: `/api/v1/items/${i}?q=api` })));
+      list.element.scrollTop = 0;
+      list.element.dispatchEvent(new fx.win.Event('scroll'));
+      return list;
+    }
+
+    function httpRows(list: VirtualList<Request>): HTMLElement[] {
+      return Array.from(list.element.querySelectorAll<HTMLElement>('.dcp-row'));
+    }
+
+    it('a short list keeps its overscan and stays far under budget', () => {
+      // 300 px: 13 visible rows + 8 overscan, 22 nodes a row → 471 nodes.
+      const fx = makeFixture();
+      const list = httpList(fx);
+      const visible = Math.ceil((HOST_HEIGHT - HTTP_ROW) / HTTP_ROW);
+
+      expect(httpRows(list).length).toBe(visible + OVERSCAN);
+      expect(countNodes(fx.doc, list.element)).toBeLessThan(600);
+    });
+
+    it('a tall list drops the overscan: at most 64 rows unless the visible rows alone need more', () => {
+      // 1,000 px: 45 visible + 8 overscan = 53 rows ≈ 1,170 nodes (cap 64 rows ≈ 1,410).
+      // 2,160 px: 98 visible rows, no overscan ≈ 2,170 nodes. That is the floor
+      // for a 22-node row: fewer rows would leave visible ones blank.
+      for (const height of [1_000, 1_400, 2_160]) {
+        const fx = makeFixture({ height });
+        const list = httpList(fx);
+        const visible = Math.ceil((height - HTTP_ROW) / HTTP_ROW);
+        const cap = Math.max(64, visible + 1);
+        const perRow = countNodes(fx.doc, httpRows(list)[0] as HTMLElement);
+        if (height === 1_000) expect(httpRows(list).length).toBe(visible + OVERSCAN);
+
+        for (const top of [0, 50_000, 1_000_000]) {
+          list.element.scrollTop = top;
+          list.element.dispatchEvent(new fx.win.Event('scroll'));
+          const drawn = httpRows(list).length;
+          expect(drawn).toBeGreaterThanOrEqual(visible);
+          expect(drawn).toBeLessThanOrEqual(cap);
+          // the rows, the header (row + 7 headers + 7 texts), the grid and its rowgroup
+          expect(countNodes(fx.doc, list.element)).toBeLessThanOrEqual(drawn * perRow + 2 * HTTP_COLUMNS.length + 3);
+        }
+      }
+    });
+  });
+
+  describe('focus ring with the theme rules (§5.7, review item 6)', () => {
+    it('with an active row only the row has a ring; with none the grid has an inset one', () => {
+      const fx = makeFixture({ theme: true });
+      const list = makeList(fx);
+      showTop(fx, list, makeItems(50));
+      list.select(0);
+      list.element.focus();
+      expect(list.element.matches(':focus-visible')).toBe(true);
+      const selected = rowById(list, 0) as HTMLElement;
+
+      expect(fx.win.getComputedStyle(list.element).outlineStyle).toBe('none');
+      expect(fx.win.getComputedStyle(selected).outlineStyle).toBe('solid');
+      expect(fx.win.getComputedStyle(selected).outlineOffset).toBe('-2px');
+
+      list.select(null);
+      expect(fx.win.getComputedStyle(list.element).outlineStyle).toBe('solid');
+      expect(fx.win.getComputedStyle(list.element).outlineOffset).toBe('-2px');
+    });
+  });
+
+  describe('scroll handling (review item 13)', () => {
+    it('reads scrollTop once per scroll event, before any write (no forced layout)', () => {
+      const fx = makeFixture();
+      const list = makeList(fx);
+      list.setItems(makeItems(1_000));
+      list.element.scrollTop = 2_000;
+      const seen: boolean[] = [];
+      list.onScrollChange((atEnd) => seen.push(atEnd));
+      const getter = spyOnProperty(list.element, 'scrollTop', 'get').and.callThrough();
+
+      list.element.dispatchEvent(new fx.win.Event('scroll'));
+
+      expect(getter).toHaveBeenCalledTimes(1);
+      expect(seen).toEqual([false]);
+      expect(visibleIds(list)).toEqual(expectedVisible(2_000, 1_000));
     });
   });
 

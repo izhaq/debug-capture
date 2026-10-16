@@ -2,6 +2,13 @@ import type { VirtualList, VirtualListOptions } from './types';
 
 const DEFAULT_OVERSCAN = 8;
 /**
+ * Most rows drawn (visible + overscan) before the overscan shrinks. A real
+ * HTTP row is ~22 nodes (7 cells, icon, highlight), so 64 rows ≈ 1,400 nodes,
+ * leaving room for the frame and detail under ISO-10's 2,000. Visible rows are
+ * always drawn: a list taller than 64 rows gets no overscan.
+ */
+const ROW_BUDGET = 64;
+/**
  * How far (in rows, each way) `setItems` looks for the first visible entry to
  * keep it on screen. A bound keeps the update O(visible rows); past it the
  * scroll position simply stays.
@@ -216,8 +223,10 @@ export function createVirtualList<T>(doc: Document, options: VirtualListOptions<
     if (destroyed) return;
     const vh = viewport();
     const top = Math.min(scrollTop ?? element.scrollTop, maxScrollTop());
-    const first = Math.max(0, Math.floor(top / rowHeight) - overscan);
-    const last = Math.min(rowCount, Math.ceil((top + Math.max(0, vh - headerHeight())) / rowHeight) + overscan);
+    const area = Math.max(0, vh - headerHeight());
+    const extra = Math.min(overscan, Math.max(0, Math.floor((ROW_BUDGET - Math.ceil(area / rowHeight) - 1) / 2)));
+    const first = Math.max(0, Math.floor(top / rowHeight) - extra);
+    const last = Math.min(rowCount, Math.ceil((top + area) / rowHeight) + extra);
 
     const kept = new Set<RowRecord<T>>();
     const nextByKey = new Map<unknown, RowRecord<T>>();
@@ -324,14 +333,16 @@ export function createVirtualList<T>(doc: Document, options: VirtualListOptions<
 
   // --- events ---------------------------------------------------------------
 
-  function isAtEnd(): boolean {
-    return element.scrollTop >= maxScrollTop() - rowHeight / 2;
+  function isAtEnd(scrollTop = element.scrollTop): boolean {
+    return scrollTop >= maxScrollTop() - rowHeight / 2;
   }
 
   function onScroll(): void {
     try {
-      render();
-      const atEnd = isAtEnd();
+      // One read, before the writes: reading after them would force a layout.
+      const top = element.scrollTop;
+      render(false, top);
+      const atEnd = isAtEnd(top);
       scrollListeners.forEach((listener) => {
         try {
           listener(atEnd);
@@ -459,8 +470,8 @@ export function createVirtualList<T>(doc: Document, options: VirtualListOptions<
 
   function setItems(next: readonly T[]): void {
     if (destroyed) return;
-    const atEnd = isAtEnd();
     const top = element.scrollTop;
+    const atEnd = isAtEnd(top);
     const anchorIndex = Math.floor(top / rowHeight);
     const anchorKey = anchorIndex < rowCount ? keyOf(items[anchorIndex] as T) : undefined;
 
@@ -473,7 +484,14 @@ export function createVirtualList<T>(doc: Document, options: VirtualListOptions<
       // Unbounded on purpose: losing the selection closes the detail. It costs
       // O(distance moved), O(n) only once, when the selected entry is gone.
       selectedIndex = findKey(selectedKey, selectedIndex, Infinity);
-      if (selectedIndex === null) selectedKey = null;
+      if (selectedIndex === null) {
+        selectedKey = null;
+        try {
+          options.onSelectionLost?.();
+        } catch (error) {
+          report(error);
+        }
+      }
     }
 
     let nextTop = top;
@@ -504,7 +522,7 @@ export function createVirtualList<T>(doc: Document, options: VirtualListOptions<
       element.scrollTop = top;
       render(false, top);
     },
-    isAtEnd,
+    isAtEnd: () => isAtEnd(),
     onScrollChange(listener) {
       scrollListeners.add(listener);
       return () => {
