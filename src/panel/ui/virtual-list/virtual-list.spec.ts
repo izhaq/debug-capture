@@ -58,7 +58,9 @@ function fakeFrames(): Frames {
 
 /**
  * 04a's focus rules, verbatim from `ui/theme/theme-css.ts` (branch 04a).
- * TODO(wave-2 merge): use `createThemeSheet(doc, [VIRTUAL_LIST_CSS])` once 04a is in the wave branch.
+ * A copy, because this folder may not import the theme. The real composition
+ * (`createThemeSheet(doc, [VIRTUAL_LIST_CSS, …])`) is checked in
+ * `views/ui-composition.spec.ts`.
  */
 const THEME_FOCUS_CSS = [
   '.dcp-root :focus{outline:none}',

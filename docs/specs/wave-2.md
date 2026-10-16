@@ -93,6 +93,6 @@ orchestrator runs `npm run check` on the wave branch and raises the spec floor.
 | 01b | #60, #62 | merged — `isProblemEntry`, sinks with `{ root }`; #62: copy can no longer hang (S-01 review) |
 | 02 | — | started |
 | 03 | #61 | merged — 459 specs; data source, store, selectors, format, body helpers, cURL |
-| 04a | — | started |
-| 04b | — | started |
-| 04c | — | started |
+| 04a | #63 | merged — builder, theme, icons, controls (S-04 review fixed) |
+| 04b | #64 | merged — virtual list (S-04 review fixed; node budget → D-22) |
+| 04c | #65 | merged — JSON viewer (S-04 review fixed) |
