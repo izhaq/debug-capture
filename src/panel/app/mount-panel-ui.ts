@@ -58,14 +58,17 @@ export const mountPanelUi: MountPanelUi = (root, _controller, options) => {
     event.preventDefault();
     requestClose();
   };
+  // On the panel root, not the frame: the loader focuses the root itself, and
+  // a key pressed there never passes through its children.
+  const parent = root.querySelector('.dcp-root') ?? root;
   close.addEventListener('click', requestClose);
-  frame.addEventListener('keydown', onKey);
-  (root.querySelector('.dcp-root') ?? root).appendChild(frame);
+  parent.addEventListener('keydown', onKey as EventListener);
+  parent.appendChild(frame);
 
   return {
     unmount(): void {
       close.removeEventListener('click', requestClose);
-      frame.removeEventListener('keydown', onKey);
+      parent.removeEventListener('keydown', onKey as EventListener);
       frame.remove();
     },
   };

@@ -39,6 +39,9 @@ export const LOADER_CSS =
   ':host{all:initial!important;display:block!important;position:fixed!important;inset:0!important;' +
   'z-index:2147483647!important;contain:strict!important;pointer-events:none!important;' +
   'direction:ltr!important;unicode-bidi:isolate!important}' +
+  // Our top-layer element has a ::backdrop the size of the viewport; a host
+  // `::backdrop {}` rule (meant for its own dialogs) would tint the page.
+  ':host::backdrop{display:none!important}' +
   '@media print{:host{display:none!important}}' +
   '[hidden]{display:none!important}' +
   `.${LAUNCHER_CLASS},.${ROOT_CLASS}{box-sizing:border-box;margin:0;pointer-events:auto;direction:ltr;` +

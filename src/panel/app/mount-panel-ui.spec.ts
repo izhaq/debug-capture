@@ -47,6 +47,21 @@ describe('placeholder mountPanelUi (S02-15)', () => {
     expect(other.defaultPrevented).toBeFalse();
   });
 
+  it('handles Escape pressed on the panel root itself (where the loader puts focus)', () => {
+    const root = document.createElement('div');
+    root.className = 'dcp-root';
+    root.tabIndex = -1;
+    shadow.appendChild(root);
+    const ui = mount();
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    root.dispatchEvent(escape);
+    ui.unmount();
+    root.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+    expect(escape.defaultPrevented).toBeTrue();
+  });
+
   it('unmount removes its nodes and listeners; twice is harmless', () => {
     const ui = mount();
     const close = shadow.querySelector('button') as HTMLButtonElement;

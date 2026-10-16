@@ -165,6 +165,7 @@ function install(
     customElements,
     requestAnimationFrame: (cb) => frames.push(cb),
     cancelAnimationFrame: (id) => cancelled.push(id),
+    getComputedStyle: (el) => getComputedStyle(el),
     ...overrides.scope,
   };
   const loadUi = jasmine.createSpy<LoaderDeps['loadUi']>('loadUi').and.callFake(async () => ({
@@ -256,6 +257,8 @@ describe('panel loader (S-02)', () => {
       expect(style.zIndex).toBe('2147483647');
       expect(style.contain).toBe('strict');
       expect(style.direction).toBe('ltr');
+      // A host `::backdrop {}` rule must not tint the page under our top-layer element.
+      expect(getComputedStyle(host, '::backdrop').display).toBe('none');
       const hostRule = shadow.adoptedStyleSheets[0].cssRules[0] as CSSStyleRule;
       expect(hostRule.selectorText).toBe(':host');
       for (const property of Array.from(hostRule.style)) {
@@ -461,6 +464,23 @@ describe('panel loader (S-02)', () => {
       }
 
       expect(seen).toEqual(['KeyD']);
+    });
+
+    it('stops a bare modifier key even while the other two chord modifiers are held', () => {
+      const h = install();
+      const inner = h.launcher() as HTMLElement;
+      const seen: string[] = [];
+      const onKey = (e: Event): number => seen.push((e as KeyboardEvent).code);
+      document.addEventListener('keydown', onKey);
+      try {
+        for (const code of ['ShiftLeft', 'ControlRight', 'AltLeft', 'MetaLeft']) {
+          inner.dispatchEvent(chord({ code, ctrlKey: true, altKey: true, shiftKey: true }));
+        }
+      } finally {
+        document.removeEventListener('keydown', onKey);
+      }
+
+      expect(seen).toEqual([]);
     });
 
     it('lets a custom toggle chord through the wall, so it closes the panel from inside', async () => {
@@ -779,6 +799,33 @@ describe('panel loader (S-02)', () => {
 
       expect(h.handle.isOpen).toBeFalse();
       expect(unmount).toHaveBeenCalledTimes(1);
+    });
+
+    it('a wheel over the panel never scrolls the host page; inner scrollers still scroll (ISO-13, research L9)', async () => {
+      const h = install();
+      h.handle.open();
+      await settle();
+      const root = h.root() as HTMLElement;
+      const wheel = (target: Element, deltaY: number): boolean => {
+        const event = new WheelEvent('wheel', { deltaY, bubbles: true, cancelable: true, composed: true });
+        target.dispatchEvent(event);
+        return event.defaultPrevented;
+      };
+      const list = document.createElement('div');
+      list.style.height = '20px';
+      list.style.overflowY = 'auto';
+      const tall = document.createElement('div');
+      tall.style.height = '100px';
+      list.appendChild(tall);
+      root.appendChild(list);
+
+      expect(wheel(root, 50)).withContext('nothing can scroll').toBeTrue();
+      expect(wheel(tall, 50)).withContext('list can scroll down').toBeFalse();
+      expect(wheel(tall, -50)).withContext('list is at its top').toBeTrue();
+      list.scrollTop = 80;
+      expect(wheel(tall, 50)).withContext('list is at its end').toBeTrue();
+      expect(wheel(tall, -50)).withContext('list can scroll up').toBeFalse();
+      expect(wheel(tall, 0)).withContext('no vertical delta').toBeTrue();
     });
 
     it('swallows a UI that throws on unmount (ISO-12)', async () => {

@@ -11,6 +11,7 @@ export interface LoaderScope {
   readonly customElements?: Pick<CustomElementRegistry, 'get' | 'define'>;
   requestAnimationFrame(callback: FrameRequestCallback): number;
   cancelAnimationFrame(handle: number): void;
+  getComputedStyle(element: Element): CSSStyleDeclaration;
   /** zone.js, when the host loaded it; read structurally, never imported. */
   readonly Zone?: unknown;
 }
@@ -207,6 +208,15 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
       root.lang = 'en';
       root.dir = 'ltr';
       root.tabIndex = -1;
+      // A wheel the panel cannot use would scroll the host page (research L9):
+      // `overscroll-behavior` alone does nothing on a box with no overflow.
+      root.addEventListener(
+        'wheel',
+        guard((event: Event) => {
+          if (!canScroll(scope, event as WheelEvent, root as HTMLElement)) event.preventDefault();
+        }),
+        { passive: false },
+      );
       shadow.append(root);
     }
     root.hidden = false;
@@ -404,7 +414,27 @@ function parseChord(spec: unknown): Chord | null {
 function isPassingChord(event: Event, toggle: Chord | null): boolean {
   if (event.type.indexOf('key') !== 0) return false;
   const key = event as KeyboardEvent;
+  // A chord needs a real key: a bare Shift with Ctrl+Alt held is still just typing.
+  if (/^(Control|Alt|Shift|Meta)/.test(key.code)) return false;
   return (key.ctrlKey && key.altKey && key.shiftKey && !key.metaKey) || (toggle !== null && toggle(key));
+}
+
+/** Whether a box between the wheel's target and `root` can still scroll the wheel's way. */
+function canScroll(scope: LoaderScope, event: WheelEvent, root: HTMLElement): boolean {
+  for (const node of event.composedPath()) {
+    const el = node as HTMLElement;
+    const style = scope.getComputedStyle(el);
+    const can = (delta: number, overflow: string, at: number, size: number, total: number): boolean =>
+      delta !== 0 && /auto|scroll/.test(overflow) && (delta > 0 ? Math.ceil(at + size) < total : at > 0);
+    if (
+      can(event.deltaY, style.overflowY, el.scrollTop, el.clientHeight, el.scrollHeight) ||
+      can(event.deltaX, style.overflowX, el.scrollLeft, el.clientWidth, el.scrollWidth)
+    ) {
+      return true;
+    }
+    if (el === root) return false;
+  }
+  return false;
 }
 
 /** The focused element, looking through open shadow roots (ours included). */
