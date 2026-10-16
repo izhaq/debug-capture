@@ -89,7 +89,7 @@ orchestrator runs `npm run check` on the wave branch and raises the spec floor.
 
 | Track | PR | State |
 |---|---|---|
-| 01a | — | started |
+| 01a | #66 | merged — recorder, probes, install, controller; 879 specs; core 11,740 B (S-01 review fixed) |
 | 01b | #60, #62 | merged — `isProblemEntry`, sinks with `{ root }`; #62: copy can no longer hang (S-01 review) |
 | 02 | — | started |
 | 03 | #61 | merged — 459 specs; data source, store, selectors, format, body helpers, cURL |
