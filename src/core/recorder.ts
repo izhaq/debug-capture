@@ -25,6 +25,7 @@ import {
   redactFormParamsIn,
   redactParamsIn,
   redactStack,
+  redactUserinfo,
   secretNames,
 } from './redact';
 import { RingBuffer } from './ring-buffer';
@@ -74,12 +75,13 @@ export function createRecorder(policy: CapturePolicy): LiveRecorder & ProbeRecor
   let lastPolicedUrl = '';
 
   /**
-   * The URL as stored: truncated, then secret query parameters redacted.
-   * `ignoreUrls` and `redactBodyUrls` still match the original.
+   * The URL as stored: user info replaced whole, truncated, then secret
+   * query parameters redacted. `ignoreUrls` and `redactBodyUrls` still match
+   * the original.
    */
   function policedUrl(url: string): string {
     if (url !== lastUrl) {
-      lastPolicedUrl = truncateThen(url, max, redactParams);
+      lastPolicedUrl = truncateThen(redactUserinfo(url, hidden), max, redactParams);
       lastUrl = url;
     }
     return lastPolicedUrl;

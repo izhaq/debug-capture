@@ -142,6 +142,36 @@ describe('createRecorder — v2 (pending, change events, socket ids)', () => {
       expect(pending.url.length).toBeLessThan(draft.url.length);
     });
 
+    it('redacts the user info of http and ws URLs, pending and stored alike (review 6)', () => {
+      const recorder = recorderWith({ ignoreUrls: [/op:keep@/] });
+      const draft = pendingDraft({ url: `https://op:${SECRET}@api.test/a?b=1` });
+      const id = recorder.startPending(draft);
+      recorder.record(finished(draft, id));
+      recorder.record({
+        kind: 'ws',
+        t: 1,
+        socketId: 1,
+        url: `wss://${SECRET}@live.test/s`,
+        event: 'open',
+        opcode: null,
+        bytes: null,
+        data: null,
+        code: null,
+      });
+      // ignoreUrls still sees the original URL.
+      expect(recorder.startPending(pendingDraft({ url: 'http://op:keep@h.test/' }))).toBeNull();
+
+      const [http, ws] = recorder.snapshot() as [HttpEntry, WebSocketEntry];
+      expect(http.url).toBe('https://[redacted]@api.test/a?b=1');
+      expect(ws.url).toBe('wss://[redacted]@live.test/s');
+      expect(recorder.pending()).toEqual([]);
+      expect(JSON.stringify(recorder.snapshot())).not.toContain(SECRET);
+      // An @ after the authority is not user info.
+      const path = pendingDraft({ url: 'http://h.test/users/@me?mail=a@b.test' });
+      recorder.startPending(path);
+      expect(recorder.pending()[0].url).toBe('http://h.test/users/@me?mail=a@b.test');
+    });
+
     it('never lists an ignored URL, returns null and counts nothing', () => {
       const recorder = recorderWith({ ignoreUrls: [/\/health/] });
       const log = watch(recorder);
