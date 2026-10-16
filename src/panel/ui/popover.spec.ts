@@ -25,8 +25,8 @@ describe('menu and popover (S04-04, HLD §4.12)', () => {
 
   const active = (): Element | null => shadow.activeElement;
 
-  function key(target: Element, name: string): KeyboardEvent {
-    const event = new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true, composed: true });
+  function key(target: Element, name: string, init: KeyboardEventInit = {}): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true, composed: true, ...init });
     target.dispatchEvent(event);
     return event;
   }
@@ -155,6 +155,36 @@ describe('menu and popover (S04-04, HLD §4.12)', () => {
     expect(menu.isOpen).toBeTrue();
     menu.open();
     expect(menu.isOpen).toBeTrue();
+  });
+
+  it('stays open moving between its items when the host overwrote window.Node (review S-04 #4, ISO-22)', () => {
+    const menu = exportMenu();
+    trigger(menu).click();
+    const realNode = window.Node;
+    (window as unknown as Record<string, unknown>)['Node'] = function FakeNode(): void {
+      // a hostile host's replacement
+    };
+    try {
+      items(menu)[1]?.focus();
+      expect(menu.isOpen).toBeTrue();
+      outside.focus();
+      expect(menu.isOpen).toBeFalse();
+    } finally {
+      (window as unknown as Record<string, unknown>)['Node'] = realNode;
+    }
+  });
+
+  it('ignores arrows with Alt, Ctrl or Meta, in the menu and on the trigger (review S-04 #11)', () => {
+    const menu = exportMenu();
+    trigger(menu).focus();
+    expect(key(trigger(menu), 'ArrowDown', { altKey: true }).defaultPrevented).toBeFalse();
+    expect(menu.isOpen).toBeFalse();
+    trigger(menu).click();
+    const first = items(menu)[0] as Element;
+    for (const mod of [{ altKey: true }, { ctrlKey: true }, { metaKey: true }]) {
+      expect(key(first, 'ArrowDown', mod).defaultPrevented).toBeFalse();
+    }
+    expect(active()).toBe(first);
   });
 
   it('a menu with no enabled item focuses the popup itself', () => {

@@ -157,6 +157,40 @@ describe('split pane (S04-04, ISO-19)', () => {
     expect(onResize.calls.allArgs()).toEqual([[310], [300], [290], [759], [240]]);
   });
 
+  it('has aria-valuenow / min / max from the start, refreshed on focus (review S-04 #12)', () => {
+    const sized = createSplitPane(dom, {
+      direction: 'row',
+      first: dom.el('div'),
+      second: dom.el('div'),
+      secondSize: 300,
+      ariaLabel: 'x',
+    });
+    expect(sized.handle.getAttribute('aria-valuenow')).toBe('300');
+    expect(sized.handle.getAttribute('aria-valuemin')).toBe('240');
+
+    // The 45 % default has no px size until it is laid out: the values are
+    // measured when the handle gets focus (when assistive tech reads them).
+    const split = make();
+    expect(split.handle.getAttribute('aria-valuemin')).toBe('240');
+    split.handle.focus();
+    expect(split.handle.getAttribute('aria-valuenow')).toBe('450');
+    expect(split.handle.getAttribute('aria-valuemax')).toBe('759');
+    split.handle.blur();
+    root.style.width = '800px';
+    split.handle.focus();
+    expect(split.handle.getAttribute('aria-valuenow')).toBe('360');
+    expect(split.handle.getAttribute('aria-valuemax')).toBe('559');
+    expect(split.secondSize).toBeNull();
+  });
+
+  it('ignores arrows with Alt, Ctrl or Meta', () => {
+    const split = make({ secondSize: 300 });
+    const event = new KeyboardEvent('keydown', { key: 'ArrowLeft', altKey: true, bubbles: true, cancelable: true });
+    split.handle.dispatchEvent(event);
+    expect(event.defaultPrevented).toBeFalse();
+    expect(split.secondSize).toBe(300);
+  });
+
   it('keyboard from the 45 % default starts at the measured size', () => {
     const split = make();
     key(split.handle, 'ArrowLeft');

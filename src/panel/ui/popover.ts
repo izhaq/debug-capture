@@ -1,5 +1,5 @@
 import { Child, createListeners, Dom, ErrorReporter, Listeners, setAttr } from './dom';
-import { rovingIndex } from './keys';
+import { hasModifier, rovingIndex } from './keys';
 
 /** What `createPopover` and `createMenu` return. */
 export interface PopoverControl {
@@ -118,7 +118,9 @@ function createPopup(dom: Dom, options: PopupOptions, parts: PopupParts): Popove
   });
   listeners.on(element, 'focusout', (event) => {
     const next = event.relatedTarget;
-    if (open && !(next instanceof Node && element.contains(next))) control.close(false);
+    // No `instanceof Node`: the global may belong to another window or be
+    // replaced by the host (ISO-22); `contains(null)` is simply false.
+    if (open && !element.contains(next as Node | null)) control.close(false);
   });
   parts.wire?.(listeners, control);
   return control;
@@ -174,6 +176,7 @@ export function createMenu(dom: Dom, options: MenuOptions): PopoverControl {
         }),
       );
       listeners.on(menu.popup, 'keydown', (event) => {
+        if (hasModifier(event)) return;
         const list = enabled();
         const at = list.indexOf(event.target as HTMLButtonElement);
         // From the popup itself (no item focused), ↑ goes to the last item like ↓ goes to the first.
@@ -183,7 +186,7 @@ export function createMenu(dom: Dom, options: MenuOptions): PopoverControl {
         list[next]?.focus();
       });
       listeners.on(options.trigger, 'keydown', (event) => {
-        if (event.key !== 'ArrowDown') return;
+        if (event.key !== 'ArrowDown' || hasModifier(event)) return;
         event.preventDefault();
         menu.open();
       });

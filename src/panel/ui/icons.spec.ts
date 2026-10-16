@@ -1,6 +1,6 @@
 import { createBadge } from './badge';
 import { createDom } from './dom';
-import { highlightText } from './highlight';
+import { HIGHLIGHT_MAX_MARKS, highlightText } from './highlight';
 import { createIcon, ICON_NAMES, IconName } from './icons';
 
 describe('icons (S04-03)', () => {
@@ -116,6 +116,16 @@ describe('highlightText (dcp-match)', () => {
     expect(cell.querySelector('img')).toBeNull();
     expect(cell.querySelector('mark')?.textContent).toBe('<img');
     expect(cell.textContent).toBe('<img src=x onerror=alert(1)>');
+  });
+
+  it('marks at most HIGHLIGHT_MAX_MARKS matches; the rest stays plain text (review S-04 #3)', () => {
+    const text = 'ab'.repeat(100_000);
+    const cell = render(text, 'a');
+    expect(HIGHLIGHT_MAX_MARKS).toBe(100);
+    expect(cell.querySelectorAll('mark').length).toBe(100);
+    // 100 marks, the 99 "b"s between them, and the rest as one text node.
+    expect(cell.childNodes.length).toBe(200);
+    expect(cell.textContent).toBe(text);
   });
 
   it('an empty query, no match, or a length-changing lower case gives plain text', () => {

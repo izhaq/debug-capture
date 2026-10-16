@@ -4,9 +4,12 @@
  *
  * - strings only ever become text nodes, never markup;
  * - tags come from a short allow-list (no `script`, `iframe`, `style`, `a`…);
- * - attributes that run code or load things are refused: `on*`, `href`,
- *   `src`, `srcdoc`, `style` strings and the rest of `FORBIDDEN_ATTRIBUTES`,
- *   plus any value that is a `javascript:` / `vbscript:` URL;
+ * - attribute names come from allow-lists (HTML and SVG), so nothing that
+ *   runs code, loads, navigates or styles (`on*`, `href`, `src`, `srcdoc`,
+ *   `style`, `part`, SVG `cursor` / `mask` / `clip-path`…) can be set; text
+ *   attributes (`title`, `aria-*`, `data-*`) may hold any captured text;
+ * - SVG `fill` / `stroke` take only `currentColor`, `none` or a hex colour
+ *   (a `url(…)` paint would fetch);
  * - inline styles go through the CSSOM one property at a time, and a value
  *   that could fetch (`url(`, `image-set(`…) is refused;
  * - events are attached only as listeners (`createListeners`), so every
@@ -136,50 +139,80 @@ const SAFE_SVG_TAGS: ReadonlySet<string> = new Set<SafeSvgTag>([
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 /**
- * Attributes that load a resource, navigate, run code or parse markup. `on*`
- * is refused by prefix; a name with a colon (`xlink:href`) never passes the
- * name pattern.
+ * HTML attributes the panel may set. Anything else — `on*`, `href`, `src`,
+ * `srcdoc`, `style`, `part` / `exportparts` (host `::part()` CSS would reach
+ * in, ISO-05), `autofocus` (ISO-16), `popovertarget`, `contenteditable` — is
+ * refused until someone adds it here on purpose. HTML names are matched in
+ * lower case, as the browser stores them.
  */
-const FORBIDDEN_ATTRIBUTES: ReadonlySet<string> = new Set([
-  'href',
-  'src',
-  'srcset',
-  'srcdoc',
-  'style',
-  'action',
-  'formaction',
-  'poster',
-  'background',
-  'ping',
-  'data',
-  'codebase',
-  'manifest',
-  'xmlns',
-  'is',
+const HTML_ATTRIBUTES: ReadonlySet<string> = new Set([
+  'class',
+  'id',
+  'role',
+  'title',
+  'lang',
+  'dir',
+  'hidden',
+  'inert',
+  'tabindex',
+  'type',
+  'name',
+  'value',
+  'placeholder',
+  'autocomplete',
+  'spellcheck',
+  'disabled',
+  'readonly',
+  'checked',
+  'selected',
+  'for',
+  'maxlength',
+  'colspan',
+  'rowspan',
 ]);
 
-/** Plain names only: letters, digits and hyphens (covers `aria-*`, `data-*`, `viewBox`, `stroke-width`). */
-const ATTRIBUTE_NAME = /^[a-zA-Z][a-zA-Z0-9-]*$/;
+/** SVG attributes icons may use: geometry and plain paint only, matched case-sensitively (`viewBox`). */
+const SVG_ATTRIBUTES: ReadonlySet<string> = new Set([
+  'class',
+  'role',
+  'focusable',
+  'viewBox',
+  'width',
+  'height',
+  'd',
+  'cx',
+  'cy',
+  'r',
+  'rx',
+  'ry',
+  'x',
+  'y',
+  'x1',
+  'y1',
+  'x2',
+  'y2',
+  'points',
+  'transform',
+  'opacity',
+  'fill',
+  'stroke',
+  'stroke-width',
+  'stroke-linecap',
+  'stroke-linejoin',
+  'stroke-dasharray',
+]);
+
+/** `aria-*` and `data-*`, lower case: text only, allowed on both. */
+const TEXT_ATTRIBUTE = /^(?:aria|data)-[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/** The only SVG paints: no `url(…)` (it fetches), no keywords to keep it simple. */
+const SVG_PAINT = /^(?:currentColor|none|#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6})$/;
 
 /** A CSS property name, or a custom property. */
 const STYLE_NAME = /^(?:--[a-zA-Z0-9-]+|[a-z][a-z-]*)$/;
 
 /** Style values that can fetch or run something; a backslash could spell any of them as an escape. */
 const FORBIDDEN_STYLE_VALUE = /url\s*\(|image-set\s*\(|image\s*\(|expression\s*\(|@import|javascript:|\\/i;
-
-/**
- * The value without ASCII whitespace and control characters, lower-cased:
- * browsers drop those inside a URL scheme, so `java\tscript:` still runs.
- */
-function schemeOf(value: string): string {
-  let out = '';
-  for (let i = 0; i < value.length; i++) {
-    const code = value.charCodeAt(i);
-    if (code > 0x20 && code !== 0x7f) out += value[i];
-  }
-  return out.toLowerCase();
-}
-const SCRIPT_SCHEME = /^(?:javascript|vbscript):/;
 
 /** Thrown when the panel's own code asks the builder for something unsafe. */
 export class UnsafeDomError extends Error {
@@ -239,17 +272,19 @@ export function createDom(doc: Document): Dom {
 
 /** Sets one attribute after the safety checks (see the file comment). */
 export function setAttr(element: Element, name: string, value: AttrValue): void {
-  if (!ATTRIBUTE_NAME.test(name)) throw new UnsafeDomError(`Attribute name "${name}" is not allowed`);
-  const lower = name.toLowerCase();
-  if (lower.startsWith('on')) throw new UnsafeDomError(`Event attribute "${name}" is not allowed; use a listener`);
-  if (FORBIDDEN_ATTRIBUTES.has(lower)) throw new UnsafeDomError(`Attribute "${name}" is not allowed`);
+  const svg = element.namespaceURI === SVG_NS;
+  const allowed = TEXT_ATTRIBUTE.test(name) || (svg ? SVG_ATTRIBUTES : HTML_ATTRIBUTES).has(name);
+  if (!allowed) {
+    const hint = /^on/i.test(name) ? '; use a listener' : '';
+    throw new UnsafeDomError(`Attribute "${name}" is not allowed on <${element.localName}>${hint}`);
+  }
   if (value === false || value === null || value === undefined) {
     element.removeAttribute(name);
     return;
   }
   const text = value === true ? '' : String(value);
-  if (SCRIPT_SCHEME.test(schemeOf(text))) {
-    throw new UnsafeDomError(`Attribute "${name}" may not hold a script URL`);
+  if (svg && (name === 'fill' || name === 'stroke') && !SVG_PAINT.test(text)) {
+    throw new UnsafeDomError(`SVG paint "${text}" is not allowed: use currentColor, none or a hex colour`);
   }
   element.setAttribute(name, text);
 }

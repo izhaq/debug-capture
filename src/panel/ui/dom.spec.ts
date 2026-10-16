@@ -127,27 +127,106 @@ describe('safe element builder (S04-01, NFR-SEC-01, ISO-04)', () => {
       });
     }
 
-    const scriptUrls = [
-      'javascript:alert(1)',
-      'JavaScript:alert(1)',
-      '  javascript:alert(1)',
-      'java\tscript:alert(1)',
-      'java\nscript:alert(1)',
-      '\u0000javascript:x',
-      'vbscript:msgbox(1)',
-    ];
+    // Review S-04 #1: plain-text attributes hold captured data (HLD §5.6 puts the
+    // full URL in a `title`). Load / navigate attributes are refused by name,
+    // so a `javascript:` value in a text attribute is just text.
+    const scriptUrls = ['javascript:alert(1)', 'JavaScript:alert(1)', 'java\tscript:alert(1)', 'vbscript:msgbox(1)'];
     for (const value of scriptUrls) {
-      it(`refuses the value ${JSON.stringify(value)} in any attribute`, () => {
-        const el = dom.el('div');
-        expect(() => setAttr(el, 'title', value)).toThrowError(UnsafeDomError, /script URL/);
-        expect(() => setAttr(el, 'data-x', value)).toThrowError(UnsafeDomError, /script URL/);
-        expect(el.hasAttribute('title')).toBeFalse();
+      it(`keeps ${JSON.stringify(value)} as plain text in title, aria-label and data-*`, () => {
+        const el = dom.el('div', { attrs: { title: value, 'aria-label': value, 'data-url': value } });
+        expect(el.title).toBe(value);
+        expect(el.getAttribute('aria-label')).toBe(value);
+        expect(el.getAttribute('data-url')).toBe(value);
       });
     }
 
-    it('allows text that merely mentions javascript: after the start', () => {
-      const el = dom.el('div', { attrs: { title: 'see https://x.test/?q=javascript:1' } });
-      expect(el.title).toBe('see https://x.test/?q=javascript:1');
+    // Review S-04 #2: names come from allow-lists, so anything new (part,
+    // popovertarget…) is refused until someone adds it on purpose.
+    for (const name of [
+      'part',
+      'exportparts',
+      'contenteditable',
+      'popovertarget',
+      'autofocus',
+      'formAction',
+      'srcDoc',
+      'oNerror',
+      'Aria-label',
+      'data-',
+      'aria-X',
+      'cx',
+      'fill',
+    ]) {
+      it(`refuses the HTML attribute ${JSON.stringify(name)} (not on the allow-list)`, () => {
+        expect(() => setAttr(dom.el('button'), name, 'x')).toThrowError(UnsafeDomError, /not allowed/);
+      });
+    }
+
+    for (const name of [
+      'cursor',
+      'mask',
+      'clip-path',
+      'marker-start',
+      'marker-end',
+      'filter',
+      'href',
+      'part',
+      'exportparts',
+      'style',
+      'onload',
+      'title',
+      'viewbox',
+    ]) {
+      it(`refuses the SVG attribute ${JSON.stringify(name)} (not on the allow-list)`, () => {
+        expect(() => dom.svg('path', { [name]: 'url(#x)' })).toThrowError(UnsafeDomError, /not allowed/);
+      });
+    }
+
+    for (const value of ['url(#x)', 'url(https://x.test/a.svg#p)', 'red', 'rgb(0,0,0)', '#12', 'currentColor url(x)']) {
+      it(`refuses the SVG paint ${JSON.stringify(value)} (only currentColor, none or a hex colour)`, () => {
+        expect(() => dom.svg('path', { fill: value })).toThrowError(UnsafeDomError, /paint/);
+        expect(() => dom.svg('circle', { stroke: value })).toThrowError(UnsafeDomError, /paint/);
+      });
+    }
+
+    it('accepts currentColor, none and hex paints, and the shape attributes icons use', () => {
+      const path = dom.svg('path', { fill: 'currentColor', stroke: 'none', d: 'M0 0', 'stroke-dasharray': '2 2' });
+      const rect = dom.svg('rect', { fill: '#abc', stroke: '#A1B2C3', x: 1, y: 1, width: 2, height: 2, rx: 1 });
+      const svg = dom.svg('svg', {
+        viewBox: '0 0 16 16',
+        class: 'dcp-icon',
+        focusable: 'false',
+        'aria-hidden': 'true',
+      });
+      expect(path.getAttribute('fill')).toBe('currentColor');
+      expect(rect.getAttribute('stroke')).toBe('#A1B2C3');
+      expect(svg.getAttribute('viewBox')).toBe('0 0 16 16');
+    });
+
+    it('allows the HTML attributes the controls use, and any lower-case aria-* / data-*', () => {
+      const input = dom.el('input', {
+        attrs: {
+          type: 'text',
+          placeholder: 'x',
+          autocomplete: 'off',
+          spellcheck: 'false',
+          'aria-label': 'x',
+          'data-x-y': '1',
+        },
+      });
+      const button = dom.el('button', {
+        attrs: {
+          role: 'tab',
+          tabindex: 0,
+          'aria-selected': 'true',
+          id: 'dcp-tab-a',
+          title: 't',
+          disabled: true,
+          hidden: true,
+        },
+      });
+      expect(input.getAttribute('data-x-y')).toBe('1');
+      expect(button.id).toBe('dcp-tab-a');
     });
 
     it('true sets an empty attribute; false, null and undefined remove it; numbers become text', () => {

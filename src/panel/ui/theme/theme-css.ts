@@ -26,8 +26,6 @@ const FONT_SIZES: Readonly<Record<TextSize, readonly [ui: number, data: number, 
 
 /** Opacity of the badge background over `--dcp-bg` (HLD §5.4). */
 const BADGE_TINT = 0.12;
-/** Opacity of the error / warning row tint (HLD §5.6). */
-const ROW_TINT = 0.08;
 
 function rgb(hex: string): [number, number, number] {
   const n = parseInt(hex.slice(1), 16);
@@ -56,18 +54,13 @@ export function blendHex(top: string, bottom: string, alpha: number): string {
 }
 
 /**
- * The colours derived from the tokens, as custom properties:
- * `--dcp-badge-muted-bg` / `--dcp-badge-warning-bg` (opaque badge fills) and
- * `--dcp-tint-error` / `--dcp-tint-warning` (translucent row tints; a row
- * paints one over its own background with
- * `background-image: linear-gradient(var(--dcp-tint-error), var(--dcp-tint-error))`).
+ * The badge fills derived from the tokens, as custom properties
+ * `--dcp-badge-muted-bg` / `--dcp-badge-warning-bg` (opaque, HLD §5.4).
  */
 function derived(t: ThemeTokens): string {
-  const tint = (hex: string): string => `rgba(${rgb(hex).join(',')},${ROW_TINT})`;
   return (
     `--dcp-badge-muted-bg:${blendHex(t['text-muted'], t.bg, BADGE_TINT)};` +
-    `--dcp-badge-warning-bg:${blendHex(t.warning, t.bg, BADGE_TINT)};` +
-    `--dcp-tint-error:${tint(t.error)};--dcp-tint-warning:${tint(t.warning)};`
+    `--dcp-badge-warning-bg:${blendHex(t.warning, t.bg, BADGE_TINT)};`
   );
 }
 
@@ -92,8 +85,7 @@ const FORCED_TOKENS =
   '--dcp-text:CanvasText;--dcp-text-muted:GrayText;--dcp-text-faint:GrayText;--dcp-accent:Highlight;' +
   '--dcp-success:CanvasText;--dcp-info:CanvasText;--dcp-warning:CanvasText;--dcp-error:CanvasText;' +
   '--dcp-json-key:CanvasText;--dcp-json-string:CanvasText;--dcp-json-number:CanvasText;--dcp-json-literal:CanvasText;' +
-  '--dcp-match-bg:Mark;--dcp-badge-muted-bg:Canvas;--dcp-badge-warning-bg:Canvas;' +
-  '--dcp-tint-error:transparent;--dcp-tint-warning:transparent;';
+  '--dcp-match-bg:Mark;--dcp-badge-muted-bg:Canvas;--dcp-badge-warning-bg:Canvas;';
 
 /** The base theme stylesheet text. */
 export const THEME_CSS = [

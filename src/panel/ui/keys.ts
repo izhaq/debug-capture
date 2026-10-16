@@ -1,3 +1,8 @@
+/** True when Alt, Ctrl or Meta is held: such chords (Alt+→ = Forward) belong to the browser. */
+export function hasModifier(event: KeyboardEvent): boolean {
+  return event.altKey || event.ctrlKey || event.metaKey;
+}
+
 /**
  * The next index for a roving-focus key (← → ↑ ↓ Home End) in a list of
  * `count` items, wrapping at the ends; `null` when `key` is not one of them

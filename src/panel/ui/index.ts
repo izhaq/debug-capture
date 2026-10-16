@@ -26,7 +26,7 @@ export type {
 } from './dom';
 export { createEmptyState } from './empty-state';
 export type { EmptyStateControl, EmptyStateOptions } from './empty-state';
-export { highlightText } from './highlight';
+export { HIGHLIGHT_MAX_MARKS, highlightText } from './highlight';
 export { createIcon, ICON_NAMES } from './icons';
 export type { IconName, IconOptions } from './icons';
 export { createMenu, createPopover } from './popover';

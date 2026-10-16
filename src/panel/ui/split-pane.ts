@@ -1,4 +1,5 @@
 import { createListeners, Dom, ErrorReporter, setAttr, setStyle } from './dom';
+import { hasModifier } from './keys';
 
 /** `row`: panes side by side (docked bottom); `column`: stacked (docked right). */
 export type SplitDirection = 'row' | 'column';
@@ -84,6 +85,16 @@ export function createSplitPane(dom: Dom, options: SplitPaneOptions): SplitPaneC
     setAttr(handle, 'aria-valuemax', upper);
     return next;
   };
+  /**
+   * Re-measures the ARIA range. The 45 % default has no px size until it is
+   * laid out, so this runs when the handle gets focus — the moment assistive
+   * tech reads the values (review S-04 #12).
+   */
+  const refreshAria = (): void => {
+    const now = Math.round(current());
+    if (now > 0) setAttr(handle, 'aria-valuenow', now);
+    setAttr(handle, 'aria-valuemax', max());
+  };
   const resize = (px: number): void => {
     const before = size;
     const next = apply(px);
@@ -125,7 +136,9 @@ export function createSplitPane(dom: Dom, options: SplitPaneOptions): SplitPaneC
   listeners.on(handle, 'lostpointercapture', (event) => {
     if (drag && event.pointerId === drag.pointerId) drag = null;
   });
+  listeners.on(handle, 'focus', refreshAria);
   listeners.on(handle, 'keydown', (event) => {
+    if (hasModifier(event)) return;
     const [grow, shrink] = direction === 'row' ? ['ArrowLeft', 'ArrowRight'] : ['ArrowUp', 'ArrowDown'];
     let next: number;
     if (event.key === grow) next = current() + step;

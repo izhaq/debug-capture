@@ -78,6 +78,7 @@ describe('theme (S04-02)', () => {
     '@import "x.css";',
     '@property --x{syntax:"*"}',
     '.x{background:url(x.png)}',
+    '.x{color:color-mix(in srgb, red 8%, blue)}',
   ]) {
     it(`refuses extra CSS with ${JSON.stringify(bad)}`, () => {
       expect(() => createThemeSheet(document, [bad])).toThrowError(/may not contain/);
@@ -172,11 +173,8 @@ describe('theme (S04-02)', () => {
     expect(blendHex('#a9aeb8', '#1e1f22', 0.12)).toBe('#2f3034');
   });
 
-  it('row tints are 8 % of error / warning (HLD §5.6)', () => {
-    root.setAttribute('data-theme', 'light');
-    const style = getComputedStyle(probe());
-    expect(style.getPropertyValue('--dcp-tint-error').trim()).toBe('rgba(176,20,31,0.08)');
-    expect(style.getPropertyValue('--dcp-tint-warning').trim()).toBe('rgba(125,84,0,0.08)');
+  it('defines no row-tint variables: 04b draws row tints itself (review S-04 #16)', () => {
+    expect(THEME_CSS).not.toContain('--dcp-tint-');
   });
 
   it('dcp-match: match background, text colour (HLD §5.7)', () => {

@@ -1,5 +1,5 @@
 import { createListeners, Dom, ErrorReporter, setAttr } from './dom';
-import { rovingIndex } from './keys';
+import { hasModifier, rovingIndex } from './keys';
 
 /** One chip. */
 export interface ChipItem {
@@ -78,7 +78,7 @@ export function createChipGroup(dom: Dom, options: ChipGroupOptions): ChipGroupC
   );
   listeners.on(element, 'keydown', (event) => {
     const current = buttons.indexOf(event.target as HTMLButtonElement);
-    if (current < 0) return;
+    if (current < 0 || hasModifier(event)) return;
     const next = rovingIndex(event.key, current, buttons.length, 'horizontal');
     if (next === null) return;
     event.preventDefault();

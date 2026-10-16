@@ -182,6 +182,39 @@ describe('tabs', () => {
     expect(control.selected).toBe('console');
   });
 
+  it('each tab has a stable id and, with panelId, aria-controls; tabElement() finds it (review S-04 #10)', () => {
+    const control = createTabs(dom, {
+      tabs: [
+        { id: 'network', label: 'Network', panelId: 'dcp-panel-network' },
+        { id: 'console', label: 'Console' },
+      ],
+      idPrefix: 'dcp-top',
+      ariaLabel: 'Sections',
+      onChange: () => undefined,
+    });
+    const network = control.tabElement('network');
+    expect(network?.id).toBe('dcp-top-network');
+    expect(network?.getAttribute('aria-controls')).toBe('dcp-panel-network');
+    expect(control.tabElement('console')?.id).toBe('dcp-top-console');
+    expect(control.tabElement('console')?.hasAttribute('aria-controls')).toBeFalse();
+    expect(control.tabElement('nope')).toBeNull();
+    expect(createTabs(dom, { tabs, ariaLabel: 'x', onChange: () => undefined }).tabElement('console')?.id).toBe(
+      'dcp-tab-console',
+    );
+  });
+
+  it("ignores arrows with Alt, Ctrl or Meta (Alt+→ stays the browser's) (review S-04 #11)", () => {
+    const onChange = jasmine.createSpy('onChange');
+    const control = createTabs(dom, { tabs, ariaLabel: 'Sections', onChange });
+    mounted.root.appendChild(control.element);
+    const first = control.element.children[0] as Element;
+    for (const mod of [{ altKey: true }, { ctrlKey: true }, { metaKey: true }]) {
+      expect(key(first, 'ArrowRight', mod).defaultPrevented).toBeFalse();
+    }
+    expect(onChange).not.toHaveBeenCalled();
+    expect(control.selected).toBe('network');
+  });
+
   it('needs at least one tab', () => {
     expect(() => createTabs(dom, { tabs: [], ariaLabel: 'x', onChange: () => undefined })).toThrowError(RangeError);
   });
@@ -228,6 +261,17 @@ describe('chip group', () => {
     control.setSelected(['xhr', 'nope']);
     expect(control.selected).toEqual(['xhr']);
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('ignores arrows with Alt, Ctrl or Meta (review S-04 #11)', () => {
+    const control = createChipGroup(dom, { chips, ariaLabel: 'Type', onChange: () => undefined });
+    mounted.root.appendChild(control.element);
+    const first = control.element.querySelector('button') as HTMLButtonElement;
+    first.focus();
+    for (const mod of [{ altKey: true }, { ctrlKey: true }, { metaKey: true }]) {
+      expect(key(first, 'ArrowRight', mod).defaultPrevented).toBeFalse();
+    }
+    expect(mounted.shadow.activeElement).toBe(first);
   });
 
   it('← → Home End move focus inside the group (one tab stop)', () => {
