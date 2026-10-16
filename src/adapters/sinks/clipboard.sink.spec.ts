@@ -1,4 +1,4 @@
-import { ClipboardHost, copyText } from './clipboard.sink';
+import { CLIPBOARD_WRITE_TIMEOUT_MS, ClipboardHost, copyText } from './clipboard.sink';
 
 /** What the fallback's textarea looked like while `execCommand('copy')` ran. */
 interface CopySnapshot {
@@ -105,6 +105,14 @@ describe('copyText', () => {
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(execCommand).toHaveBeenCalledOnceWith('copy');
     expect(snapshot?.value).toBe('hello');
+  });
+
+  it('falls back when navigator.clipboard.writeText throws instead of rejecting', async () => {
+    writeText.and.throwError('sync failure');
+
+    await expectAsync(copyText('hello', secureHost())).toBeResolvedTo(true);
+
+    expect(execCommand).toHaveBeenCalledOnceWith('copy');
   });
 
   it('resolves false instead of rejecting when everything fails', async () => {
@@ -258,5 +266,109 @@ describe('copyText', () => {
     await expectAsync(copyText('hello', plainHttpHost())).toBeResolvedTo(true);
 
     expect(doc.body.querySelector('textarea')).toBeNull();
+  });
+
+  describe('when navigator.clipboard.writeText never settles', () => {
+    /** One scheduled timeout, fired by hand so the spec needs no real time. */
+    interface Scheduled {
+      fn: () => void;
+      ms: number;
+      cancelled: boolean;
+    }
+    let scheduled: Scheduled[];
+
+    function timedHost(): ClipboardHost {
+      return {
+        ...secureHost(),
+        schedule: (fn, ms) => {
+          const entry: Scheduled = { fn, ms, cancelled: false };
+          scheduled.push(entry);
+          return () => {
+            entry.cancelled = true;
+          };
+        },
+      };
+    }
+
+    /** Lets the awaited writeText and copyText's own continuations run. */
+    async function settle(): Promise<void> {
+      for (let i = 0; i < 5; i++) {
+        await Promise.resolve();
+      }
+    }
+
+    beforeEach(() => {
+      scheduled = [];
+    });
+
+    it('resolves false when the timeout fires, without the execCommand fallback', async () => {
+      writeText.and.returnValue(new Promise<void>(() => undefined));
+      let result: boolean | undefined;
+
+      void copyText('hello', timedHost()).then((copied) => (result = copied));
+      await settle();
+
+      expect(result).toBeUndefined();
+      expect(scheduled.length).toBe(1);
+      expect(scheduled[0].ms).toBe(CLIPBOARD_WRITE_TIMEOUT_MS);
+
+      scheduled[0].fn();
+      await settle();
+
+      expect(result).toBe(false);
+      // The user gesture is long gone: a late execCommand would only fail or surprise.
+      expect(execCommand).not.toHaveBeenCalled();
+      expect(doc.body.querySelector('textarea')).toBeNull();
+    });
+
+    it('waits about 1.5 s: long enough for a permission prompt check, short for a key press', () => {
+      expect(CLIPBOARD_WRITE_TIMEOUT_MS).toBe(1500);
+    });
+
+    it('ignores a writeText that rejects after the timeout', async () => {
+      let reject: (reason: unknown) => void = () => undefined;
+      writeText.and.returnValue(new Promise<void>((_resolve, rej) => (reject = rej)));
+
+      const copying = copyText('hello', timedHost());
+      await settle();
+      scheduled[0].fn();
+      await expectAsync(copying).toBeResolvedTo(false);
+
+      reject(new Error('late failure'));
+      await settle();
+
+      expect(execCommand).not.toHaveBeenCalled();
+    });
+
+    it('cancels the timeout when writeText resolves in time', async () => {
+      await expectAsync(copyText('hello', timedHost())).toBeResolvedTo(true);
+
+      expect(scheduled.length).toBe(1);
+      expect(scheduled[0].cancelled).toBe(true);
+    });
+
+    it('cancels the timeout and falls back when writeText rejects in time', async () => {
+      writeText.and.rejectWith(new DOMException('Document is not focused.', 'NotAllowedError'));
+
+      await expectAsync(copyText('hello', timedHost())).toBeResolvedTo(true);
+
+      expect(scheduled[0].cancelled).toBe(true);
+      expect(execCommand).toHaveBeenCalledOnceWith('copy');
+    });
+
+    it('a timeout firing after writeText resolved changes nothing', async () => {
+      await expectAsync(copyText('hello', timedHost())).toBeResolvedTo(true);
+
+      expect(() => scheduled[0].fn()).not.toThrow();
+    });
+
+    it('still times out with a host that brings no scheduler (the browser timer is used)', async () => {
+      // The review repro R3: a host like install's environment, with no `schedule`.
+      writeText.and.returnValue(new Promise<void>(() => undefined));
+
+      await expectAsync(copyText('hello', secureHost())).toBeResolvedTo(false);
+
+      expect(execCommand).not.toHaveBeenCalled();
+    });
   });
 });

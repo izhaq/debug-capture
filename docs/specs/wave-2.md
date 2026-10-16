@@ -45,7 +45,7 @@ if asked).
 
 - `createCaptureController(options?: DebugCaptureOptions): CaptureController` (01a).
 - `createRecorder(policy)` returns `LiveRecorder & ProbeRecorder` (01a).
-- `DebugCaptureOptions.recorder?: LiveRecorder & ProbeRecorder` (01a).
+- ~~`DebugCaptureOptions.recorder`~~ — removed after the S-01 review (see S01-07).
 - `isProblemEntry(entry: CaptureEntry): boolean` (01b).
 - `copyText(text, host?, options?: SinkOptions)`, `downloadText(text, filename, mimeType?, host?, options?: SinkOptions)` (01b).
 
@@ -90,7 +90,7 @@ orchestrator runs `npm run check` on the wave branch and raises the spec floor.
 | Track | PR | State |
 |---|---|---|
 | 01a | — | started |
-| 01b | #60 | merged — 369 specs; `isProblemEntry`, sinks with `{ root }` |
+| 01b | #60, #62 | merged — `isProblemEntry`, sinks with `{ root }`; #62: copy can no longer hang (S-01 review) |
 | 02 | — | started |
 | 03 | #61 | merged — 459 specs; data source, store, selectors, format, body helpers, cURL |
 | 04a | — | started |
