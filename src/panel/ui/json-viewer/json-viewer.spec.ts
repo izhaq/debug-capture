@@ -620,9 +620,9 @@ describe('createJsonViewer', () => {
       // (worst single run seen: 20.6 ms). Measured median, headless Chromium
       // 141 on a loaded 4-CPU box, 3 runs: 1.2-1.7 ms. The regression
       // (rendering all 2,000 children, pageSize 2000) measured a median of
-      // 17.7-21.0 ms. The limit is ~3x the measured time and ~3.5x below the
-      // regression.
-      expect(median).toBeLessThan(5);
+      // 17.7-21.0 ms. The limit is ~5x the measured time (room for a loaded
+      // runner) and still ~2x below the regression.
+      expect(median).toBeLessThan(8);
     });
   });
 

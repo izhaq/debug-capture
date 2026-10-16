@@ -33,11 +33,10 @@ do not edit the last line of that file), `src/adapters/probes/**`,
    (type the parameter as `Recorder & Partial<ProbeRecorder>` only if needed —
    prefer `ProbeRecorder` and adapt the specs' fakes). C-7 flag on fetch.
    WebSocket ids from `nextSocketId()`.
-4. **Install / controller** (`install/`): `installDebugCapture` uses
-   `options.recorder` when given. `createCaptureController(options?)` keeps
-   one recorder (created from the resolved policy, or `options.recorder`),
-   one stable session wrapper (S01-06), and calls `installDebugCapture` with
-   that recorder on each `start()`. `getActiveCaptureSession()` per S01-06.
+4. **Install / controller** (`install/`): `createCaptureController(options?)`
+   keeps one recorder, built from the resolved policy (there is no
+   `options.recorder`, S01-07), one stable session wrapper (S01-06), and
+   installs the probes on that recorder on each `start()`. `getActiveCaptureSession()` per S01-06.
    Export `createCaptureController` from the install barrel (L4 → L5).
 5. **Specs first** (show each failing once). Include at least: pending
    redaction parity with the stored entry (headers, URL params, ignored URL);

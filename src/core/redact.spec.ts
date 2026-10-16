@@ -1,5 +1,5 @@
 import { DEFAULT_CAPTURE_POLICY } from '../contract';
-import { matchesAny, redactHeaders, redactJsonText, redactJsonValue, redactParams } from './redact';
+import { matchesAny, redactHeaders, redactJsonText, redactJsonValue, redactParams, redactUserinfo } from './redact';
 
 describe('redact', () => {
   const R = '[redacted]';
@@ -260,5 +260,13 @@ describe('redact', () => {
     expect(matchesAny(url, [])).toBeFalse();
     const sticky = /http/y;
     expect([1, 2, 3].map(() => matchesAny(url, [sticky]))).toEqual([true, true, true]);
+  });
+
+  it('puts a user-set replacement into a URL literally, never as a `$` pattern', () => {
+    for (const replacement of ['$1', '$&', "$'", '$$']) {
+      expect(redactUserinfo('https://user:secret@host/p', replacement))
+        .withContext(replacement)
+        .toBe(`https://${replacement}@host/p`);
+    }
   });
 });

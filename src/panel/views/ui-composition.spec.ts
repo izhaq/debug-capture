@@ -47,6 +47,8 @@ describe('P2 blocks composed through the real theme sheet', () => {
     grid.focus();
 
     expect(grid.getAttribute('aria-activedescendant')).toBeTruthy();
+    // Without :focus-visible the outline check below would pass for any CSS.
+    expect(grid.matches(':focus-visible')).toBeTrue();
     expect(getComputedStyle(grid).outlineStyle).toBe('none');
     list.destroy();
   });

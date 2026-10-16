@@ -146,12 +146,6 @@ export function hiddenValue<T>(value: T, replacement: string): T | string {
 }
 
 /**
- * A new, frozen map with lower-case keys. A header's value becomes
- * `replacement` when its name is in `names` (any case, exact) or looks like
- * a secret key from `secretKeys` (`x-access-token` ends with `accesstoken`);
- * the others are cut to `maxValueLength`.
- */
-/**
  * `scheme://user:password@host` → `scheme://<replacement>@host`. The whole
  * user info goes, not only the password: a token is often sent as the user
  * name (`https://<token>@host`). Done before truncation, so a cut can never
@@ -160,11 +154,18 @@ export function hiddenValue<T>(value: T, replacement: string): T | string {
  * in the URL parser. Linear: one scan of the authority.
  */
 export function redactUserinfo(url: string, replacement: string): string {
-  return url.replace(USERINFO, `$1${replacement}@`);
+  // A function replacer: `replacement` is user-set and must not expand `$1` / `$&`.
+  return url.replace(USERINFO, (_match, scheme: string) => `${scheme}${replacement}@`);
 }
 
 const USERINFO = /^([a-z][a-z0-9+.-]*:\/\/)[^/?#\\]*@/i;
 
+/**
+ * A new, frozen map with lower-case keys. A header's value becomes
+ * `replacement` when its name is in `names` (any case, exact) or looks like
+ * a secret key from `secretKeys` (`x-access-token` ends with `accesstoken`);
+ * the others are cut to `maxValueLength`.
+ */
 export function redactHeaders(
   headers: HeaderMap,
   names: readonly string[],
