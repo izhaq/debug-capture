@@ -34,6 +34,8 @@ export interface LoaderDeps {
  */
 const OURS = Symbol.for('debug-capture-panel-v2');
 const DISCONNECT = Symbol.for('debug-capture-panel-v2:disconnect');
+/** Set on the registered class while a handle is live, so any copy sees it even after the host removed the element. */
+const LIVE = Symbol.for('debug-capture-panel-v2:live');
 
 /**
  * Pointer, mouse, key, focus, input, clipboard and drag events that would
@@ -44,7 +46,8 @@ const WALLED =
   'pointerdown pointerup pointermove pointerover pointerout pointercancel gotpointercapture lostpointercapture ' +
   'mousedown mouseup mousemove mouseover mouseout click dblclick auxclick contextmenu wheel ' +
   'touchstart touchmove touchend touchcancel keydown keyup keypress beforeinput input focusin focusout ' +
-  'compositionstart compositionupdate compositionend copy cut paste dragstart';
+  'compositionstart compositionupdate compositionend copy cut paste ' +
+  'dragstart drag dragend dragenter dragover dragleave drop';
 
 const CLOSED = 0;
 const OPENING = 1;
@@ -89,6 +92,8 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
   // or another, stays inert rather than stacking a second launcher.
   if (Array.from(html.children).some((child) => child.localName === name)) return inertHandle();
   if (!define(scope, name)) return inertHandle();
+  const registered = (scope.customElements?.get(name) ?? {}) as unknown as Record<symbol, unknown>;
+  if (registered[LIVE] === true) return inertHandle();
 
   const sheet = new scope.CSSStyleSheet();
   sheet.replaceSync(LOADER_CSS);
@@ -225,14 +230,17 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
           const key = event as KeyboardEvent;
           const way = SCROLL_KEYS[key.key];
           const target = key.composedPath()[0] as HTMLElement;
+          // Ctrl+Home / Ctrl+End scroll the page too. Buttons, links and
+          // summaries use only Space; every other scroll key would bubble up.
           if (
             !way ||
             key.defaultPrevented ||
-            key.ctrlKey ||
+            (key.ctrlKey && key.key !== 'Home' && key.key !== 'End') ||
             key.altKey ||
             key.metaKey ||
             target.isContentEditable ||
-            /^(INPUT|TEXTAREA|SELECT|BUTTON|A|SUMMARY)$/.test(target.tagName)
+            /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) ||
+            (key.key === ' ' && /^(BUTTON|A|SUMMARY)$/.test(target.tagName))
           ) {
             return;
           }
@@ -257,7 +265,11 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
     }
     ui = mounted;
     state = OPEN;
-    if (byUser) root.focus({ preventScroll: true });
+    // A slow chunk: if the user has moved on to the host page meanwhile, leave their focus alone (ISO-16).
+    const active = deepActiveElement(doc);
+    if (byUser && (active === returnTo || active === doc.body || active === null || shadow.contains(active))) {
+      root.focus({ preventScroll: true });
+    }
   };
 
   /** `byUser`: the launcher or the shortcut. Only then does focus move in (ISO-16). */
@@ -352,6 +364,7 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
     doc.removeEventListener('keydown', onKey);
     if (frame !== null) scope.cancelAnimationFrame(frame);
     quiet = true;
+    registered[LIVE] = false;
     host.remove();
   };
 
@@ -362,6 +375,7 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
   });
   mount();
 
+  registered[LIVE] = true;
   const handle: DebugPanelHandle = {
     open: guard(() => open(false)),
     close: guard(close),
@@ -439,7 +453,9 @@ function isPassingChord(event: Event, toggle: Chord | null): boolean {
   const key = event as KeyboardEvent;
   // A chord needs a real key: a bare Shift with Ctrl+Alt held is still just typing.
   if (/^(Control|Alt|Shift|Meta)/.test(key.code)) return false;
-  return (key.ctrlKey && key.altKey && key.shiftKey && !key.metaKey) || (toggle !== null && toggle(key));
+  // AltGr+Shift reads as Ctrl+Alt+Shift on Windows: that is typing, not a chord.
+  const chord = key.ctrlKey && key.altKey && key.shiftKey && !key.metaKey && !key.getModifierState('AltGraph');
+  return chord || (toggle !== null && toggle(key));
 }
 
 /** Keys that scroll the focused box (or, failing that, the page), as [x, y] directions. */

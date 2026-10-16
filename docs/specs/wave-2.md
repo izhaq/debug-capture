@@ -91,7 +91,7 @@ orchestrator runs `npm run check` on the wave branch and raises the spec floor.
 |---|---|---|
 | 01a | #66 | merged — recorder, probes, install, controller; 879 specs; core 11,740 B (S-01 review fixed) |
 | 01b | #60, #62 | merged — `isProblemEntry`, sinks with `{ root }`; #62: copy can no longer hang (S-01 review) |
-| 02 | — | started |
+| 02 | #67 | merged — loader, launcher, badge, lazy UI, hostile-host fixture; 934 specs, 19 e2e; loader 4,043 B of 4,096 (S-02 isolation review fixed) |
 | 03 | #61 | merged — 459 specs; data source, store, selectors, format, body helpers, cURL |
 | 04a | #63 | merged — builder, theme, icons, controls (S-04 review fixed) |
 | 04b | #64 | merged — virtual list (S-04 review fixed; node budget → D-22) |

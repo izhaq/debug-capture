@@ -411,6 +411,10 @@ describe('panel loader (S-02)', () => {
       'cut',
       'paste',
       'dragstart',
+      'drag',
+      'dragend',
+      'dragover',
+      'drop',
     ];
 
     it('stops every walled event at the host element; host capture listeners still see it', () => {
@@ -455,6 +459,16 @@ describe('panel loader (S-02)', () => {
         inner.dispatchEvent(chord({ code: 'KeyD', ctrlKey: true, altKey: true, shiftKey: true }));
         inner.dispatchEvent(chord({ code: 'KeyD', ctrlKey: true, shiftKey: true }));
         inner.dispatchEvent(chord({ code: 'KeyA' }));
+        // AltGr+Shift on Windows reports Ctrl+Alt+Shift: still typing, not a chord.
+        inner.dispatchEvent(
+          chord({
+            code: 'KeyA',
+            ctrlKey: true,
+            altKey: true,
+            shiftKey: true,
+            modifierAltGraph: true,
+          } as KeyboardEventInit & { code: string }),
+        );
         inner.dispatchEvent(
           new MouseEvent('click', { bubbles: true, composed: true, ctrlKey: true, altKey: true, shiftKey: true }),
         );
@@ -857,8 +871,13 @@ describe('panel loader (S-02)', () => {
         .withContext('list is at its top')
         .toBeTrue();
       expect(press(button, ' ')).withContext('Space clicks a button').toBeFalse();
+      expect(press(button, 'ArrowDown')).withContext('a button cannot use arrows').toBeTrue();
+      expect(press(button, 'PageDown')).withContext('a button cannot use PageDown').toBeTrue();
       expect(press(root, 'End', { ctrlKey: true }))
-        .withContext('not a plain scroll key')
+        .withContext('Ctrl+End scrolls the page too')
+        .toBeTrue();
+      expect(press(root, 'ArrowDown', { ctrlKey: true }))
+        .withContext('not a scroll key with Ctrl')
         .toBeFalse();
       expect(press(root, 'a')).withContext('typing').toBeFalse();
     });
@@ -897,6 +916,19 @@ describe('panel loader (S-02)', () => {
 
       const other = hostInput();
       h.handle.close();
+      expect(document.activeElement).toBe(other);
+    });
+
+    it('a slow chunk does not take focus the user moved to the host page meanwhile', async () => {
+      const h = install();
+      let resolve: (chunk: { mountPanelUi: typeof h.ui.mount }) => void = () => undefined;
+      h.loadUi.and.returnValue(new Promise((done) => (resolve = done)));
+      pressToggle(hostInput());
+      const other = hostInput();
+      resolve({ mountPanelUi: h.ui.mount });
+      await settle();
+
+      expect(h.handle.isOpen).toBeTrue();
       expect(document.activeElement).toBe(other);
     });
 
@@ -966,6 +998,21 @@ describe('panel loader (S-02)', () => {
       expect(h.host()).toBe(host);
       expect(host.matches(':popover-open')).toBeTrue();
       expect(h.handle.isOpen).toBeTrue();
+    });
+
+    it('a second install after the host removed the element stays inert until the first is disposed', () => {
+      const name = uniqueName();
+      const first = install({}, { deps: { elementName: name } });
+      (first.host() as HTMLElement).remove();
+      const second = install({}, { deps: { elementName: name } });
+      second.handle.open();
+
+      expect(second.handle.isOpen).toBeFalse();
+      expect(second.recorder.entryListeners.size).toBe(0);
+
+      first.handle.dispose();
+      const third = install({}, { deps: { elementName: name } });
+      expect(third.recorder.entryListeners.size).toBe(1);
     });
 
     it('closes cleanly when removed while open, and opens again later', async () => {

@@ -1,4 +1,4 @@
 {
-  "min": 879,
+  "min": 934,
   "note": "Fewest specs `npm test` may run. Raise it when you add specs; lower it only with a reason in the PR (AGENTS rule 19)."
 }
