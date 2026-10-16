@@ -90,9 +90,9 @@ orchestrator runs `npm run check` on the wave branch and raises the spec floor.
 | Track | PR | State |
 |---|---|---|
 | 01a | — | started |
-| 01b | — | started |
+| 01b | #60 | merged — 369 specs; `isProblemEntry`, sinks with `{ root }` |
 | 02 | — | started |
-| 03 | — | started |
+| 03 | #61 | merged — 459 specs; data source, store, selectors, format, body helpers, cURL |
 | 04a | — | started |
 | 04b | — | started |
 | 04c | — | started |
