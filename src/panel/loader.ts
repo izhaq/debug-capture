@@ -208,14 +208,37 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
       root.lang = 'en';
       root.dir = 'ltr';
       root.tabIndex = -1;
-      // A wheel the panel cannot use would scroll the host page (research L9):
-      // `overscroll-behavior` alone does nothing on a box with no overflow.
-      root.addEventListener(
+      // A wheel or scroll key the panel cannot use would scroll the host page
+      // (research L9): `overscroll-behavior` does nothing on a box with no overflow.
+      const panelRoot = root;
+      panelRoot.addEventListener(
         'wheel',
         guard((event: Event) => {
-          if (!canScroll(scope, event as WheelEvent, root as HTMLElement)) event.preventDefault();
+          const wheel = event as WheelEvent;
+          if (!canScroll(scope, wheel, panelRoot, wheel.deltaX, wheel.deltaY)) wheel.preventDefault();
         }),
         { passive: false },
+      );
+      panelRoot.addEventListener(
+        'keydown',
+        guard((event: Event) => {
+          const key = event as KeyboardEvent;
+          const way = SCROLL_KEYS[key.key];
+          const target = key.composedPath()[0] as HTMLElement;
+          if (
+            !way ||
+            key.defaultPrevented ||
+            key.ctrlKey ||
+            key.altKey ||
+            key.metaKey ||
+            target.isContentEditable ||
+            /^(INPUT|TEXTAREA|SELECT|BUTTON|A|SUMMARY)$/.test(target.tagName)
+          ) {
+            return;
+          }
+          const dy = key.key === ' ' && key.shiftKey ? -1 : way[1];
+          if (!canScroll(scope, key, panelRoot, way[0], dy)) key.preventDefault();
+        }),
       );
       shadow.append(root);
     }
@@ -419,16 +442,29 @@ function isPassingChord(event: Event, toggle: Chord | null): boolean {
   return (key.ctrlKey && key.altKey && key.shiftKey && !key.metaKey) || (toggle !== null && toggle(key));
 }
 
-/** Whether a box between the wheel's target and `root` can still scroll the wheel's way. */
-function canScroll(scope: LoaderScope, event: WheelEvent, root: HTMLElement): boolean {
+/** Keys that scroll the focused box (or, failing that, the page), as [x, y] directions. */
+const SCROLL_KEYS: Record<string, readonly [number, number] | undefined> = {
+  ' ': [0, 1],
+  PageDown: [0, 1],
+  End: [0, 1],
+  ArrowDown: [0, 1],
+  PageUp: [0, -1],
+  Home: [0, -1],
+  ArrowUp: [0, -1],
+  ArrowLeft: [-1, 0],
+  ArrowRight: [1, 0],
+};
+
+/** Whether a box between the event's target and `root` can still scroll the `dx` / `dy` way. */
+function canScroll(scope: LoaderScope, event: Event, root: HTMLElement, dx: number, dy: number): boolean {
+  const can = (delta: number, overflow: string, at: number, size: number, total: number): boolean =>
+    delta !== 0 && /auto|scroll/.test(overflow) && (delta > 0 ? Math.ceil(at + size) < total : at > 0);
   for (const node of event.composedPath()) {
     const el = node as HTMLElement;
     const style = scope.getComputedStyle(el);
-    const can = (delta: number, overflow: string, at: number, size: number, total: number): boolean =>
-      delta !== 0 && /auto|scroll/.test(overflow) && (delta > 0 ? Math.ceil(at + size) < total : at > 0);
     if (
-      can(event.deltaY, style.overflowY, el.scrollTop, el.clientHeight, el.scrollHeight) ||
-      can(event.deltaX, style.overflowX, el.scrollLeft, el.clientWidth, el.scrollWidth)
+      can(dy, style.overflowY, el.scrollTop, el.clientHeight, el.scrollHeight) ||
+      can(dx, style.overflowX, el.scrollLeft, el.clientWidth, el.scrollWidth)
     ) {
       return true;
     }

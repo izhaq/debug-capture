@@ -253,9 +253,11 @@ test('ISO-07, research E1–E5/E7/E9: clicks, keys, wheel and clipboard inside t
   await page.mouse.move(root.x, root.y);
   await page.mouse.wheel(0, 200);
   await page.keyboard.type('a/ x');
-  await page.keyboard.press('Delete');
-  await page.keyboard.press('Control+C');
-  await page.keyboard.press('Enter');
+  for (const key of ['Space', 'PageDown', 'ArrowDown', 'End', 'Delete', 'Control+C', 'Enter']) {
+    await page.keyboard.press(key);
+  }
+  // Keyboard and wheel scrolls are smooth: give them time to land before reading scrollY.
+  await page.waitForTimeout(600);
 
   const host = await page.evaluate(() => window.__host);
   expect(host.bubbled).toEqual([]);
@@ -265,7 +267,8 @@ test('ISO-07, research E1–E5/E7/E9: clicks, keys, wheel and clipboard inside t
   expect(host.dialogOpen).toBe(true);
   // D-16: the host's capture-phase listeners are never blocked (research E3).
   expect(host.captured).toEqual(expect.arrayContaining(['pointerdown', 'click', 'keydown']));
-  expect(await page.evaluate(() => window.scrollY)).toBe(0); // ISO-13: overscroll-behavior: contain
+  // ISO-13, research L9: neither the wheel nor a scroll key over the panel moves the host page.
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
 
   // Escape is the panel's: it closes the panel, and the host's "dialog" stays open (E5).
   await page.keyboard.press('Escape');

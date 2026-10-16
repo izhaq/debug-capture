@@ -828,6 +828,41 @@ describe('panel loader (S-02)', () => {
       expect(wheel(tall, 0)).withContext('no vertical delta').toBeTrue();
     });
 
+    it('scroll keys on the panel never scroll the host page; inner scrollers and controls keep them', async () => {
+      const h = install();
+      h.handle.open();
+      await settle();
+      const root = h.root() as HTMLElement;
+      const press = (target: Element, key: string, init: KeyboardEventInit = {}): boolean => {
+        const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, composed: true, ...init });
+        target.dispatchEvent(event);
+        return event.defaultPrevented;
+      };
+      const list = document.createElement('div');
+      list.style.height = '20px';
+      list.style.overflow = 'auto';
+      const tall = document.createElement('div');
+      tall.style.height = '100px';
+      tall.style.width = '5000px';
+      list.appendChild(tall);
+      const button = document.createElement('button');
+      root.append(list, button);
+
+      for (const key of [' ', 'PageDown', 'PageUp', 'End', 'Home', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight']) {
+        expect(press(root, key)).withContext(key).toBeTrue();
+      }
+      expect(press(tall, 'ArrowDown')).withContext('list can scroll down').toBeFalse();
+      expect(press(tall, 'ArrowRight')).withContext('list can scroll right').toBeFalse();
+      expect(press(tall, ' ', { shiftKey: true }))
+        .withContext('list is at its top')
+        .toBeTrue();
+      expect(press(button, ' ')).withContext('Space clicks a button').toBeFalse();
+      expect(press(root, 'End', { ctrlKey: true }))
+        .withContext('not a plain scroll key')
+        .toBeFalse();
+      expect(press(root, 'a')).withContext('typing').toBeFalse();
+    });
+
     it('swallows a UI that throws on unmount (ISO-12)', async () => {
       const h = install();
       h.handle.open();
