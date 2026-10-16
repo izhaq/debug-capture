@@ -3,7 +3,9 @@
  * indent per level, punctuation in `--dcp-text`, v1 placeholders muted and
  * italic, the four `--dcp-json-*` colours. px only (ISO-03); composed into the
  * panel's one sheet by `createThemeSheet(doc, [JSON_VIEWER_CSS])` (ISO-04,
- * ISO-05). The badges (`dcp-badge*`) are styled by the theme, not here.
+ * ISO-05). The badges (`dcp-badge*`) are styled by the theme, not here; an
+ * inline `[redacted]` borrows the theme's precomputed badge fill
+ * (`--dcp-badge-muted-bg`, forced-colours mapped), so no `color-mix()`.
  */
 export const JSON_VIEWER_CSS = `
 .dcp-json, .dcp-json-group { list-style: none; margin: 0; padding: 0; }
@@ -41,7 +43,7 @@ export const JSON_VIEWER_CSS = `
 .dcp-json-summary { color: var(--dcp-text-muted); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .dcp-json-redacted {
   color: var(--dcp-text-muted);
-  background: color-mix(in srgb, var(--dcp-text-muted) 12%, var(--dcp-bg));
+  background-color: var(--dcp-badge-muted-bg);
   border-radius: 4px;
 }
 .dcp-json-show-all, .dcp-json-more {

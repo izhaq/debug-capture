@@ -20,6 +20,12 @@ export interface JsonViewerOptions {
    * block this one may not import; without it the badge is text only.
    */
   readonly badgeIcon?: (kind: JsonBadgeKind) => Node | null;
+  /**
+   * Receives what a listener or `badgeIcon` throws (ISO-12: nothing reaches
+   * the host or the console). Default: dropped. Same shape as the other
+   * blocks' `onError`.
+   */
+  readonly onError?: (error: unknown) => void;
 }
 
 export interface JsonViewer {
@@ -56,6 +62,8 @@ interface TreeNode {
   readonly li: HTMLLIElement;
   readonly value: JsonValue;
   readonly parent: TreeNode | null;
+  /** `aria-level`: the root is 1. */
+  readonly level: number;
   /** Child count; 0 for leaves and empty containers. */
   readonly size: number;
   /** An object's keys, read once; `null` for arrays and leaves. */
@@ -95,11 +103,21 @@ export function createJsonViewer(doc: Document, value: JsonValue, options: JsonV
   tree.setAttribute('role', 'tree');
   tree.setAttribute('aria-label', options.ariaLabel);
 
-  const root = createNode(value, null, null);
+  const root = createNode(value, null, null, 0);
   tree.appendChild(root.li);
   let active: HTMLLIElement = root.li;
   active.tabIndex = 0;
   openInitially(Math.max(0, options.expandDepth ?? 1));
+
+  const guard = (listener: (event: Event) => void): ((event: Event) => void) => {
+    return (event) => {
+      try {
+        listener(event);
+      } catch (error) {
+        report(error);
+      }
+    };
+  };
 
   const onClick = guard((event: Event) => {
     const target = event.target as Element;
@@ -151,6 +169,15 @@ export function createJsonViewer(doc: Document, value: JsonValue, options: JsonV
     }
     key.preventDefault();
   });
+
+  /** Listeners never throw into the host (ISO-12); the caller may count what they swallow. */
+  function report(error: unknown): void {
+    try {
+      options.onError?.(error);
+    } catch {
+      // The reporter failed too; nothing safer is left to do.
+    }
+  }
 
   tree.addEventListener('click', onClick);
   tree.addEventListener('keydown', onKeydown);
@@ -333,13 +360,13 @@ export function createJsonViewer(doc: Document, value: JsonValue, options: JsonV
     const fragment = doc.createDocumentFragment();
     if (Array.isArray(container)) {
       for (let i = node.shown; i < end; i++) {
-        fragment.appendChild(createNode(container[i], String(i), node).li);
+        fragment.appendChild(createNode(container[i], String(i), node, i).li);
       }
     } else {
       const keys = node.keys as readonly string[];
       const object = container as { readonly [key: string]: JsonValue };
       for (let i = node.shown; i < end; i++) {
-        fragment.appendChild(createNode(object[keys[i]], keys[i], node).li);
+        fragment.appendChild(createNode(object[keys[i]], keys[i], node, i).li);
       }
     }
     node.shown = end;
@@ -349,6 +376,8 @@ export function createJsonViewer(doc: Document, value: JsonValue, options: JsonV
       more.className = 'dcp-json-more';
       more.setAttribute('role', 'treeitem');
       more.tabIndex = -1;
+      // Not a child: no size or position, so "1 of 250" stays true for the real ones.
+      more.setAttribute('aria-level', String(node.level + 1));
       more.textContent = `Show ${group(Math.min(pageSize, left))} more (${group(left)} hidden)`;
       mores.set(more, node);
       node.more = more;
@@ -358,11 +387,20 @@ export function createJsonViewer(doc: Document, value: JsonValue, options: JsonV
     groupEl.appendChild(fragment);
   }
 
-  function createNode(value: JsonValue, key: string | null, parent: TreeNode | null): TreeNode {
+  /**
+   * `index` is the place among the parent's children. Size and position are
+   * set from the data, not left to the browser: with paging it would count
+   * only the rendered page (and the "Show more" item).
+   */
+  function createNode(value: JsonValue, key: string | null, parent: TreeNode | null, index: number): TreeNode {
     const li = doc.createElement('li');
     li.className = 'dcp-json-item';
     li.setAttribute('role', 'treeitem');
     li.tabIndex = -1;
+    const level = parent === null ? 1 : parent.level + 1;
+    li.setAttribute('aria-level', String(level));
+    li.setAttribute('aria-setsize', String(parent === null ? 1 : parent.size));
+    li.setAttribute('aria-posinset', String(index + 1));
     const line = doc.createElement('div');
     line.className = 'dcp-json-line';
     li.appendChild(line);
@@ -383,6 +421,7 @@ export function createJsonViewer(doc: Document, value: JsonValue, options: JsonV
       li,
       value,
       parent,
+      level,
       size,
       keys,
       summary: null,
@@ -563,8 +602,9 @@ export function createJsonViewer(doc: Document, value: JsonValue, options: JsonV
     let icon: Node | null = null;
     try {
       icon = options.badgeIcon?.(kind) ?? null;
-    } catch {
+    } catch (error) {
       // A failing icon costs the icon, never the tree (ISO-12).
+      report(error);
     }
     if (icon !== null) {
       el.appendChild(icon);
@@ -640,15 +680,4 @@ export function createJsonViewer(doc: Document, value: JsonValue, options: JsonV
       }
     }
   }
-}
-
-/** Listeners never throw into the host (ISO-12): a failure costs one interaction, silently. */
-function guard(listener: (event: Event) => void): (event: Event) => void {
-  return (event) => {
-    try {
-      listener(event);
-    } catch {
-      // Nothing to report to: the console is the recorder's input.
-    }
-  };
 }

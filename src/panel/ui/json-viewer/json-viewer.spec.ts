@@ -230,6 +230,45 @@ describe('createJsonViewer', () => {
     });
   });
 
+  describe('positions', () => {
+    it('tells the real size, position and level of each item', () => {
+      const big: Record<string, JsonValue> = {};
+      for (let i = 0; i < 250; i++) {
+        big[`k${i}`] = i === 1 ? [true] : i;
+      }
+      const v = view(big);
+      const root = items(v)[0];
+      expect([
+        root.getAttribute('aria-level'),
+        root.getAttribute('aria-setsize'),
+        root.getAttribute('aria-posinset'),
+      ]).toEqual(['1', '1', '1']);
+      const second = keyed(v, 'k1');
+      expect([
+        second.getAttribute('aria-level'),
+        second.getAttribute('aria-setsize'),
+        second.getAttribute('aria-posinset'),
+      ]).toEqual(['2', '250', '2']);
+      second.click();
+      expect([keyed(v, '0').getAttribute('aria-level'), keyed(v, '0').getAttribute('aria-setsize')]).toEqual([
+        '3',
+        '1',
+      ]);
+      (v.element.querySelector('.dcp-json-more') as HTMLElement).click();
+      expect(keyed(v, 'k150').getAttribute('aria-posinset')).toBe('151');
+      expect(keyed(v, 'k150').getAttribute('aria-setsize')).toBe('250');
+    });
+
+    it('does not count "Show more" as a child', () => {
+      const v = view(Array.from({ length: 150 }, (_, i) => i));
+      const more = v.element.querySelector('.dcp-json-more')!;
+      expect(more.getAttribute('aria-level')).toBe('2');
+      expect(more.hasAttribute('aria-posinset')).toBeFalse();
+      expect(more.hasAttribute('aria-setsize')).toBeFalse();
+      expect(items(v)[1].getAttribute('aria-setsize')).toBe('150');
+    });
+  });
+
   describe('paging', () => {
     const big = (n: number): Record<string, number> => {
       const out: Record<string, number> = {};
@@ -450,6 +489,59 @@ describe('createJsonViewer', () => {
     });
   });
 
+  describe('errors', () => {
+    it('reports what a listener throws to onError and never throws to the host', () => {
+      let armed = false;
+      const trap = new Proxy(
+        {},
+        {
+          ownKeys(target) {
+            if (armed) {
+              throw new Error('trap');
+            }
+            return Reflect.ownKeys(target);
+          },
+        },
+      );
+      const errors: unknown[] = [];
+      const v = view({ a: { b: trap as JsonValue } }, { onError: (e) => errors.push(e) });
+      armed = true;
+      expect(() => (keyed(v, 'a').querySelector('.dcp-json-line') as HTMLElement).click()).not.toThrow();
+      expect(errors.length).toBe(1);
+      expect((errors[0] as Error).message).toBe('trap');
+    });
+
+    it('reports a failing icon and keeps the badge', () => {
+      const errors: unknown[] = [];
+      const v = view(
+        { token: REDACTED },
+        {
+          badgeIcon: () => {
+            throw new Error('no icon');
+          },
+          onError: (e) => errors.push(e),
+        },
+      );
+      expect(valueOf(keyed(v, 'token')).textContent).toBe('redacted');
+      expect(errors.map((e) => (e as Error).message)).toEqual(['no icon']);
+    });
+
+    it('survives a reporter that throws', () => {
+      const v = view(
+        { token: REDACTED },
+        {
+          badgeIcon: () => {
+            throw new Error('no icon');
+          },
+          onError: () => {
+            throw new Error('reporter');
+          },
+        },
+      );
+      expect(valueOf(keyed(v, 'token')).textContent).toBe('redacted');
+    });
+  });
+
   describe('destroy', () => {
     it('removes every listener it added and leaves the document alone', () => {
       const added: string[] = [];
@@ -522,14 +614,33 @@ describe('createJsonViewer', () => {
         v.destroy();
       }
       const median = times.sort((a, b) => a - b)[4];
-      // Median of 9, because single runs carry GC and JIT spikes (worst single
-      // run seen: 20.6 ms). Measured median, headless Chromium 141 on a loaded
-      // 4-CPU box, 3 runs: 1.2-1.7 ms. The regression (rendering all 2,000
-      // children, pageSize 2000) measured a median of 17.7-21.0 ms. The limit
-      // is ~5x the measured time and ~2x below the regression; the item and
-      // element counts above catch that regression exactly in any case.
-      expect(median).toBeLessThan(8);
+      // The real guard against rendering every child is the item and element
+      // count above: it fails exactly, at any speed. This limit only catches a
+      // slow page. Median of 9, because single runs carry GC and JIT spikes
+      // (worst single run seen: 20.6 ms). Measured median, headless Chromium
+      // 141 on a loaded 4-CPU box, 3 runs: 1.2-1.7 ms. The regression
+      // (rendering all 2,000 children, pageSize 2000) measured a median of
+      // 17.7-21.0 ms. The limit is ~3x the measured time and ~3.5x below the
+      // regression.
+      expect(median).toBeLessThan(5);
     });
+  });
+
+  it("gives inline [redacted] the redacted badge's opaque fill", () => {
+    const shadowHost = document.createElement('div');
+    const shadow = shadowHost.attachShadow({ mode: 'open' });
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(`.dcp-root { --dcp-badge-muted-bg: #123456; --dcp-text-muted: #abcdef; }${JSON_VIEWER_CSS}`);
+    shadow.adoptedStyleSheets = [sheet];
+    const inner = document.createElement('div');
+    inner.className = 'dcp-root';
+    shadow.appendChild(inner);
+    host.appendChild(shadowHost);
+    const v = view([`Bearer ${REDACTED}`]);
+    inner.appendChild(v.element);
+    const mark = getComputedStyle(v.element.querySelector('.dcp-json-redacted')!);
+    expect(mark.backgroundColor).toBe('rgb(18, 52, 86)');
+    expect(mark.color).toBe('rgb(171, 205, 239)');
   });
 
   it('exports CSS that uses only the json tokens and px', () => {
@@ -538,9 +649,12 @@ describe('createJsonViewer', () => {
     expect(JSON_VIEWER_CSS).toContain('var(--dcp-json-number)');
     expect(JSON_VIEWER_CSS).toContain('var(--dcp-json-literal)');
     expect(JSON_VIEWER_CSS).toContain('.dcp-json-placeholder');
-    expect(JSON_VIEWER_CSS).not.toMatch(/\d(r?em|%|vh|vw)\b|@import|@font-face|@property|!important/);
+    // `%` needs no `\b` after it: a word boundary never follows a `%`.
+    expect(JSON_VIEWER_CSS).not.toMatch(/\d(?:r?em|vh|vw)\b|\d%|@import|@font-face|@property|!important/);
+    // color-mix() needs Chromium 111+; the theme's precomputed fill works from 90.
+    expect(JSON_VIEWER_CSS).not.toContain('color-mix(');
     for (const used of JSON_VIEWER_CSS.match(/--dcp-[\w-]+/g) ?? []) {
-      expect(used).toMatch(/^--dcp-(json-(key|string|number|literal)|text|text-muted|accent|bg|bg-hover)$/);
+      expect(used).toMatch(/^--dcp-(json-(key|string|number|literal)|text|text-muted|accent|bg-hover|badge-muted-bg)$/);
     }
     const sheet = new CSSStyleSheet();
     sheet.replaceSync(JSON_VIEWER_CSS);
