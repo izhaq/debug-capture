@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>debug-capture — hostile host: calm (no hostile CSS)</title>
+  </head>
+  <body>
+    <div id="app">
+      <h1>Host app</h1>
+      <input id="host-input" aria-label="Host field" />
+      <button id="menu-button" type="button">Menu</button>
+      <ul id="menu" class="menu">
+        <li>Host menu item</li>
+      </ul>
+      <div id="dialog" role="dialog" aria-label="Host dialog">Host dialog</div>
+      <div id="host-popover" popover="auto">Host popover</div>
+    </div>
+    <script type="module" src="/hostile.mjs"></script>
+    <script type="module" src="/app.mjs"></script>
+  </body>
+</html>

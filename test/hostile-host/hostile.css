@@ -1,0 +1,144 @@
+/*
+ * Everything a host stylesheet can throw at the panel (research §4, §3.1–§3.3).
+ * Each block names the finding it reproduces.
+ */
+
+/* S1, S5, S11: inherited values and a tiny root font size. visibility and
+   pointer-events are set on <html> (our parent) and undone on <body>, so the
+   host page itself still works. */
+html {
+  font-size: 10px;
+  font-family: serif;
+  color: red;
+  line-height: 30px;
+  cursor: wait;
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+  letter-spacing: 3px;
+  word-spacing: 9px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-align: right;
+  text-indent: 40px;
+  font-style: italic;
+  font-weight: 900;
+  text-shadow: 1px 1px lime;
+  -webkit-text-fill-color: lime;
+  caret-color: red;
+  accent-color: red;
+  color-scheme: dark;
+  /* S13: a dark-mode filter hack on <html>; the top layer is immune. */
+  filter: invert(1);
+}
+body {
+  visibility: visible;
+  pointer-events: auto;
+  min-height: 3000px;
+  /* L1, S13: transformed and dimmed <body>. */
+  transform: translateX(0);
+  opacity: 0.9;
+}
+
+/* S3, S4: custom properties and a registered @property with our token names. */
+:root {
+  --dcp-bg: hotpink;
+  --dcp-text: hotpink;
+  --dcp-bg-elevated: hotpink;
+  --bg: hotpink;
+}
+@property --dcp-bg {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --dcp-text {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+/* S6: outer rules aimed at every element, every child of html/body, our tag, popovers. */
+* {
+  margin: 5px;
+  transition: all 1s;
+  animation: spin 1s infinite;
+}
+@keyframes spin {
+  to {
+    rotate: 360deg;
+  }
+}
+body > *,
+html > * {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 50px;
+  height: 50px;
+  padding: 20px;
+  border: 7px dashed red;
+  background: yellow;
+}
+/* The host's own page stays usable and still (only our element should suffer). */
+html > body,
+#app {
+  width: auto;
+  height: auto;
+  display: block;
+}
+html,
+head,
+body,
+body > script,
+#app,
+#app * {
+  animation: none;
+  transition: none;
+}
+debug-capture-panel-v2,
+dc-debug-panel {
+  display: none !important;
+  inset: auto !important;
+  width: 1px !important;
+}
+[popover] {
+  background: red;
+  border: 9px solid red;
+}
+::backdrop {
+  background: rgba(255, 0, 0, 0.5);
+}
+
+/* S8: focus rings on whatever has focus. */
+*:focus {
+  outline: 5px solid red;
+}
+*:focus-within {
+  background: yellow;
+}
+
+/* L2: sibling selectors that would change if we mounted inside <body>. */
+body > :last-child {
+  outline: 3px solid blue;
+}
+#app:last-child {
+  color: green;
+}
+
+/* Host chrome the tests use. */
+.menu {
+  display: block;
+}
+.overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  z-index: 2147483647;
+  background: rgba(0, 0, 255, 0.2);
+  animation: none;
+}

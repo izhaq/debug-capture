@@ -13,6 +13,9 @@ import { assertDistFresh } from './scripts/dist-fresh.mjs';
 const root = path.dirname(fileURLToPath(import.meta.url));
 assertDistFresh(root);
 const port = Number(process.env.E2E_PORT ?? 4319);
+/** The hostile host (test/hostile-host/, S-02): its own server, because every page there carries a strict CSP header. */
+const hostilePort = Number(process.env.E2E_HOSTILE_PORT ?? 4329);
+process.env.E2E_HOSTILE_ORIGIN = `http://127.0.0.1:${hostilePort}`;
 
 export default defineConfig({
   testDir: 'test/e2e',
@@ -23,10 +26,18 @@ export default defineConfig({
   reporter: [['list'], ['./test/e2e-guard-reporter.mjs']],
   use: { baseURL: `http://127.0.0.1:${port}` },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer: {
-    command: `node test/static-server.mjs ${port}`,
-    url: `http://127.0.0.1:${port}/dist/index.mjs`,
-    reuseExistingServer: false,
-    timeout: 30000,
-  },
+  webServer: [
+    {
+      command: `node test/static-server.mjs ${port}`,
+      url: `http://127.0.0.1:${port}/dist/index.mjs`,
+      reuseExistingServer: false,
+      timeout: 30000,
+    },
+    {
+      command: `node test/hostile-host/server.mjs ${hostilePort}`,
+      url: `http://127.0.0.1:${hostilePort}/dist/panel.mjs`,
+      reuseExistingServer: false,
+      timeout: 30000,
+    },
+  ],
 });
