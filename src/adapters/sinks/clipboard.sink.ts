@@ -10,6 +10,15 @@
 import { SinkOptions } from '../../core';
 
 /**
+ * How long `navigator.clipboard.writeText` may take before the copy counts as
+ * failed. A browser can leave the promise pending (a permission prompt nobody
+ * answers, a stalled clipboard service); without a limit `copyText` — and
+ * `session.copy()` — would never settle and would hold the capture JSON alive.
+ * A real write takes milliseconds; 1.5 s is still short for a key press.
+ */
+export const CLIPBOARD_WRITE_TIMEOUT_MS = 1500;
+
+/**
  * The globals the copy touches. Injected so specs can pass fakes and never
  * touch the real clipboard, focus or DOM.
  */
@@ -18,10 +27,21 @@ export interface ClipboardHost {
   /** `activeElement` lets the fallback hand focus back to where the user was. */
   document: Pick<Document, 'createElement' | 'body' | 'execCommand' | 'activeElement'>;
   isSecureContext: boolean;
+  /**
+   * Runs `fn` after `ms` and returns a cancel function. Optional: without it
+   * the browser's `setTimeout` is used, so hosts built before the timeout
+   * existed still get it.
+   */
+  schedule?(fn: () => void, ms: number): () => void;
 }
 
 function realClipboardHost(): ClipboardHost {
-  return { navigator, document, isSecureContext };
+  return { navigator, document, isSecureContext, schedule: browserSchedule };
+}
+
+function browserSchedule(fn: () => void, ms: number): () => void {
+  const id = setTimeout(fn, ms);
+  return () => clearTimeout(id);
 }
 
 /**
@@ -41,17 +61,51 @@ export async function copyText(text: string, host?: ClipboardHost, options?: Sin
     const h = host ?? realClipboardHost();
     const clipboard = h.navigator.clipboard;
     if (h.isSecureContext && typeof clipboard?.writeText === 'function') {
-      try {
-        await clipboard.writeText(text);
+      const outcome = await writeWithTimeout(startWrite(clipboard, text), h.schedule ?? browserSchedule);
+      if (outcome === 'written') {
         return true;
-      } catch {
-        // Permission denied or document not focused: the old path may still work.
       }
+      if (outcome === 'timeout') {
+        // No execCommand now: the user gesture it needs has long expired.
+        return false;
+      }
+      // Rejected (permission denied, document not focused): the old path may still work.
     }
     return copyWithExecCommand(text, h.document, options?.root);
   } catch {
     return false;
   }
+}
+
+/** Called synchronously, inside the user gesture; a synchronous throw counts as a rejection. */
+function startWrite(clipboard: Pick<Clipboard, 'writeText'>, text: string): Promise<void> {
+  try {
+    return clipboard.writeText(text);
+  } catch (error: unknown) {
+    return Promise.reject(error);
+  }
+}
+
+/** Settles with how the write ended, never rejects, and always within the limit. */
+function writeWithTimeout(
+  write: Promise<void>,
+  schedule: NonNullable<ClipboardHost['schedule']>,
+): Promise<'written' | 'rejected' | 'timeout'> {
+  return new Promise((resolve) => {
+    // A promise settles once: whichever of the three comes first wins, and a
+    // late write result (even a rejection) is absorbed here, never unhandled.
+    const cancel = schedule(() => resolve('timeout'), CLIPBOARD_WRITE_TIMEOUT_MS);
+    write.then(
+      () => {
+        cancel();
+        resolve('written');
+      },
+      () => {
+        cancel();
+        resolve('rejected');
+      },
+    );
+  });
 }
 
 /**
