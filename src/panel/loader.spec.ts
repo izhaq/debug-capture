@@ -4,6 +4,7 @@ import {
   ControlledCaptureSession,
   DEFAULT_CAPTURE_POLICY,
   EntryListener,
+  isProblemEntry,
   LiveRecorder,
   RecorderChangeListener,
   Unsubscribe,
@@ -11,7 +12,6 @@ import {
 import type { MountPanelUi, MountPanelUiOptions, PanelUiHandle } from './app';
 import { DebugPanelHandle, DebugPanelOptions } from './api';
 import { createDebugPanel, LoaderDeps, LoaderScope } from './loader';
-import { isProblemEntry } from './problem-rule-stub';
 
 // ---------------------------------------------------------------------------
 // Fakes. The loader gets its page through `LoaderScope`; specs pass the real

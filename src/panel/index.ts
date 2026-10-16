@@ -5,9 +5,9 @@
  * stays lazy; never `export *` from P4. No packages. Kept tiny (≤ 4 kB,
  * NFR-SIZE-01).
  */
+import { isProblemEntry } from '..';
 import type { DebugPanelHandle, DebugPanelOptions, InstallDebugPanel } from './api';
 import { createDebugPanel, inertHandle } from './loader';
-import { isProblemEntry } from './problem-rule-stub';
 
 export type { DebugPanelHandle, DebugPanelOptions, InstallDebugPanel } from './api';
 export { PANEL_ELEMENT_NAME } from './api';
