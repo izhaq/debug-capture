@@ -276,13 +276,6 @@ export interface DebugCaptureOptions {
   readonly policy?: Partial<CapturePolicy>;
   /** `false` disables keyboard shortcuts. */
   readonly shortcuts?: Partial<ShortcutConfig> | false;
-  /**
-   * C-2: install on this recorder instead of a new one, so a controller's
-   * stop/start keeps one buffer and one set of counters (`seq`, request and
-   * socket ids). Its policy is the one applied: `policy` then only describes
-   * it (and is still validated).
-   */
-  readonly recorder?: LiveRecorder & ProbeRecorder;
 }
 
 /** What installDebugCapture() returns — the handle the app and the Angular layer hold. */

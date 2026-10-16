@@ -73,7 +73,8 @@ export function createCaptureController(
 ): CaptureController {
   // Before anything is patched: a bad config fails loudly.
   const policy = resolvePolicy(options.policy);
-  const recorder = options.recorder ?? createRecorder(policy);
+  // Always built here from `policy`, so `session.policy` is the policy applied.
+  const recorder = createRecorder(policy);
   const { clock } = env;
   const listeners: Array<(on: boolean) => void> = [];
   /** Changes made by a listener wait for the current one, so every listener sees them in order. */
@@ -173,12 +174,15 @@ export function createCaptureController(
         activeSession = null;
       }
       remove();
+      // A listener turned capture back on while the probes came off (it saw
+      // an `end`): that start() already announced `true`, so `false` would lie.
+      if (uninstall) {
+        return;
+      }
       // The probes end their own requests on dispose; this catches any they
       // could not, so no listener keeps a row that will never finish (C-1).
-      if (!uninstall) {
-        for (const request of recorder.pending()) {
-          recorder.endPending(request.id);
-        }
+      for (const request of recorder.pending()) {
+        recorder.endPending(request.id);
       }
       changed(false);
     },

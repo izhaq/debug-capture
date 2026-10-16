@@ -4,9 +4,12 @@ import {
   CaptureSession,
   ClipboardHost,
   ConsoleHost,
+  CaptureController,
   CreateCaptureController,
+  DebugCaptureOptions,
   DownloadHost,
   FetchHost,
+  ProbeRecorder,
   RecorderChange,
   WebSocketEntry,
   WebSocketHost,
@@ -576,11 +579,22 @@ describe('createCaptureController', () => {
     expect('pending' in (JSON.parse(controller.session.toJson()) as CaptureFile)).toBeFalse();
   });
 
+  /** The session's recorder is the real one: it has the probes' write side too. */
+  function probeSide(controller: CaptureController): ProbeRecorder {
+    return controller.session.recorder as unknown as ProbeRecorder;
+  }
+
   it('stop() empties the pending list even when a probe left a request behind', () => {
-    const recorder = createRecorder(resolvePolicy());
-    const controller = createCaptureController({ recorder }, fake.env);
+    const controller = createCaptureController({}, fake.env);
+    const recorder = controller.session.recorder;
     // As if a probe had started a request and then failed to end it on dispose.
-    recorder.startPending({ t: 1, transport: 'xhr', method: 'GET', url: 'http://app.test/x', reqHeaders: {} });
+    probeSide(controller).startPending({
+      t: 1,
+      transport: 'xhr',
+      method: 'GET',
+      url: 'http://app.test/x',
+      reqHeaders: {},
+    });
 
     controller.stop();
 
@@ -598,24 +612,54 @@ describe('createCaptureController', () => {
     expect(changes).toEqual([{ type: 'cleared' }]);
   });
 
-  it('installs on options.recorder when given (S01-07)', () => {
-    const recorder = createRecorder(resolvePolicy({ maxEntries: 3 }));
+  it('ignores a recorder smuggled into the options: session.policy is the policy applied (review 4)', () => {
+    const smuggled = createRecorder(resolvePolicy({ redactHeaders: [] }));
+    const options = { shortcuts: false, recorder: smuggled } as DebugCaptureOptions;
 
-    const controller = createCaptureController({ recorder }, fake.env);
-    fake.consoleHost.log('into the given recorder');
+    const controller = createCaptureController(options, fake.env);
+    probeSide(controller).startPending({
+      t: 1,
+      transport: 'fetch',
+      method: 'GET',
+      url: 'http://app.test/a',
+      reqHeaders: { cookie: 'sid=SECRET' },
+    });
 
-    expect(controller.session.recorder).toBe(recorder);
-    expect(recorder.snapshot().length).toBe(1);
+    expect(controller.session.recorder).not.toBe(smuggled as unknown as typeof controller.session.recorder);
+    expect(controller.session.policy.redactHeaders).toContain('cookie');
+    expect(controller.session.recorder.pending()[0].reqHeaders['cookie']).toBe(controller.session.policy.redactedValue);
   });
 
-  it('installDebugCapture({ recorder }) installs on that recorder (S01-07)', () => {
-    const recorder = createRecorder(resolvePolicy());
+  it('installDebugCapture() records with a recorder built from its policy', () => {
+    const session = installDebugCapture({ policy: { maxEntries: 1 } }, fake.env);
+    fake.consoleHost.log('first');
+    fake.consoleHost.log('second');
 
-    const session = installDebugCapture({ recorder }, fake.env);
-    fake.consoleHost.log('given');
+    expect(entries(session).length).toBe(1);
+    expect(session.recorder.stats().evicted).toBe(1);
+  });
 
-    expect(session.recorder).toBe(recorder);
-    expect(recorder.snapshot().length).toBe(1);
+  it('onChange never says off while capture is on, when a listener restarts it during stop() (review R9)', () => {
+    const held = heldFetch();
+    const controller = createCaptureController({}, { ...fake.env, fetch: held.host });
+    const said: Array<[boolean, boolean]> = [];
+    controller.onChange((on) => said.push([on, controller.on]));
+    let restarted = false;
+    controller.session.recorder.onPending((event) => {
+      if (event.type === 'end' && !restarted) {
+        restarted = true;
+        controller.start();
+      }
+    });
+    void held.host.fetch('/slow');
+
+    controller.stop();
+
+    expect(controller.on).toBeTrue();
+    expect(said.every(([on, actual]) => on === actual))
+      .withContext(JSON.stringify(said))
+      .toBeTrue();
+    expect(said[said.length - 1]).toEqual([true, true]);
   });
 
   it('installDebugCapture() while a controller is on returns its session, patching nothing twice', () => {
@@ -642,20 +686,26 @@ describe('createCaptureController', () => {
     expect(second.on).toBeTrue();
   });
 
-  it('a listener that installs while the probes go in gets this session, not a second capture', () => {
-    const recorder = createRecorder(resolvePolicy());
+  it('code that installs while the probes go in gets this session, not a second capture', () => {
     const nested: CaptureSession[] = [];
-    recorder.onEntry(() => {
-      if (nested.length === 0) nested.push(installDebugCapture({}, fake.env));
-    });
+    let Socket = fake.webSocketHost.WebSocket;
+    // A host whose WebSocket getter runs app code — here, an install — while the probes go in.
+    const webSocket: WebSocketHost = {
+      get WebSocket(): typeof WebSocket {
+        if (nested.length === 0) nested.push(installDebugCapture({}, fake.env));
+        return Socket;
+      },
+      set WebSocket(value: typeof WebSocket) {
+        Socket = value;
+      },
+    };
 
-    // The failed WebSocket probe records an error while the others are going in.
-    const controller = createCaptureController({ recorder }, { ...fake.env, webSocket: {} as WebSocketHost });
+    const controller = createCaptureController({}, { ...fake.env, webSocket });
     const patchedLog = fake.consoleHost.log;
     fake.consoleHost.log('once');
 
     expect(nested).toEqual([controller.session]);
-    expect(kinds(controller.session)).toEqual(['error', 'log']);
+    expect(kinds(controller.session)).toEqual(['log']);
     controller.stop();
     expect(fake.consoleHost.log).toBe(fake.originalLog);
     expect(patchedLog).not.toBe(fake.originalLog);
