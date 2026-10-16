@@ -138,22 +138,38 @@ describe('createLocalDataSource (S03-01)', () => {
     expect(await throwing.copyText('abc', ROOT)).toBe(false);
   });
 
-  it('the default copy is the L5 sink with the root: nothing is added to the host page', async () => {
+  it('the default copy is the L5 sink with the root: the fallback textarea goes into root, nothing into body', async () => {
+    // The real clipboard can stay pending forever in headless Chromium (no
+    // focus, no permission). Refuse it, so the L5 sink always takes its
+    // execCommand fallback — the path that adds a node.
+    if (navigator.clipboard) {
+      spyOn(navigator.clipboard, 'writeText').and.rejectWith(new DOMException('denied', 'NotAllowedError'));
+    }
     const { controller } = fakeCapture();
     const host = document.createElement('div');
     const root = host.attachShadow({ mode: 'open' });
     document.body.appendChild(host);
-    const added: Node[] = [];
-    const observer = new MutationObserver((records) => records.forEach((r) => added.push(...Array.from(r.addedNodes))));
-    observer.observe(document.body, { childList: true });
+    // Records arrive in the callbacks during the await; takeRecords() picks up any still queued.
+    const added = { body: [] as string[], root: [] as string[] };
+    const collect = (into: string[]) => (records: MutationRecord[]) =>
+      records.forEach((r) => r.addedNodes.forEach((n) => into.push(n.nodeName)));
+    const bodyObserver = new MutationObserver(collect(added.body));
+    const rootObserver = new MutationObserver(collect(added.root));
+    bodyObserver.observe(document.body, { childList: true, subtree: true });
+    rootObserver.observe(root, { childList: true });
     try {
-      // Headless Chromium may refuse the clipboard; either answer is fine, a rejection is not.
       const result = await createLocalDataSource(controller).copyText('x', root);
-      observer.takeRecords().forEach((r) => added.push(...Array.from(r.addedNodes)));
+      collect(added.body)(bodyObserver.takeRecords());
+      collect(added.root)(rootObserver.takeRecords());
+
+      // execCommand('copy') may say no in headless Chromium; the answer is a boolean either way.
       expect(typeof result).toBe('boolean');
-      expect(added).toEqual([]);
+      expect(added.root).toEqual(['TEXTAREA']);
+      expect(added.body).toEqual([]);
+      expect(root.childNodes.length).toBe(0);
     } finally {
-      observer.disconnect();
+      bodyObserver.disconnect();
+      rootObserver.disconnect();
       host.remove();
     }
   });
