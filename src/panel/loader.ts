@@ -418,6 +418,8 @@ function define(scope: LoaderScope, name: string): boolean {
 }
 
 /**
+ * A deliberate copy of `install/shortcuts.ts` `parseShortcut`: P5 cannot import
+ * L4 code within its 4 kB budget, and this one also rejects a repeated modifier.
  * `'ctrl+alt+shift+p'` → an exact matcher on `KeyboardEvent.code` (layout-free,
  * like v1's shortcuts), or `null` for a chord it cannot read, so a typo binds
  * nothing instead of throwing. All four modifiers must match exactly (ISO-08).

@@ -21,44 +21,20 @@ plain words (root `CLAUDE.md`).
   (wave branch → integration branch) for the **owner** to review.
 - Integration branch (never `main`): `claude/air-gapped-debug-logging-zkn1nr`.
 
-## 2. Where things stand
+## 2. Where things stand (updated 2026-10-18)
 
-| Item | Branch / PR | State |
-|---|---|---|
-| S-00 Foundation | `claude/dc-v2-s00-foundation`, **PR #59** → integration | Done, reviewed twice, green. **Waiting for the owner's review. Do not merge it yourself.** |
-| Wave 2 branch | `claude/dc-v2-wave2` (based on S-00) | Has 01b, 03, 04a, 04b, 04c merged; 803 specs, `npm run check` green at `c7de85e` |
-| 01b sinks + problem rule | PR #60, #62 | Merged |
-| 03 panel model | PR #61 | Merged |
-| 04a / 04b / 04c UI blocks | PR #63 / #64 / #65 | Merged after the S-04 review fix round; composition spec + barrel lines + D-22 in `c7de85e` |
-| **01a core** (recorder, probes, controller) | `claude/dc-v2-w2-01a-core` @ `52a664b` | **Not merged.** S-01 review fixes done; already merged with the wave branch; the old orchestrator verified `npm run check` = exit 0, **879 specs**, core 11,740 B (budget 12,368). Next: open PR → wave2, merge. |
-| **02 loader** | `claude/dc-v2-w2-02-loader` @ `d971648` | **Not merged, not yet verified by an orchestrator.** Loader + launcher + badge + lazy UI + hostile-host fixture (`test/hostile-host/`) + e2e (`test/e2e/panel-*.spec.mjs`) are committed. The agent was stopped (usage limit) while proving tests red by mutation. It merged the wave branch only up to 01b. |
+- S-00 Foundation: **PR #59** → integration, waiting for the owner's review. Do not merge it yourself.
+- Wave 2 is complete on `claude/dc-v2-wave2`: 01a (#66), 01b (#60, #62), 02 (#67),
+  03 (#61), 04a–c (#63–#65), confirmation fixes (#68). 935 specs, 19 e2e, `npm run check` green.
+- Reviews done: S-00 ×2, S-01 + confirmation, S-02 isolation + fixes, S-04 + confirmation,
+  whole-wave review (no blockers; findings in §5).
+- The wave PR `claude/dc-v2-wave2` → integration is open for the owner. Do not merge it.
 
-Fresh-context reviews done: S-00 (2 rounds), S-01 (1 round + fixes; the
-confirmation round is still owed), S-04 (1 round + fixes; the confirmation
-round is still owed). S-02 has had **no** review yet.
+## 3. What to do next
 
-## 3. What to do next (in order)
-
-1. **Merge 01a.** Re-run `npm run check` on `claude/dc-v2-w2-01a-core` after
-   merging the latest wave branch; open the PR → `claude/dc-v2-wave2`; merge;
-   raise `test/unit/spec-floor.json` to the new count; update the status table
-   in `docs/specs/wave-2.md`.
-2. **Finish 02.** On `claude/dc-v2-w2-02-loader`: merge the wave branch
-   (expect a conflict only in `playwright.config.mjs` — keep both the track's
-   changes and the e2e guard `reporter` line), run `npm run check`, read the
-   diff against `docs/specs/02-panel-loader/` (S02-01…17). Small gaps → fix
-   them yourself. Then **one** fresh-context isolation review (ISO rules, the
-   hostile host, focus, zone, CSP), a fix round, merge, raise both floors
-   (`test/unit/spec-floor.json`, `test/e2e-floor.json`).
-3. **Confirmation reviews, narrow:** S-01 (only the 01a fix commits since the
-   review + PR #62) and S-04 (only the fix commits in #63–#65 + `c7de85e`).
-   One reviewer each, diff only, report ≤ 400 words.
-4. **Whole-wave review** (one reviewer) of `git diff
-   origin/claude/dc-v2-s00-foundation...origin/claude/dc-v2-wave2 --
-   packages/debug-capture` → fix → open the PR `claude/dc-v2-wave2` →
-   `claude/air-gapped-debug-logging-zkn1nr` (note in the body: it contains
-   S-00's commits until PR #59 merges). Do not merge it.
-5. Tell the owner, briefly, what is ready and what needs their decision.
+1. Wait for the owner's review of PR #59 and the wave-2 PR, and their decision on the
+   theme-colour question (§4).
+2. Then plan wave 3 (§5), starting with the small contract PR.
 
 ## 4. Open items for the owner (do not decide for them)
 
@@ -67,6 +43,13 @@ round is still owed). S-02 has had **no** review yet.
 - Open questions `OPEN-01` … `OPEN-06` (HLD §11) — most important: station
   Chrome/Edge versions.
 - `bdi_W` practices comparison still waits for access to that repo.
+- **Theme colours vs. a hostile `@property --dcp-*` (whole-wave review, blocks S-08):**
+  the loader uses literal colours (research S4), but the P2 theme is all `var(--dcp-*)`.
+  The e2e S4 check passes only because the placeholder UI never adopts the theme.
+  Either (a) declare a host registering `--dcp-*` out of scope (HLD ISO-05/S4) and drop
+  those rules from `test/hostile-host/hostile.css`, or (b) have `theme-css.ts` emit
+  literal colours per theme from `TOKENS`.
+- D-21 (problem rule) is still "Proposed" in HLD §10, but the code relies on it.
 
 ## 5. Notes for wave 3 (from wave-2 reports and reviews)
 
@@ -83,6 +66,14 @@ round is still owed). S-02 has had **no** review yet.
   objects (the theme check parses it).
 - UI APIs added in review: tabs ids / `aria-controls`, list
   `onSelectionLost`, JSON viewer `onError` / `badgeIcon`.
+- Contract PR for wave 3 (whole-wave review): add `panelRoot: HTMLElement` to
+  `MountPanelUiOptions` (P4 finds `.dcp-root` by a hard-coded string today), and write
+  down that the UI appends its stylesheet after the loader's (never replaces
+  `adoptedStyleSheets` — that sheet holds the `:host` lockdown) and who owns the
+  root's size and dock (`loader-styles.ts` `.dcp-root` rules today).
+- Small leftovers: `onSelectionLost` fires before the list re-renders; the 04b spec's
+  hand-copied focus CSS; `redactUserinfo` misses leading-space and `//host` URLs.
+- The loader is at 4,043 of 4,096 B: any loader change needs trimming or a budget raise.
 
 ## 6. How to work here — token-saving rules (important)
 
