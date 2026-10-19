@@ -288,6 +288,16 @@ npx playwright install chromium       # once per machine; downloads Playwright's
 (The old "never run `playwright install`" rule was for the cloud container only. On
 the laptop you must run it once.)
 
+**If the laptop's security software gets in the way** (seen on the owner's laptop,
+2026-10-19; Node 26, npm 11):
+
+| Symptom | Fix |
+|---|---|
+| Files show `w/crlf` in `git ls-files --eol` after setting `autocrlf false` | With a clean tree only: `git rm --cached -r -q . ; git reset --hard -q` (re-checks out every file) |
+| `npx playwright install chromium` freezes while unpacking `chrome.dll` | Install by hand: `npx playwright install --dry-run chromium` lists the four zips and folders (`chromium-1194`, `chromium_headless_shell-1194`, `ffmpeg-1011`, `winldd-1007`). For each: `curl.exe -sSfL -o x.zip <url>`, `tar -xf x.zip -C "$env:LOCALAPPDATA\ms-playwright\<folder>"`, then create an empty `INSTALLATION_COMPLETE` file in the folder. |
+| Karma: `spawn EPERM` (the full `chrome.exe` is blocked) | Point Karma at the headless shell, the same Chromium 141 the e2e tests use: user variable `CHROME_BIN` = `%LOCALAPPDATA%\ms-playwright\chromium_headless_shell-1194\chrome-win\headless_shell.exe` |
+| `npm ci` warns that esbuild's install script is not allowed | Harmless: esbuild runs without it |
+
 **Every check run** (from `packages/debug-capture`):
 
 ```powershell
@@ -295,8 +305,8 @@ npm run check
 ```
 
 - Karma uses Playwright's Chromium automatically; to use another Chrome, set
-  `$env:CHROME_BIN = "C:\Program Files\Google\Chrome\Application\chrome.exe"`
-  first.
+  `$env:CHROME_BIN` to its `chrome.exe` first (on the owner's laptop Chrome is in
+  `C:\Program Files (x86)\Google\Chrome\Application\`).
 - The checks expect **LF line endings** (Prettier, the contrast check). The package's
   `.gitattributes` forces LF on checkout. If `format:check` fails on every file, run
   `git add --renormalize .` once, or check `core.autocrlf`.
