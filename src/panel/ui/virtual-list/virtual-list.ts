@@ -1,4 +1,4 @@
-import type { VirtualList, VirtualListOptions } from './types';
+import type { VirtualList, VirtualListOptions, VirtualListSort } from './types';
 
 const DEFAULT_OVERSCAN = 8;
 /**
@@ -68,6 +68,12 @@ export function createVirtualList<T>(doc: Document, options: VirtualListOptions<
   const pool: RowRecord<T>[] = [];
   const recordOf = new WeakMap<Element, RowRecord<T>>();
   const scrollListeners = new Set<(atEnd: boolean) => void>();
+  /** Sortable headers: one tab stop among them (roving `tabIndex`). */
+  const sortButtons: HTMLButtonElement[] = [];
+  const sortKeys = new WeakMap<Element, string>();
+  const sortCells = new Map<string, HTMLElement>();
+  let header: HTMLElement | null = null;
+  let newCount = 0;
 
   const element = doc.createElement('div');
   element.className = 'dcp-vlist';
@@ -82,7 +88,7 @@ export function createVirtualList<T>(doc: Document, options: VirtualListOptions<
   );
 
   if (headerRows === 1) {
-    const header = doc.createElement('div');
+    header = doc.createElement('div');
     header.className = 'dcp-vlist__header';
     header.setAttribute('role', 'row');
     header.setAttribute('aria-rowindex', '1');
@@ -90,7 +96,21 @@ export function createVirtualList<T>(doc: Document, options: VirtualListOptions<
       const cell = doc.createElement('div');
       cell.className = 'dcp-vlist__colhead';
       cell.setAttribute('role', 'columnheader');
-      cell.textContent = column.label;
+      if (column.sortable === true) {
+        // A native button: Enter and Space click it, and it is named by its text.
+        const button = doc.createElement('button');
+        button.type = 'button';
+        button.className = 'dcp-vlist__sort dcp-focus-inset';
+        button.tabIndex = sortButtons.length === 0 ? 0 : -1;
+        button.textContent = column.label;
+        sortKeys.set(button, column.key);
+        sortCells.set(column.key, cell);
+        sortButtons.push(button);
+        cell.className += ' dcp-vlist__colhead--sortable';
+        cell.appendChild(button);
+      } else {
+        cell.textContent = column.label;
+      }
       header.appendChild(cell);
     }
     element.appendChild(header);
@@ -101,6 +121,14 @@ export function createVirtualList<T>(doc: Document, options: VirtualListOptions<
   body.setAttribute('role', 'rowgroup');
   element.appendChild(body);
   applyRowHeight();
+
+  // Outside the grid: a grid may own only rows (the caller places it).
+  const followButton = options.follow === true ? doc.createElement('button') : null;
+  if (followButton !== null) {
+    followButton.type = 'button';
+    followButton.className = 'dcp-btn dcp-vlist__follow';
+    followButton.hidden = true;
+  }
 
   // --- callbacks: never let an error out (ISO-12) ---------------------------
 
@@ -343,6 +371,7 @@ export function createVirtualList<T>(doc: Document, options: VirtualListOptions<
       const top = element.scrollTop;
       render(false, top);
       const atEnd = isAtEnd(top);
+      updateFollow(atEnd);
       scrollListeners.forEach((listener) => {
         try {
           listener(atEnd);
@@ -376,6 +405,8 @@ export function createVirtualList<T>(doc: Document, options: VirtualListOptions<
 
   function onKeyDown(event: KeyboardEvent): void {
     try {
+      // Header keys are the header's own: Enter must click its button, not open a row.
+      if (header !== null && header.contains(event.target as Node | null)) return;
       if (event.altKey || event.ctrlKey || event.metaKey || rowCount === 0) return;
       const current = selectedIndex;
       let next: number;
@@ -443,10 +474,76 @@ export function createVirtualList<T>(doc: Document, options: VirtualListOptions<
     }
   }
 
+  function rove(button: HTMLButtonElement): void {
+    for (const other of sortButtons) other.tabIndex = other === button ? 0 : -1;
+  }
+
+  function onHeaderClick(event: MouseEvent): void {
+    try {
+      const target = event.target as HTMLButtonElement | null;
+      const key = target === null ? undefined : sortKeys.get(target);
+      if (target === null || key === undefined) return;
+      rove(target);
+      options.onSort?.(key);
+    } catch (error) {
+      report(error);
+    }
+  }
+
+  function onHeaderKeyDown(event: KeyboardEvent): void {
+    try {
+      const at = sortButtons.indexOf(event.target as HTMLButtonElement);
+      if (at === -1 || event.altKey || event.ctrlKey || event.metaKey) return;
+      const last = sortButtons.length - 1;
+      let next: number;
+      switch (event.key) {
+        case 'ArrowLeft':
+          next = Math.max(0, at - 1);
+          break;
+        case 'ArrowRight':
+          next = Math.min(last, at + 1);
+          break;
+        case 'Home':
+          next = 0;
+          break;
+        case 'End':
+          next = last;
+          break;
+        default:
+          return;
+      }
+      event.preventDefault();
+      const button = sortButtons[next] as HTMLButtonElement;
+      rove(button);
+      button.focus();
+    } catch (error) {
+      report(error);
+    }
+  }
+
+  function updateFollow(atEnd: boolean): void {
+    if (followButton === null) return;
+    const hidden = atEnd || newCount === 0;
+    if (followButton.hidden !== hidden) followButton.hidden = hidden;
+  }
+
+  function onFollowClick(): void {
+    try {
+      // Focus first: a focused button that hides would drop focus to the page.
+      element.focus({ preventScroll: true });
+      scrollToEnd();
+    } catch (error) {
+      report(error);
+    }
+  }
+
   element.addEventListener('scroll', onScroll);
   element.addEventListener('keydown', onKeyDown);
   element.addEventListener('click', onClick);
   element.addEventListener('dblclick', onDoubleClick);
+  header?.addEventListener('click', onHeaderClick);
+  header?.addEventListener('keydown', onHeaderKeyDown);
+  followButton?.addEventListener('click', onFollowClick);
 
   // --- API ------------------------------------------------------------------
 
@@ -504,6 +601,33 @@ export function createVirtualList<T>(doc: Document, options: VirtualListOptions<
     nextTop = Math.min(nextTop, maxScrollTop());
     if (nextTop !== top) element.scrollTop = nextTop;
     render(false, nextTop);
+    updateFollow(isAtEnd(nextTop));
+  }
+
+  function scrollToEnd(): void {
+    if (destroyed) return;
+    const top = maxScrollTop();
+    element.scrollTop = top;
+    render(false, top);
+    updateFollow(true);
+  }
+
+  function setSort(sort: VirtualListSort | null): void {
+    sortCells.forEach((cell, key) => {
+      if (sort !== null && key === sort.key)
+        cell.setAttribute('aria-sort', sort.dir === 'asc' ? 'ascending' : 'descending');
+      else cell.removeAttribute('aria-sort');
+    });
+  }
+
+  function setNewCount(count: number): void {
+    if (destroyed || followButton === null) return;
+    const next = count > 0 && Number.isFinite(count) ? Math.floor(count) : 0;
+    if (next !== newCount) {
+      newCount = next;
+      if (next > 0) followButton.textContent = `↓ ${next} new`;
+    }
+    updateFollow(isAtEnd());
   }
 
   return {
@@ -511,17 +635,15 @@ export function createVirtualList<T>(doc: Document, options: VirtualListOptions<
     get selectedIndex() {
       return selectedIndex;
     },
+    followButton,
     setItems,
     select(index) {
       if (!destroyed) setSelection(index);
     },
     scrollToIndex,
-    scrollToEnd() {
-      if (destroyed) return;
-      const top = maxScrollTop();
-      element.scrollTop = top;
-      render(false, top);
-    },
+    scrollToEnd,
+    setSort,
+    setNewCount,
     isAtEnd: () => isAtEnd(),
     onScrollChange(listener) {
       scrollListeners.add(listener);
@@ -551,6 +673,10 @@ export function createVirtualList<T>(doc: Document, options: VirtualListOptions<
       element.removeEventListener('keydown', onKeyDown);
       element.removeEventListener('click', onClick);
       element.removeEventListener('dblclick', onDoubleClick);
+      header?.removeEventListener('click', onHeaderClick);
+      header?.removeEventListener('keydown', onHeaderKeyDown);
+      followButton?.removeEventListener('click', onFollowClick);
+      followButton?.remove();
       ro?.disconnect();
       if (frameId !== null && win !== null) win.cancelAnimationFrame(frameId);
       scrollListeners.clear();

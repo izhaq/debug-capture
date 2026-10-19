@@ -4,4 +4,4 @@
  */
 export { createVirtualList } from './virtual-list';
 export { VIRTUAL_LIST_CSS } from './virtual-list-css';
-export type { VirtualList, VirtualListColumn, VirtualListOptions } from './types';
+export type { VirtualList, VirtualListColumn, VirtualListOptions, VirtualListSort } from './types';

@@ -114,6 +114,49 @@ export const VIRTUAL_LIST_CSS = `
   unicode-bidi: plaintext;
   text-align: left;
 }
+.dcp-vlist__colhead--sortable {
+  padding: 0;
+}
+.dcp-vlist__colhead[aria-sort] {
+  color: var(--dcp-text);
+}
+.dcp-vlist__sort {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.dcp-vlist__sort:hover {
+  color: var(--dcp-text);
+}
+.dcp-vlist__colhead[aria-sort="ascending"] .dcp-vlist__sort::after {
+  content: "▲" / "";
+  margin-left: 4px;
+}
+.dcp-vlist__colhead[aria-sort="descending"] .dcp-vlist__sort::after {
+  content: "▼" / "";
+  margin-left: 4px;
+}
+.dcp-vlist__follow {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 2;
+  background-color: var(--dcp-bg-elevated);
+}
 @media (forced-colors: active) {
   .dcp-row--selected,
   .dcp-row--selected:hover {

@@ -6,6 +6,17 @@ export interface VirtualListColumn {
   readonly label: string;
   /** Fixed width in px, or `'flex'` to share the width that is left. */
   readonly width: number | 'flex';
+  /**
+   * The header becomes a button that asks for this column's sort
+   * (`onSort`). Default `false`.
+   */
+  readonly sortable?: boolean;
+}
+
+/** The sort a header shows (`setSort`): `aria-sort` on that column. */
+export interface VirtualListSort {
+  readonly key: string;
+  readonly dir: 'asc' | 'desc';
 }
 
 /** What a caller passes to `createVirtualList`. */
@@ -35,6 +46,14 @@ export interface VirtualListOptions<T> {
   onSelectionLost?(): void;
   /** The user opened a row (Enter or double-click). */
   onActivate?(item: T, index: number): void;
+  /**
+   * The user asked to sort by a `sortable` column: a click on its header, or
+   * Enter / Space (native button keys). The list reorders nothing: the caller
+   * sorts, then calls `setItems` and `setSort`.
+   */
+  onSort?(columnKey: string): void;
+  /** Builds the "↓ N new" button (`followButton`, FR-BAR-02). Default `false`. */
+  readonly follow?: boolean;
   /** Rows rendered above and below the visible ones. Default 8. */
   readonly overscan?: number;
   /** Show the column header row. Default `true` (the Console list has none). */
@@ -76,6 +95,21 @@ export interface VirtualList<T> {
   setRowHeight(px: number): void;
   /** Re-renders the visible cells (e.g. the time format changed). */
   refresh(): void;
+  /** Shows `sort` on its column's header (`aria-sort` + an arrow); `null`, or a column that is not `sortable`, shows none. */
+  setSort(sort: VirtualListSort | null): void;
+  /**
+   * The "↓ N new" button when `follow` is set, else `null`. It cannot live in
+   * the grid (a grid owns only rows): put it next to `element`, in a parent
+   * with `position: relative`; it places itself bottom-right (§5.7).
+   */
+  readonly followButton: HTMLButtonElement | null;
+  /**
+   * N on "↓ N new": rows that arrived since the user scrolled up. The button
+   * shows while the list is not at its end and N > 0; a click scrolls to the
+   * end (following again) and focuses the list. Set 0 when `onScrollChange`
+   * reports `true`.
+   */
+  setNewCount(count: number): void;
   /** Removes every listener and the observer, and the element from its parent. */
   destroy(): void;
 }

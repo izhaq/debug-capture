@@ -1175,3 +1175,232 @@ describe('createVirtualList (S04-05, S04-07)', () => {
     });
   });
 });
+
+describe('createVirtualList: sortable headers and "↓ N new" (C3-5, D-18, FR-BAR-02)', () => {
+  afterEach(() => {
+    iframes.forEach((iframe) => iframe.remove());
+    iframes = [];
+  });
+
+  const SORTABLE: readonly VirtualListColumn[] = [
+    { key: 'id', label: '#', width: 60, sortable: true },
+    { key: 'text', label: 'Text', width: 'flex' },
+    { key: 'double', label: 'Double', width: 50, sortable: true },
+  ];
+  const headers = (list: VirtualList<Item>): HTMLElement[] =>
+    Array.from(list.element.querySelectorAll<HTMLElement>('[role="columnheader"]'));
+  const sortButton = (list: VirtualList<Item>, column: number): HTMLButtonElement =>
+    headers(list)[column]?.querySelector('button') as HTMLButtonElement;
+  const ariaSorts = (list: VirtualList<Item>): (string | null)[] =>
+    headers(list).map((h) => h.getAttribute('aria-sort'));
+  const keyOn = (fx: Fixture, target: HTMLElement, name: string): KeyboardEvent => {
+    const event = new fx.win.KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true });
+    target.dispatchEvent(event);
+    return event;
+  };
+
+  describe('sortable headers', () => {
+    it('a sortable column header holds a native button named by its label; the others stay text', () => {
+      const list = makeList(makeFixture(), { columns: SORTABLE });
+      const [id, text, double] = headers(list);
+      expect(id?.querySelector('button')?.textContent).toBe('#');
+      expect(id?.querySelector('button')?.type).toBe('button');
+      expect(text?.querySelector('button')).toBeNull();
+      expect(text?.textContent).toBe('Text');
+      expect(double?.querySelector('button')?.textContent).toBe('Double');
+      expect(ariaSorts(list)).toEqual([null, null, null]);
+    });
+
+    it('a click calls onSort with the column key; the list itself reorders nothing', () => {
+      const fx = makeFixture();
+      const onSort = jasmine.createSpy('onSort');
+      const list = makeList(fx, { columns: SORTABLE, onSort });
+      showTop(fx, list, makeItems(5));
+      sortButton(list, 2).click();
+      expect(onSort).toHaveBeenCalledOnceWith('double');
+      expect(visibleIds(list)).toEqual([0, 1, 2, 3, 4]);
+      expect(ariaSorts(list)).toEqual([null, null, null]);
+    });
+
+    it('keys on a header stay there: Enter keeps its native button click and never opens the selected row', () => {
+      const fx = makeFixture();
+      const onActivate = jasmine.createSpy('onActivate');
+      const onSelect = jasmine.createSpy('onSelect');
+      const list = makeList(fx, { columns: SORTABLE, onActivate, onSelect });
+      showTop(fx, list, makeItems(5));
+      list.select(1);
+      const enter = keyOn(fx, sortButton(list, 0), 'Enter');
+      const down = keyOn(fx, sortButton(list, 0), 'ArrowDown');
+      expect(enter.defaultPrevented).toBe(false);
+      expect(down.defaultPrevented).toBe(false);
+      expect(onActivate).not.toHaveBeenCalled();
+      expect(onSelect).not.toHaveBeenCalled();
+      expect(list.selectedIndex).toBe(1);
+    });
+
+    it('a throwing onSort is reported, never thrown (ISO-12)', () => {
+      const onError = jasmine.createSpy('onError');
+      const list = makeList(makeFixture(), {
+        columns: SORTABLE,
+        onError,
+        onSort: () => {
+          throw new Error('boom');
+        },
+      });
+      expect(() => sortButton(list, 0).click()).not.toThrow();
+      expect(onError).toHaveBeenCalledTimes(1);
+    });
+
+    it('setSort shows the sort with aria-sort on that header only; null or a column that cannot sort clears it', () => {
+      const list = makeList(makeFixture(), { columns: SORTABLE });
+      list.setSort({ key: 'id', dir: 'asc' });
+      expect(ariaSorts(list)).toEqual(['ascending', null, null]);
+      list.setSort({ key: 'double', dir: 'desc' });
+      expect(ariaSorts(list)).toEqual([null, null, 'descending']);
+      list.setSort({ key: 'text', dir: 'asc' });
+      expect(ariaSorts(list)).toEqual([null, null, null]);
+      list.setSort({ key: 'id', dir: 'desc' });
+      list.setSort(null);
+      expect(ariaSorts(list)).toEqual([null, null, null]);
+    });
+
+    it('the sort arrow is CSS only, with empty alternative text (aria-sort already says it)', () => {
+      const fx = makeFixture();
+      const list = makeList(fx, { columns: SORTABLE });
+      const after = (): string => fx.win.getComputedStyle(sortButton(list, 0), '::after').content;
+      expect(after()).toBe('none');
+      list.setSort({ key: 'id', dir: 'asc' });
+      expect(after()).toContain('▲');
+      list.setSort({ key: 'id', dir: 'desc' });
+      expect(after()).toContain('▼');
+      expect(sortButton(list, 0).textContent).toBe('#');
+    });
+
+    it('the sortable headers are one tab stop; ArrowLeft / ArrowRight / Home / End move between them', () => {
+      const fx = makeFixture();
+      const list = makeList(fx, {
+        columns: [...SORTABLE, { key: 'more', label: 'More', width: 40, sortable: true }],
+      });
+      const [a, b, c] = [sortButton(list, 0), sortButton(list, 2), sortButton(list, 3)];
+      const stops = (): number[] => [a.tabIndex, b.tabIndex, c.tabIndex];
+      expect(stops()).toEqual([0, -1, -1]);
+      a.focus();
+      expect(keyOn(fx, a, 'ArrowRight').defaultPrevented).toBe(true);
+      expect(fx.doc.activeElement).toBe(b);
+      expect(stops()).toEqual([-1, 0, -1]);
+      keyOn(fx, b, 'End');
+      expect(fx.doc.activeElement).toBe(c);
+      keyOn(fx, c, 'ArrowRight');
+      expect(fx.doc.activeElement).toBe(c);
+      keyOn(fx, c, 'Home');
+      expect(fx.doc.activeElement).toBe(a);
+      keyOn(fx, a, 'ArrowLeft');
+      expect(fx.doc.activeElement).toBe(a);
+      b.click();
+      expect(stops()).toEqual([-1, 0, -1]);
+    });
+
+    it('without sortable columns the header has no buttons', () => {
+      const list = makeList(makeFixture());
+      expect(list.element.querySelector('button')).toBeNull();
+    });
+  });
+
+  describe('"↓ N new" follow button', () => {
+    function mountFollow(fx: Fixture, overrides: Partial<VirtualListOptions<Item>> = {}): VirtualList<Item> {
+      const list = makeList(fx, { follow: true, ...overrides });
+      fx.host.style.position = 'relative';
+      fx.host.appendChild(list.followButton as HTMLElement);
+      return list;
+    }
+
+    it('no button unless asked', () => {
+      expect(makeList(makeFixture()).followButton).toBeNull();
+    });
+
+    it('is a hidden shared control outside the grid (a grid owns only rows)', () => {
+      const list = mountFollow(makeFixture());
+      const button = list.followButton as HTMLButtonElement;
+      expect(button.tagName).toBe('BUTTON');
+      expect(button.type).toBe('button');
+      expect(button.classList).toContain('dcp-btn');
+      expect(button.classList).toContain('dcp-vlist__follow');
+      expect(button.hidden).toBe(true);
+      expect(list.element.contains(button)).toBe(false);
+    });
+
+    it('shows "↓ N new" only while scrolled up with N > 0; a click jumps to the end and focuses the list', () => {
+      const fx = makeFixture();
+      const list = mountFollow(fx);
+      const button = list.followButton as HTMLButtonElement;
+      list.setItems(makeItems(100));
+      list.setNewCount(2);
+      expect(button.hidden).toBe(true); // at the end: following, nothing to jump to
+      list.setNewCount(0);
+      scrollTo(fx, list, 0);
+      expect(button.hidden).toBe(true); // scrolled up, nothing new yet
+      list.setItems(makeItems(103));
+      list.setNewCount(3);
+      expect(list.element.scrollTop).toBe(0); // scrolled up: it does not follow
+      expect(button.hidden).toBe(false);
+      expect(button.textContent).toBe('↓ 3 new');
+      button.click();
+      expect(list.element.scrollTop).toBe(maxScrollTop(103));
+      expect(button.hidden).toBe(true);
+      expect(fx.doc.activeElement).toBe(list.element);
+    });
+
+    it('scrolling back to the end hides it; onScrollChange tells the caller when to reset N', () => {
+      const fx = makeFixture();
+      const list = mountFollow(fx);
+      const seen: boolean[] = [];
+      list.onScrollChange((atEnd) => seen.push(atEnd));
+      list.setItems(makeItems(100));
+      scrollTo(fx, list, 0);
+      list.setNewCount(5);
+      expect((list.followButton as HTMLElement).hidden).toBe(false);
+      scrollTo(fx, list, maxScrollTop(100));
+      expect((list.followButton as HTMLElement).hidden).toBe(true);
+      expect(seen).toEqual([false, true]);
+    });
+
+    it('setNewCount(0) hides it; a count that is not a positive number counts as 0', () => {
+      const fx = makeFixture();
+      const list = mountFollow(fx);
+      const button = list.followButton as HTMLElement;
+      list.setItems(makeItems(100));
+      scrollTo(fx, list, 0);
+      list.setNewCount(4);
+      list.setNewCount(0);
+      expect(button.hidden).toBe(true);
+      for (const bad of [Number.NaN, -3, Number.POSITIVE_INFINITY]) {
+        list.setNewCount(bad);
+        expect(button.hidden).withContext(String(bad)).toBe(true);
+      }
+    });
+
+    it('sits 8 px from the bottom-right corner of its parent, on the elevated background (§5.7)', () => {
+      const fx = makeFixture();
+      fx.host.style.setProperty('--dcp-bg-elevated', 'rgb(5, 5, 5)');
+      const list = mountFollow(fx);
+      list.setItems(makeItems(100));
+      scrollTo(fx, list, 0);
+      list.setNewCount(1);
+      const style = fx.win.getComputedStyle(list.followButton as HTMLElement);
+      expect(style.position).toBe('absolute');
+      expect(style.right).toBe('8px');
+      expect(style.bottom).toBe('8px');
+      expect(style.backgroundColor).toBe('rgb(5, 5, 5)');
+    });
+
+    it('destroy removes the button and its listener', () => {
+      const fx = makeFixture();
+      const list = mountFollow(fx);
+      const button = list.followButton as HTMLButtonElement;
+      list.setItems(makeItems(100));
+      list.destroy();
+      expect(button.isConnected).toBe(false);
+      expect(() => button.click()).not.toThrow();
+    });
+  });
+});
