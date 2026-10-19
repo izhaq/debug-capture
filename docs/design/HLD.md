@@ -147,6 +147,7 @@ error).
   is handled in 2.0, `D-15`).
 - Export of the **current view** only (filtered).
 - Column choice (column sorting is in 2.0, `D-18`).
+- A **Launcher Show / Hide** setting (`D-24`); in 2.0 the host option `launcher: false`.
 - A **Problems** quick view (all failures across tabs).
 - Hebrew UI text (the UI is English in 2.0; data is bidi-safe — `NFR-I18N-01`).
 
@@ -179,7 +180,7 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 |---|---|---|
 | FR-ACT-01 | The host installs the panel with one call after creating the capture controller: `installDebugPanel(controller, options?)` (§6.6). With the flag off the host has no controller and passes `null`: the call does nothing and returns an inert handle. | MUST |
 | FR-ACT-02 | The panel **UI** is **loaded on first open** (dynamic import), not at app start. Before that only the **loader** exists: launcher, toggle shortcut and badge counter (§6.1). | MUST |
-| FR-ACT-03 | A **launcher** — a small button in a screen corner — opens the panel. It can be turned off (`launcher: false` option, or in Settings). | MUST |
+| FR-ACT-03 | A **launcher** — a small button in a screen corner — opens the panel. It can be turned off with the `launcher: false` option (a Settings switch is 2.x, `D-24`). | MUST |
 | FR-ACT-04 | The launcher shows how many **new problems** happened since the panel was last closed. A **problem** is: an `ErrorEntry`; an HTTP entry with `status ≥ 500` or `error ≠ null`; a WebSocket `error` event. Not counted: 4xx, and `console.error` lines (Angular and React errors already make an `ErrorEntry`; counting both would count twice). Opening the panel and **Clear** reset the badge. | SHOULD |
 | FR-ACT-05 | A **toggle shortcut** opens and closes the panel: `Ctrl+Alt+Shift+P` (configurable), matched on `KeyboardEvent.code`, like v1's shortcuts. | MUST |
 | FR-ACT-06 | The panel never opens by itself. It opens only on a user click or key. `handle.open()` exists only for a host's own user action (a menu item, a button). | MUST |
@@ -457,7 +458,6 @@ A popover under the gear button.
 | Dock | Bottom · Right | Bottom |
 | Text size | Small 11 px · Normal 12 px · Large 14 px (meta text 10 / 11 / 13 px) | Normal |
 | Time | Clock · Relative | Clock |
-| Launcher | Show · Hide | Show |
 | Capture | On · Off (`FR-ACT-09`) — **not remembered**; every reload starts On | On |
 
 Remembered in `localStorage` under `debug-capture:panel`: settings (except
@@ -1110,6 +1110,7 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-21 | A **problem** (badge, status bar) = error entry, HTTP 5xx or failed, WebSocket error. Not 4xx, not `console.error`. | Decided |
 | D-22 | The 2,000-node budget holds up to a 1,080 px panel; above that the list draws every visible row (~23 nodes each) rather than leaving rows blank. Views keep rows lean (text cells, one icon). Found in the S-04 review. | Decided |
 | D-23 | A host page that registers a `--dcp-*` name with `@property` is out of scope (research S4): the theme keeps CSS variables. Only the loader, which must always be visible, uses literal colours. | Decided |
+| D-24 | The **Launcher Show / Hide** setting moves to 2.x: remembering "Hide" would make the always-loaded loader read storage at start (loader bytes, `NFR-SIZE-01`). In 2.0 a host turns the launcher off with the `launcher: false` option; the shortcut always works. | Decided |
 
 ---
 
