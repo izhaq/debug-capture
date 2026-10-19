@@ -40,7 +40,7 @@ error).
   research (`docs/research/host-impact-edge-cases.md`).
 - **It costs almost nothing until used.** At start the page loads only a
   small **loader** (≤ 4 kB: launcher, toggle shortcut, problems badge). The
-  panel UI (≤ 25 kB) loads on first open.
+  panel UI (≤ 40 kB) loads on first open.
 - **It is a package.** v2 lives in `packages/debug-capture/` with entry points
   `core`, `angular`, `react` and `panel`, ready to become its own repository.
 - **Delivery.** 11 specs (S-00 … S-10), built in waves by parallel agents,
@@ -265,7 +265,7 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 | NFR-PERF-04 | **Scroll:** lists are virtualised — under 2,000 DOM nodes per tab **including the detail pane**, whatever the entry count, for a panel up to **1,080 px** tall; taller (a maximised panel on a 4K screen) adds at most ~23 nodes per extra visible row, because every visible row is drawn (`D-22`). No long task over 50 ms while scrolling. | MUST |
 | NFR-PERF-05 | **Angular host:** the panel causes **0** change-detection cycles (verified with an `NgZone` counter). | MUST |
 | NFR-PERF-06 | **Memory:** the panel adds under 10 MB on top of the capture buffer with 5,000 entries. | SHOULD |
-| NFR-SIZE-01 | **Loader** (`debug-capture/panel`, loaded at start): ≤ **4 kB** min+gzip. **UI chunk** (loaded on first open): ≤ **25 kB** min+gzip; hosts that never open the panel load **0 bytes** of it. **Core:** within ± 2 kB of v1's size — the baseline is measured and recorded in S-00. | MUST |
+| NFR-SIZE-01 | **Loader** (`debug-capture/panel`, loaded at start): ≤ **4 kB** min+gzip. **UI chunk** (loaded on first open): ≤ **40 kB** min+gzip (raised from 25 kB, `D-25`); hosts that never open the panel load **0 bytes** of it. **Core:** within ± 2 kB of v1's size — the baseline is measured and recorded in S-00. | MUST |
 | NFR-SEC-01 | No `innerHTML` / `outerHTML` / `insertAdjacentHTML`, no `eval` / `new Function`, no inline handlers. Captured data enters the DOM only as text. No `href` / `src` built from captured data. | MUST |
 | NFR-SEC-02 | Works under a strict CSP (`default-src 'self'`, no `'unsafe-inline'`) and Trusted Types (`require-trusted-types-for 'script'`) with no violations. | MUST |
 | NFR-SEC-03 | The panel never makes network requests and never reads anything the recorder did not store (it sees only redacted data). | MUST |
@@ -720,7 +720,7 @@ packages/debug-capture/                (becomes its own repository later — D-0
   `@angular/core` is a **peer** dependency of `debug-capture/angular` only.
 - `debug-capture/panel` is the **loader** (≤ 4 kB): `installDebugPanel`, the
   custom element and its host lockdown, launcher, badge counter, toggle
-  shortcut. It loads the **UI chunk** (≤ 25 kB) with one dynamic `import()` on
+  shortcut. It loads the **UI chunk** (≤ 40 kB) with one dynamic `import()` on
   first open (`FR-ACT-02`, `NFR-SIZE-01`).
 - `debug-capture` (core) never imports `debug-capture/panel`, so the core does
   not grow.
@@ -1096,7 +1096,7 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-07 | The launcher's problems badge is the one allowed cost while closed (O(1) per entry, ≤ 1 rAF per frame). | Decided |
 | D-08 | Test runner: Karma + Jasmine + esbuild (keeps all v1 specs). | Decided |
 | D-09 | Build with plain `tsc`; drop the Angular decorator (C-4). | Decided |
-| D-10 | Split the panel into a **loader** (≤ 4 kB, at start: launcher, shortcut, badge) and a **UI chunk** (≤ 25 kB, dynamic `import()` on first open). | Decided |
+| D-10 | Split the panel into a **loader** (≤ 4 kB, at start: launcher, shortcut, badge) and a **UI chunk** (≤ 40 kB since `D-25`, dynamic `import()` on first open). | Decided |
 | D-11 | Element name `debug-capture-panel-v2`; if taken, reuse the existing definition if it is ours, otherwise do nothing and stay silent. | Decided |
 | D-12 | **Clear** clears the capture buffer (not just the view), like v1's shortcut. | Decided |
 | D-13 | Theme **Auto** by default (dark/light by OS); colours as in §5.4. | Decided |
@@ -1111,6 +1111,7 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-22 | The 2,000-node budget holds up to a 1,080 px panel; above that the list draws every visible row (~23 nodes each) rather than leaving rows blank. Views keep rows lean (text cells, one icon). Found in the S-04 review. | Decided |
 | D-23 | A host page that registers a `--dcp-*` name with `@property` is out of scope (research S4): the theme keeps CSS variables. Only the loader, which must always be visible, uses literal colours. | Decided |
 | D-24 | The **Launcher Show / Hide** setting moves to 2.x: remembering "Hide" would make the always-loaded loader read storage at start (loader bytes, `NFR-SIZE-01`). In 2.0 a host turns the launcher off with the `launcher: false` option; the shortcut always works. | Decided |
+| D-25 | The **UI chunk** budget is **40 kB** min+gzip (was 25 kB). Measured before wave 3: 22.3 kB with only the model and the UI blocks (no views, no frame); wave 3 is estimated at +13–15 kB. The chunk loads once, on first open, from the local network; the host's start cost (the 4 kB loader) does not change. | Decided |
 
 ---
 

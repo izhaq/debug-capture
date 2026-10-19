@@ -5,7 +5,7 @@
     "note": "v1 seed baseline 10320 B (gzip level 6, measured in S-00) + 2 kB"
   },
   "panel-loader": { "max": 4096 },
-  "panel-ui": { "max": 25600 },
+  "panel-ui": { "max": 40960 },
   "angular": { "recorded": 527 },
   "react": { "recorded": 717 }
 }

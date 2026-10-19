@@ -82,7 +82,7 @@ Everything below is merged into it (as of `4ebda8a`).
 |---|---|---|---|
 | core | 11,743 B | 12,368 B | 625 B |
 | panel-loader | 4,041 B | 4,096 B | **55 B** |
-| panel-ui (lazy chunk) | 22,695 B | 25,600 B | **~2.9 kB** — see risk R1 |
+| panel-ui (lazy chunk) | 22,695 B | 40,960 B (`D-25`) | ~18 kB for wave 3 (estimate needs 13–15 kB) |
 
 **Reviews done:** S-00 ×2, S-01 + confirmation, S-02 isolation + fixes, S-04 +
 confirmation, one whole-wave review (no blockers).
@@ -205,13 +205,10 @@ Fix these **before** the tracks start, so they can work in parallel:
 
 ## 6. Risks — raise them early
 
-- **R1 — the UI chunk budget is likely too small.** The lazy chunk is already
-  22,695 / 25,600 B with only the placeholder UI. Its entry `src/panel/app/index.ts`
-  does `export * from '../views'`, which re-exports P2 + P1, so the model and UI
-  blocks are probably already counted. That leaves ~**2.9 kB** for three views and
-  the frame. In step 1, measure (`npm run build && npm run size`, look at what is in
-  the chunk), then give the owner the number and ask for a budget decision
-  (NFR-SIZE-01) **before** the tracks start.
+- **R1 — UI chunk budget: decided.** Measured at 22.3 kB with only the model and the
+  UI blocks (all real panel code; the capture layer is in the shared chunk). The owner
+  raised the budget to **40 kB** (`D-25`); wave 3 is estimated at +13–15 kB. Each
+  track reports its growth in its PR.
 - **R2 — the loader has 55 B left.** The fullscreen re-raise (a `fullscreenchange`
   listener, also while closed — update S02-07) and `panelRoot` both touch it. Expect
   to trim or ask the owner to raise the 4 kB budget.

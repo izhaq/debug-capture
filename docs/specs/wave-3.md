@@ -26,7 +26,7 @@ orchestrator re-runs `npm run check` on the PR head and reads the diff.
 
 ```
 0  specs (this file + 05…08)               → owner glance
-1  contract PR (below) + size measurement  → owner decides the budgets (R1, R2)
+1  contract PR (below) + size measurement  → owner decides the loader budget if needed (R2); UI chunk is 40 kB (D-25)
 2  S-08 first (the frame the views mount in), then S-05, S-06, S-07 — at most two at a time
 3  S-08 fresh-context review → fixes → confirmation; whole-wave review of the seams
 4  one PR claude/dc-v2-wave3 → integration; the owner merges
@@ -41,7 +41,7 @@ orchestrator re-runs `npm run check` on the PR head and reads the diff.
 | C3-3 | **Stylesheet contract** (below) | `view.ts` doc comment, this file |
 | C3-4 | **HTTP order (`D-18`, R3):** `selectHttpRows` returns **start order** (`t`, then `seq`), pending rows in their place; `PanelState.httpSort: HttpSort \| null`; `store.setHttpSort(key)` cycles asc → desc → `null`. Filters apply on top. | `src/panel/model/**` |
 | C3-5 | **Virtual list:** sortable header cells (`aria-sort`, click / Enter / Space) and the "↓ N new" follow button (`FR-BAR-02`). Exact names are fixed in the PR and copied into "Names fixed now" before a track starts. | `src/panel/ui/virtual-list/**` |
-| C3-6 | **Measure the UI chunk** (`npm run build && npm run size`, list what is in it) and ask the owner for the `NFR-SIZE-01` budgets (R1: UI chunk, R2: loader) | — |
+| C3-6 | **Measure the UI chunk** (`npm run build && npm run size`, list what is in it) and report the numbers; the UI chunk budget is already 40 kB (`D-25`); ask the owner only about the loader (R2) | — |
 
 The contract PR raises `test/unit/spec-floor.json` to its new count.
 
@@ -150,7 +150,7 @@ the orchestrator runs `npm run check` on the wave branch and raises the floors.
 
 | ID | Risk | Plan |
 |---|---|---|
-| R1 | UI chunk 22,695 / 25,600 B with only the placeholder — ~2.9 kB for three views and the frame | Measure in C3-6; owner decides the budget before step 2 |
+| R1 | UI chunk 22,695 B with only the placeholder — the old 25,600 B budget left ~2.9 kB | **Decided: budget raised to 40 kB (`D-25`, `size-budgets.json` 40960).** C3-6 still measures and reports; each track reports its own growth (estimate: frame ~5 kB, HTTP ~4–5, WS ~3, Console ~2) |
 | R2 | Loader 4,041 / 4,096 B — 55 B left; `panelRoot` and the fullscreen listener touch it | Trim, or owner raises the 4 kB budget |
 | R3 | HTTP order not in the model yet | C3-4 |
 | R4 | Fullscreen must be proven | S-08 e2e: `requestFullscreen()` → launcher and panel on top and clickable; modal `<dialog>` → banner |

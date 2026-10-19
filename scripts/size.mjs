@@ -6,7 +6,7 @@
  *
  *   core          src/index.ts, everything it pulls in   ≤ baseline + 2 kB
  *   panel-loader  src/panel/index.ts + its static imports ≤ 4 kB
- *   panel-ui      what only its dynamic import() loads    ≤ 25 kB
+ *   panel-ui      what only its dynamic import() loads    ≤ 40 kB (D-25)
  *   angular       src/angular/index.ts                   recorded only
  *   react         src/react/index.ts                     recorded only
  *
