@@ -108,7 +108,8 @@ describe('filters (S03-07)', () => {
   it('HTTP: status chips OR inside the group, AND with the type group', () => {
     const store = storeWith(http, pending);
     store.setFilter('http', { status: ['5xx', 'failed', 'pending'] });
-    expect(httpKeys(selectHttpRows(store.getState()))).toEqual(['#4', '#5', 'p9']);
+    // Start order (D-18): p9 started (t 509) before the finished ones (t 1001…).
+    expect(httpKeys(selectHttpRows(store.getState()))).toEqual(['p9', '#4', '#5']);
     store.setFilter('http', { type: ['xhr'] });
     expect(httpKeys(selectHttpRows(store.getState()))).toEqual(['#4']);
     store.setFilter('http', { status: [] });
@@ -120,7 +121,7 @@ describe('filters (S03-07)', () => {
     store.setFilter('http', { text: 'USERS' });
     expect(httpKeys(selectHttpRows(store.getState()))).toEqual(['#1']);
     store.setFilter('http', { text: 'post' });
-    expect(httpKeys(selectHttpRows(store.getState()))).toEqual(['#2', 'p9']);
+    expect(httpKeys(selectHttpRows(store.getState()))).toEqual(['p9', '#2']);
     store.setFilter('http', { text: '404' });
     expect(httpKeys(selectHttpRows(store.getState()))).toEqual(['#3']);
     store.setFilter('http', { text: 'aborted' });

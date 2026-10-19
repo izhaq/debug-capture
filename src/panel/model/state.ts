@@ -39,6 +39,18 @@ export type HttpStatusGroup = '2xx' | '3xx' | '4xx' | '5xx' | 'failed' | 'pendin
 /** WebSocket direction chips (`FR-WS-03`). */
 export type WsDirection = 'sent' | 'received';
 
+/** The HTTP list's sortable columns (§5.6, `D-18`). */
+export type HttpSortKey = 'time' | 'method' | 'status' | 'name' | 'type' | 'size' | 'duration';
+
+/**
+ * A column sort on the HTTP list (`D-18`); `null` in the state = start order.
+ * Not kept in settings: it resets on reload, like the search text (`D-20`).
+ */
+export interface HttpSort {
+  readonly key: HttpSortKey;
+  readonly dir: 'asc' | 'desc';
+}
+
 /**
  * Filters per list (§4.5). Chip arrays combine with OR inside a group; an
  * **empty array means "All"** (no restriction). Groups and the text combine
@@ -127,6 +139,8 @@ export interface PanelState {
   /** `Paused · N new`: entries that arrived while paused, at most `capacity`. 0 when not paused. */
   readonly newSincePause: number;
   readonly filters: PanelFilters;
+  /** The HTTP list's column sort; `null` = start order (`D-18`). Filters apply on top. */
+  readonly httpSort: HttpSort | null;
   readonly selection: PanelSelection;
   /** Which socket's messages the WebSocket list shows; `'all'` = every socket (`FR-WS-05`). */
   readonly wsConnection: number | 'all';

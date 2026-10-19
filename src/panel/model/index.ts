@@ -9,11 +9,12 @@
  *   (snapshot, pending, events, clear, export, copy and download into the shadow root).
  * - **Store** — `createPanelStore({ source, isProblemEntry, filters? })` → `PanelStore`:
  *   `apply(events)`, `getState()`, `subscribe(fn)`; actions `setFilter`, `clearFilters`,
- *   `select`, `clearSelection`, `moveSelection`, `selectConnection`, `pause`, `resume`.
+ *   `select`, `clearSelection`, `moveSelection`, `selectConnection`, `setHttpSort`, `pause`, `resume`.
  *   State types: `PanelState`, `BufferState`, `PanelFilters` (+ `HttpFilter`, `WsFilter`,
- *   `ConsoleFilter`), `Selected`, `ListId`, `RowOf`, `HttpRow`, `ConsoleRow`.
- * - **Selectors** (memoised: same input → same frozen array) — `selectHttpRows`,
- *   `selectWsConnections`, `selectWsMessages`, `selectConsoleRows`, `selectRows(state, list)`,
+ *   `ConsoleFilter`), `HttpSort`, `Selected`, `ListId`, `RowOf`, `HttpRow`, `ConsoleRow`.
+ * - **Selectors** (memoised: same input → same frozen array) — `selectHttpRows` (start
+ *   order or the column sort, `D-18`), `selectWsConnections`, `selectWsMessages`,
+ *   `selectConsoleRows`, `selectRows(state, list)`,
  *   `selectListCounts(state, list)`. Buffer figures for the status bar: `state.buffer`.
  * - **Rows** — `isPendingRow`, `rowKey` (virtual list `getKey`).
  * - **Search** — `matchRanges` (highlight), `toggleChip` (chip click; `[]` = All).
@@ -58,6 +59,8 @@ export type {
   ConsoleRow,
   HttpFilter,
   HttpRow,
+  HttpSort,
+  HttpSortKey,
   HttpStatusGroup,
   ListId,
   PanelFilters,

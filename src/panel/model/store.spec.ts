@@ -162,18 +162,19 @@ describe('buffer mirror (S03-03)', () => {
 });
 
 describe('HTTP list (S03-04)', () => {
-  it('completion order, then pending rows in start order', () => {
+  it('start order (D-18): finished and pending rows by start time, whatever the completion order', () => {
     const store = storeWith({ entries: [httpEntry(2), httpEntry(1 + 2, { t: 1 })], pending: [pendingRequest(7)] });
     store.apply([{ type: 'pending-start', request: pendingRequest(8) }, entry(httpEntry(5, { t: 0 }))]);
-    expect(httpKeys(selectHttpRows(store.getState()))).toEqual(['#2', '#3', '#5', 'p7', 'p8']);
+    // t: #5 0, #3 1, p7 507, p8 508, #2 1002.
+    expect(httpKeys(selectHttpRows(store.getState()))).toEqual(['#5', '#3', 'p7', 'p8', '#2']);
   });
 
-  it('pending-end removes the pending row; the finished entry is appended and replaces nothing else', () => {
+  it('pending-end removes the pending row; the finished entry takes its place by start time and replaces nothing else', () => {
     const store = storeWith({ entries: [httpEntry(1)], pending: [pendingRequest(7), pendingRequest(8)] });
-    store.apply([entry(httpEntry(2, { requestId: 7 }))]);
-    expect(httpKeys(selectHttpRows(store.getState()))).toEqual(['#1', '#2', 'p7', 'p8']);
+    store.apply([entry(httpEntry(2, { t: 507, requestId: 7 }))]);
+    expect(httpKeys(selectHttpRows(store.getState()))).toEqual(['#2', 'p7', 'p8', '#1']);
     store.apply([{ type: 'pending-end', id: 7 }]);
-    expect(httpKeys(selectHttpRows(store.getState()))).toEqual(['#1', '#2', 'p8']);
+    expect(httpKeys(selectHttpRows(store.getState()))).toEqual(['#2', 'p8', '#1']);
   });
 
   it('a duplicate pending-start and an unknown pending-end change nothing', () => {

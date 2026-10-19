@@ -4,6 +4,7 @@ import { selectRows } from './selectors';
 import {
   BufferState,
   EMPTY_FILTERS,
+  HttpSortKey,
   ListId,
   PanelFilters,
   PanelSelection,
@@ -53,6 +54,11 @@ export interface PanelStore {
   moveSelection(list: ListId, move: SelectionMove): void;
   /** Which socket's messages the WebSocket list shows. Clears the message selection. */
   selectConnection(socketId: number | 'all'): void;
+  /**
+   * A click on an HTTP column header (`D-18`): a new column sorts ascending,
+   * the same column then descending, then back to start order (`null`).
+   */
+  setHttpSort(key: HttpSortKey): void;
   /** Freezes the visible lists (`D-19`); counts and the status bar keep updating. */
   pause(): void;
   /** Shows everything that arrived while paused. */
@@ -123,6 +129,7 @@ export function createPanelStore(options: PanelStoreOptions): PanelStore {
       ws: makeFilter(EMPTY_FILTERS.ws, options.filters?.ws ?? {}),
       console: makeFilter(EMPTY_FILTERS.console, options.filters?.console ?? {}),
     }),
+    httpSort: null,
     selection: Object.freeze({ http: null, ws: null, console: null }),
     wsConnection: 'all',
   });
@@ -314,6 +321,11 @@ export function createPanelStore(options: PanelStoreOptions): PanelStore {
     selectConnection(socketId) {
       if (state.wsConnection === socketId) return;
       commit({ wsConnection: socketId, selection: withSelection(state.selection, 'ws', null) });
+    },
+    setHttpSort(key) {
+      const old = state.httpSort;
+      if (old === null || old.key !== key) commit({ httpSort: Object.freeze({ key, dir: 'asc' }) });
+      else commit({ httpSort: old.dir === 'asc' ? Object.freeze({ key, dir: 'desc' }) : null });
     },
     pause() {
       if (state.paused) return;

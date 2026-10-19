@@ -1,7 +1,19 @@
 import { CaptureEntry, HttpEntry, PendingRequest, WebSocketEntry } from '../..';
 import { foldCase } from './filters';
-import { consoleLevel, consoleText, httpStatusGroup, httpStatusLabel } from './format';
-import { ConsoleFilter, ConsoleRow, HttpFilter, HttpRow, ListId, PanelState, RowOf, WsFilter } from './state';
+import { consoleLevel, consoleText, httpName, httpStatusGroup, httpStatusLabel } from './format';
+import {
+  ConsoleFilter,
+  ConsoleRow,
+  HttpFilter,
+  HttpRow,
+  HttpSort,
+  HttpSortKey,
+  ListId,
+  PanelState,
+  RowOf,
+  WsFilter,
+  isPendingRow,
+} from './state';
 
 /**
  * Selectors: the lists and counts the views show, computed from a
@@ -101,9 +113,73 @@ function filterRows<T>(rows: readonly T[], active: boolean, keep: (row: T) => bo
 
 // --- HTTP -------------------------------------------------------------------
 
+/**
+ * Start order (`D-18`): an entry's `t` is its start time, like a pending
+ * row's, so a finished request lands where its pending row was. The sort is
+ * stable: equal times keep finished rows in `seq` order, then pending rows in
+ * id order. Entries come almost in start order, which a merge sort (V8's
+ * TimSort) handles in close to linear time.
+ */
 const allHttpRows = memo2((entries: readonly HttpEntry[], pending: readonly PendingRequest[]): readonly HttpRow[] =>
-  Object.freeze<HttpRow[]>([...entries, ...pending]),
+  Object.freeze<HttpRow[]>([...entries, ...pending].sort((a, b) => a.t - b.t)),
 );
+
+/** A value the cell shows as `—` sorts as "no value". */
+function known(n: number | null): number | null {
+  return n !== null && Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+/** Folded Name cell per (immutable) row, so a re-sort does not parse every URL again. */
+const nameKeys = new WeakMap<HttpRow, string>();
+
+/** What a column sorts by; `null` = no value (yet). */
+function sortValue(row: HttpRow, key: HttpSortKey): number | string | null {
+  switch (key) {
+    case 'time':
+      return row.t;
+    case 'method':
+      return row.method;
+    case 'type':
+      return row.transport;
+    case 'name': {
+      let name = nameKeys.get(row);
+      if (name === undefined) {
+        name = foldCase(httpName(row.url));
+        nameKeys.set(row, name);
+      }
+      return name;
+    }
+    case 'status':
+      // As the Status cell: Failed / Aborted / Timeout show no number.
+      return isPendingRow(row) || row.error !== null ? null : row.status;
+    case 'size':
+      return isPendingRow(row) ? null : known(row.bytes);
+    default:
+      return isPendingRow(row) ? null : known(row.durationMs);
+  }
+}
+
+/**
+ * A column sort (`D-18`). Rank 0 rows sort by value in the chosen direction;
+ * rank 1 (Failed / Aborted / Timeout, Status only) and rank 2 (no value yet)
+ * follow in both directions. Ties, and rows inside ranks 1 and 2, keep start
+ * order.
+ */
+const sortedHttpRows = memo2((rows: readonly HttpRow[], sort: HttpSort): readonly HttpRow[] => {
+  const dir = sort.dir === 'asc' ? 1 : -1;
+  const slots = rows.map((row, index) => {
+    const value = sortValue(row, sort.key);
+    const rank = value !== null ? 0 : sort.key === 'status' && !isPendingRow(row) ? 1 : 2;
+    return { row, index, rank, value: value ?? 0 };
+  });
+  slots.sort(
+    (a, b) =>
+      a.rank - b.rank ||
+      (a.rank === 0 ? dir * (a.value < b.value ? -1 : a.value > b.value ? 1 : 0) : 0) ||
+      a.index - b.index,
+  );
+  return Object.freeze(slots.map((slot) => slot.row));
+});
 
 const visibleHttpRows = memo2((rows: readonly HttpRow[], filter: HttpFilter): readonly HttpRow[] => {
   const query = foldCase(filter.text);
@@ -127,9 +203,10 @@ function httpAll(state: PanelState): readonly HttpRow[] {
   return allHttpRows(byKind(state.entries).http, state.pending);
 }
 
-/** The HTTP list (FR-HTTP-01): finished requests in `seq` order, then pending ones in start order; filtered. */
+/** The HTTP list (FR-HTTP-01, `D-18`): start order, or the column sort; then filtered. */
 export function selectHttpRows(state: PanelState): readonly HttpRow[] {
-  return visibleHttpRows(httpAll(state), state.filters.http);
+  const rows = httpAll(state);
+  return visibleHttpRows(state.httpSort === null ? rows : sortedHttpRows(rows, state.httpSort), state.filters.http);
 }
 
 // --- WebSocket --------------------------------------------------------------
