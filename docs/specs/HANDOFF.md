@@ -70,6 +70,12 @@ plain words (root `CLAUDE.md`).
 - Small leftovers: `onSelectionLost` fires before the list re-renders; the 04b spec's
   hand-copied focus CSS; `redactUserinfo` misses leading-space and `//host` URLs.
 - The loader is at 4,043 of 4,096 B: any loader change needs trimming or a budget raise.
+- Owner decisions for wave 3 (HLD §10, 2026-10-19): D-03/04/12/13/14/19/20 accepted.
+  **D-18 changed:** HTTP list in start order (like DevTools), pending rows keep their
+  place, plus **column sorting** — `selectors.ts` `httpRows` still orders finished rows
+  by `seq` and must change (S-05). **D-15 changed:** on fullscreen the launcher and panel
+  are raised back on top (needs a `fullscreenchange` listener in the loader, S02-07);
+  modal dialogs keep the banner. D-19: Capture on/off sits next to Pause.
 
 ## 6. How to work here — token-saving rules (important)
 

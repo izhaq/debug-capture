@@ -143,9 +143,10 @@ error).
 ### 2.2 Later (2.x)
 
 - **Separate window** mode (the panel in its own browser window, fed over
-  `BroadcastChannel`) — the escape hatch for host modals and fullscreen.
+  `BroadcastChannel`) — the escape hatch for host modal dialogs (fullscreen
+  is handled in 2.0, `D-15`).
 - Export of the **current view** only (filtered).
-- Column sorting and column choice.
+- Column choice (column sorting is in 2.0, `D-18`).
 - A **Problems** quick view (all failures across tabs).
 - Hebrew UI text (the UI is English in 2.0; data is bidi-safe — `NFR-I18N-01`).
 
@@ -196,13 +197,13 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 | FR-WIN-04 | **Maximize** to fill the window, and back. | SHOULD |
 | FR-WIN-05 | **Close** button, the toggle shortcut, and `Escape` (when no menu, popover or detail view is open — §4.12) close the panel. | MUST |
 | FR-WIN-06 | Two top tabs: **Network** and **Console**. Network has two sub-tabs: **HTTP** and **WebSocket**. | MUST |
-| FR-WIN-07 | When the page has a modal dialog open or is in fullscreen, the panel says so (it may not be usable then — `ISO-21`). | SHOULD |
+| FR-WIN-07 | **Fullscreen:** when the page enters fullscreen, the panel and the launcher are raised back on top of it (shown again in the top layer), so they float over the fullscreen app and stay usable (`D-15`). **Modal dialog:** the browser makes everything outside the dialog unclickable, so the panel stays visible but says so in a banner (`ISO-21`). | SHOULD |
 
 ### 3.4 Functional — Network › HTTP
 
 | ID | Requirement | Pri |
 |---|---|---|
-| FR-HTTP-01 | A list of requests (fetch and XHR) in **completion order** (`seq`), oldest at top. The Time column shows the **start** time, so it can be out of order when requests overlap — that is expected. Pending rows (`FR-HTTP-02`) sit below all completed rows, in start order; when a request finishes, its pending row is removed and the completed row is appended. Columns: Time, Method, Status, Name, Type, Size, Duration (§5.6). | MUST |
+| FR-HTTP-01 | A list of requests (fetch and XHR) in **start order**, oldest at top, like DevTools' Network panel. A request appears when it starts (`FR-HTTP-02`) and keeps its row: the pending row is updated in place when it finishes. **Column sorting:** clicking a column header sorts by it (ascending, then descending, then back to start order), with the sort shown on the header (`aria-sort`). Filters and search (`FR-HTTP-03`) apply on top of the sort. Columns: Time, Method, Status, Name, Type, Size, Duration (§5.6). | MUST |
 | FR-HTTP-02 | Requests **in flight** appear at once as *pending*, and update when they finish. | SHOULD (needs core change `C-1`) |
 | FR-HTTP-03 | Filters: text search (URL, method, status), type (All / XHR / Fetch), status class (2xx / 3xx / 4xx / 5xx / Failed / Pending — *Failed* covers network error, abort and timeout; *Pending* the in-flight rows). Filters combine with AND; chips in one group combine with OR. | MUST |
 | FR-HTTP-04 | Selecting a row opens the **detail** with sub-tabs **Headers**, **Payload**, **Response**, **Timing** (§4.6). | MUST |
@@ -319,7 +320,8 @@ createCaptureController()  ──►  installDebugPanel(controller)   (loader)
   `DBG` plus a problems count when above zero (`DBG 3`, error colour).
 - It sits in the top layer like the panel, so ordinary host overlays (any
   `z-index`) do not cover it. Host top-layer items opened **later** — a modal
-  `<dialog>`, a popover, fullscreen — still can (`ISO-21`).
+  `<dialog>`, a popover — still can (`ISO-21`); on fullscreen the launcher and
+  the panel are raised back on top (`FR-WIN-07`).
 - Hidden while the panel is open. The badge resets when the panel opens and on
   **Clear** (problem rule: `FR-ACT-04`).
 - It can be dragged to another corner (snaps to the nearest corner;
@@ -472,7 +474,7 @@ storage is blocked the panel uses defaults and works the same.
 | Capture off | Banner on top: "Capture is off — nothing new is recorded." **Turn on**. |
 | Paused | Toolbar: `Paused · N new` and **Resume**. |
 | Entry removed | Detail: "This entry was removed from the buffer." |
-| Host modal / fullscreen | Banner: "The page has a dialog open (or is fullscreen). The panel may not respond until it closes." |
+| Host modal dialog | Banner: "The page has a dialog open. The panel may not respond until it closes." (Fullscreen needs no banner: the panel is raised on top, `FR-WIN-07`.) |
 | Panel failure | Status bar shows `panel error` with a count; the panel keeps working (`NFR-REL-01`). |
 
 ### 4.12 Keyboard
@@ -1024,10 +1026,10 @@ Each spec lives in `docs/specs/<nn>-<slug>/` with `spec.md`, `plan.md` and a
 | **S-02 Panel loader** | P5 loader: element, mount, top layer, lockdown, event wall, zone, toggle, launcher (+ badge), lazy chunk load, open/close and focus return. A placeholder P4 `mountPanelUi` (an empty panel root with a close button) so the lazy path is real end to end. Hostile-host fixture | S-00 |
 | **S-03 Panel model** | P1: local data source (incl. download/copy pass-through), store, batching contract, selectors, filters, formatting, cURL | S-00 |
 | **S-04 UI building blocks** | P2: safe DOM builder, virtual list (bidi-safe), JSON viewer (paged), split pane, tabs, chips, empty/no-match block, icons, theme sheet + contrast check | S-00 |
-| **S-05 Network › HTTP** | P3 list + detail sub-tabs + copy | S-02, S-03, S-04 (S-01 for pending) |
+| **S-05 Network › HTTP** | P3 list (start order, column sorting — `D-18`) + detail sub-tabs + copy | S-02, S-03, S-04 (S-01 for pending) |
 | **S-06 Network › WebSocket** | P3 connections + messages + detail | S-02, S-03, S-04 |
 | **S-07 Console** | P3 list + detail + stacks | S-02, S-03, S-04 |
-| **S-08 Frame, toolbar and status** | P4 app frame (replaces S-02's placeholder): title bar, top tabs and Network sub-tab routing, resize/dock/maximize, scheduler (rAF batching), settings storage, banners. Toolbar: pause/follow, clear, export/copy, capture on/off. Status bar, settings popover, states | S-02, S-03, S-04, S-01 |
+| **S-08 Frame, toolbar and status** | P4 app frame (replaces S-02's placeholder): title bar, top tabs and Network sub-tab routing, resize/dock/maximize, scheduler (rAF batching), settings storage, banners. Toolbar: pause/follow, clear, export/copy, capture on/off. Status bar, settings popover, states. Fullscreen re-raise (`FR-WIN-07`, `D-15`) needs a loader change: one `fullscreenchange` listener also while closed (update S02-07; the loader has ~55 B of budget left) | S-02, S-03, S-04, S-01 |
 | **S-09 Accessibility** | Keyboard map, focus, forced colours, reduced motion | S-05 … S-08 |
 | **S-10 Integration and verification** | Angular + React + plain hosts, end-to-end, performance, security, packaging (`npm pack`), README | all |
 
@@ -1087,8 +1089,8 @@ owner confirms or changes it before the spec that depends on it starts.
 |---|---|---|
 | D-01 | The panel is a framework-free Web Component (Shadow DOM), not an Angular or React component. | Decided |
 | D-02 | v2 lives in `packages/debug-capture/`, seeded from v1; v1 stays in the host app unchanged. Later its own repository. | Decided |
-| D-03 | Overlay docked **bottom** by default, **right** as an option; never changes host layout. | Proposed |
-| D-04 | One shared **JSON tree viewer** for console args, HTTP bodies and WS frames (entries are already JSON-safe, so this is cheap). | Proposed |
+| D-03 | Overlay docked **bottom** by default, **right** as an option; never changes host layout. | Decided |
+| D-04 | One shared **JSON tree viewer** for console args, HTTP bodies and WS frames (entries are already JSON-safe, so this is cheap). | Decided |
 | D-05 | Show **pending** requests (core change C-1). The export keeps `schemaVersion` 1 with optional new fields; readers ignore unknown fields. | Proposed |
 | D-06 | Launcher on by default, bottom-right; toggle `Ctrl+Alt+Shift+P`. | Proposed |
 | D-07 | The launcher's problems badge is the one allowed cost while closed (O(1) per entry, ≤ 1 rAF per frame). | Proposed |
@@ -1096,15 +1098,15 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-09 | Build with plain `tsc`; drop the Angular decorator (C-4). | Proposed |
 | D-10 | Split the panel into a **loader** (≤ 4 kB, at start: launcher, shortcut, badge) and a **UI chunk** (≤ 25 kB, dynamic `import()` on first open). | Proposed |
 | D-11 | Element name `debug-capture-panel-v2`; if taken, reuse the existing definition if it is ours, otherwise do nothing and stay silent. | Proposed |
-| D-12 | **Clear** clears the capture buffer (not just the view), like v1's shortcut. | Proposed |
-| D-13 | Theme **Auto** by default (dark/light by OS); colours as in §5.4. | Proposed |
-| D-14 | UI in English; data bidi-safe. Hebrew UI later if needed. | Proposed |
-| D-15 | Under a host modal dialog or fullscreen, show a hint; the real fix is the separate window (2.x). | Proposed |
+| D-12 | **Clear** clears the capture buffer (not just the view), like v1's shortcut. | Decided |
+| D-13 | Theme **Auto** by default (dark/light by OS); colours as in §5.4. | Decided |
+| D-14 | UI in English; data bidi-safe. Hebrew UI later if needed. | Decided |
+| D-15 | **Fullscreen:** the panel and launcher are raised back on top, so they float over the fullscreen app and stay usable. **Host modal dialog:** the panel stays visible but is not clickable (browser rule), so a banner says so; the separate window (2.x) is the real fix for modals. | Decided |
 | D-16 | The panel never blocks the host's capture-phase listeners (doing so breaks the panel's own handlers). | Proposed |
 | D-17 | **One recorder for the page's life**: capture off/on removes and reinstalls probes on the same recorder (C-2). | Proposed |
-| D-18 | HTTP list in **completion order** (`seq`); pending rows at the bottom until they finish. | Proposed |
-| D-19 | **Pause** freezes rendering only; Clear and evictions still apply; export always takes the whole buffer. | Proposed |
-| D-20 | **Not remembered:** capture on/off and filter search text. Remembered: settings, size, dock, last tab, filter chips. | Proposed |
+| D-18 | HTTP list in **start order**, like DevTools; a pending row keeps its place and updates when the request finishes. **Column sorting** by clicking a header (asc / desc / off), plus filters and search. | Decided |
+| D-19 | **Pause** freezes rendering only; Clear and evictions still apply; export always takes the whole buffer. To stop recording, use the **Capture on/off** switch (`FR-ACT-09`, like DevTools' record button), placed next to Pause in the toolbar. | Decided |
+| D-20 | **Not remembered:** capture on/off and filter search text. Remembered: settings, size, dock, last tab, filter chips. | Decided |
 | D-21 | A **problem** (badge, status bar) = error entry, HTTP 5xx or failed, WebSocket error. Not 4xx, not `console.error`. | Proposed |
 | D-22 | The 2,000-node budget holds up to a 1,080 px panel; above that the list draws every visible row (~23 nodes each) rather than leaving rows blank. Views keep rows lean (text cells, one icon). Found in the S-04 review. | Proposed |
 | D-23 | A host page that registers a `--dcp-*` name with `@property` is out of scope (research S4): the theme keeps CSS variables. Only the loader, which must always be visible, uses literal colours. | Decided |
