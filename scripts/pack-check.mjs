@@ -32,8 +32,23 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
 const work = path.join(root, 'node_modules', '.cache', 'debug-capture-pack-check');
 const consumer = path.join(work, 'consumer');
-const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const failures = [];
+
+/**
+ * Runs npm through this Node. On Windows `npm` is `npm.cmd`, and Node refuses
+ * to spawn a `.cmd` without a shell (EINVAL) since the CVE-2024-27980 fix, so
+ * the check needs npm's own JS entry: `npm run` puts it in `npm_execpath`; run
+ * directly, use the copy installed next to node.exe. Elsewhere `npm` on PATH.
+ */
+function npm(args, options) {
+  const bundled = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+  const cli = /npm-cli\.js$/.test(process.env.npm_execpath ?? '')
+    ? process.env.npm_execpath
+    : fs.existsSync(bundled)
+      ? bundled
+      : undefined;
+  return cli ? execFileSync(process.execPath, [cli, ...args], options) : execFileSync('npm', args, options);
+}
 
 assertDistFresh(root);
 fs.rmSync(work, { recursive: true, force: true });
@@ -41,7 +56,7 @@ fs.mkdirSync(consumer, { recursive: true });
 
 // 1. Pack and look inside.
 const [packed] = JSON.parse(
-  execFileSync(npm, ['pack', '--json', '--ignore-scripts', '--pack-destination', work], {
+  npm(['pack', '--json', '--ignore-scripts', '--pack-destination', work], {
     cwd: root,
     encoding: 'utf8',
   }),
@@ -62,8 +77,7 @@ console.log(`packed ${packed.filename}: ${packed.files.length} files, ${packed.s
 
 // 2. Install into a consumer.
 writeJson(path.join(consumer, 'package.json'), { name: 'consumer', private: true, type: 'module' });
-execFileSync(
-  npm,
+npm(
   [
     'install',
     tarball,
