@@ -1,4 +1,4 @@
-# Handoff — debug-capture v2, wave 3 (written 2026-10-19)
+# Handoff — debug-capture v2, wave 3 (updated 2026-10-19)
 
 You are the new **orchestrator** for debug-capture v2 (GitHub Copilot in agent
 mode, on the owner's **Windows laptop** — see §10 for setup). Waves 1 and 2 are done and
@@ -11,6 +11,61 @@ Read it first; open other files only when a step needs them, by line range or gr
 you too; read it): short, simple words, as if to a junior
 developer; main point first; small tables over long text. Ask before anything hard
 to undo. Never merge into the integration branch yourself.
+
+## 0. Start here
+
+**Status (keep this section current — update it before you stop):**
+
+- **Step 0 (plan and specs): done** on the wave branch `claude/dc-v2-wave3`:
+  #77 (plan `wave-3.md` + specs S-05…S-08), #78 (spec notes; **D-24**: no Launcher
+  Show/Hide setting in 2.0), #79 (**D-25**: UI chunk budget **40 kB**; loader stays
+  4 kB).
+- **Next: step 1, the contract PR** — items C3-1…C3-6 in `wave-3.md`, on branch
+  `claude/dc-v2-w3-contract` (not created yet). No track branches exist yet.
+- Last known checks on `claude/dc-v2-wave3`: green — 935 unit specs, 19 e2e; loader
+  4,041 / 4,096 B, panel-ui 22,695 / 40,960 B.
+- `wave-3.md` is your main guide; its status table must be kept current.
+
+**Setup (Windows, PowerShell; details in §10):**
+
+```powershell
+git config core.autocrlf false
+git fetch origin
+git switch claude/dc-v2-wave3
+git pull
+cd packages/debug-capture
+npm ci
+npx playwright install chromium   # once per machine; if it fails, stop and tell the owner
+npm run check
+```
+
+**Owner's answers (already settled — don't ask again):**
+
+- **Browser:** tests use Playwright's Chromium. Do **not** point `CHROME_BIN` at the
+  laptop's Chrome 155. Stations run Chrome 146.0.7680.72+: never use web features
+  newer than Chrome 146.
+- **PRs:** use `gh` (`gh pr create`, `gh pr merge <n> --merge`), merge commits only.
+  You merge track PRs into `claude/dc-v2-wave3` after `npm run check` passes and you
+  read the diff. Only the owner merges into `claude/air-gapped-debug-logging-zkn1nr`.
+- **Commits:** conventional commits, scope `debug-capture v2`
+  (`feat(debug-capture v2): view interface and stub views`). No trailer lines. Never
+  an AI model name in commits or PRs.
+- **Budgets:** UI chunk 40 kB (`D-25`). The **loader has 55 B left** — ask the owner
+  before raising its 4 kB budget (R2).
+
+**Your first reply to the owner:**
+
+1. Did `npm run check` pass on `claude/dc-v2-wave3`? Test counts and the size table,
+   or the exact error.
+2. Your plan for the contract PR (C3-1…C3-6), in a few lines.
+3. Anything in the docs that looks unclear or contradictory.
+
+Then **wait for the owner's "go"** before writing code, and ask for a "go" before
+each later step. Order after the contract: S-08 frame → S-05 HTTP → S-06 WebSocket →
+S-07 Console (at most two at a time).
+
+**Before you stop** (budget, end of day, or done): push your work, update this §0
+and the `wave-3.md` status table, so the next agent can start from here.
 
 ---
 
@@ -73,7 +128,8 @@ Everything below is merged into it (as of `4ebda8a`).
 |---|---|---|---|
 | 1 | S-00 Foundation | #59 | Merged |
 | 2 | S-01 core changes, S-02 loader, S-03 model, S-04 UI blocks | #60–#68, wave PR #70 | Merged |
-| after | Review notes, D-23, Chrome 146+, wave-3 decisions | #69, #71, #72, #73 | Merged |
+| after | Review notes, D-23, Chrome 146+, wave-3 decisions, handoff, Copilot / Windows setup | #69, #71–#76 | Merged |
+| 3 (in progress) | Wave branch `claude/dc-v2-wave3`: plan + specs, D-24, D-25 | #77, #78, #79 | Merged into the wave branch; step 1 next (§0) |
 
 **Numbers** (`npm run check`, green): **935** unit specs (floor 935), **19** e2e
 (floor 19).
@@ -110,7 +166,7 @@ real-app listeners, a zone.js page; it drives a **fake controller**,
 
 | State | Decisions |
 |---|---|
-| **Decided** (all of them, owner 2026-10-19) | D-01 … D-23. D-15 and D-18 were changed by the owner; D-05…D-11, D-16, D-17, D-21, D-22 were already built and accepted as built. |
+| **Decided** (all of them, owner 2026-10-19) | D-01 … D-25. D-15 and D-18 were changed by the owner; D-05…D-11, D-16, D-17, D-21, D-22 were already built and accepted as built; D-24 (no Launcher setting in 2.0) and D-25 (UI chunk 40 kB) were added during wave-3 planning. |
 
 **Owner changes that wave 3 must implement:**
 - **D-18 / FR-HTTP-01:** the HTTP list is in **start order** like DevTools; a pending
