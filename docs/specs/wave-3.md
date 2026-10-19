@@ -224,11 +224,12 @@ capture core stays in the shared chunk.
 | Step / track | PR | State |
 |---|---|---|
 | 0 specs | #77, #78, #79 | done (D-24, D-25) |
-| 1 contract | `claude/dc-v2-w3-contract` | in review: C3-1…C3-6 done, 971 specs |
+| 1 contract | #81 | in review: C3-1…C3-6 done, 971 specs |
 | 08 | — | not started |
 | 05 | — | not started |
 | 06 | — | not started |
 | 07 | — | not started |
+
 
 
 

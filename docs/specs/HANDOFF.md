@@ -21,7 +21,7 @@ to undo. Never merge into the integration branch yourself.
   Show/Hide setting in 2.0), #79 (**D-25**: UI chunk budget **40 kB**; loader stays
   4 kB).
 - **Step 1, the contract PR: code done, in review** — C3-1…C3-6 on
-  `claude/dc-v2-w3-contract` (PR into the wave branch). The names every track
+  `claude/dc-v2-w3-contract`, **PR #81** into the wave branch. The names every track
   codes against are in `wave-3.md` "Names fixed now" (view types in
   `src/panel/ui/view-contract.ts`; HTTP sort rules; virtual list `sortable` /
   `onSort` / `setSort` / `follow` / `setNewCount`; `panelRoot`). HLD D-20 now
