@@ -30,7 +30,8 @@ Wave 3:  S-05 ║ S-06 ║ S-07 ║ S-08     parallel — one view each + the fr
 Wave 4:  S-09 ─► S-10                  in order — S-09 touches every view
 ```
 
-The wave-2 plan (branches, tracks, owned paths): [`wave-2.md`](wave-2.md).
+The wave plans (branches, tracks, owned paths, contracts): [`wave-2.md`](wave-2.md),
+[`wave-3.md`](wave-3.md).
 
 Each wave ends with the merged branch checked as a whole. S-01, S-02, S-04
 and S-08 (security or hot path) also get a fresh-context review.
