@@ -229,7 +229,7 @@ React / plain-HTML hosts are noted where they differ.
   becomes the host's initial value, and our `var(--accent, green)` fallback
   is ignored too.
 - *Real?* VERIFIED (X1-J: inner colour became `rgb(0,0,0)`, not green).
-- *Severity:* Low with the `--dcp-` prefix.
+- *Severity:* Low with the `--dcp-` prefix. **Out of scope by owner decision (HLD D-23).**
 - *Mitigation:* Rule 5.
 - *Test:* Fixture registers `@property --dcp-bg { syntax: '<length>' … }`.
   Assert the panel background is still correct. This proves the inner root

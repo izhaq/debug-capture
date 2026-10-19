@@ -62,8 +62,8 @@ error).
   key `debug-capture` = `1`). With the flag off, nothing is patched or shown.
 - **Hosts.** Angular apps today (this repo: Angular 16). React apps next.
   Possibly plain pages.
-- **Browsers.** Chromium-based (Chrome / Edge). Exact versions on the
-  stations are not yet known — see `OPEN-01`.
+- **Browsers.** Chrome 146.0.7680.72 and later only; no Edge (`OPEN-01`,
+  answered by the owner).
 - **Rules of the place.** A security review approves third-party code (slow,
   sometimes no). Data may be sensitive. Files leave the machine only by an
   approved route (for example removable media).
@@ -898,7 +898,7 @@ has its evidence, severity and test). Short form:
 | ISO-02 | Lock the host element: `:host { all: initial !important; … }`, every `:host` declaration `!important`; `contain: strict`. |
 | ISO-03 | Set every inherited value on an inner root; **px** sizes; system fonts; `direction: ltr`. |
 | ISO-04 | CSP/Trusted-Types-safe DOM: `adoptedStyleSheets` only; `el.style.x =` only; no HTML strings; captured data as text only; no `href`/`src` from data. |
-| ISO-05 | Nothing global: `--dcp-` tokens on the inner root; no `@property`, `@font-face`, `part`, document stylesheets. |
+| ISO-05 | Nothing global: `--dcp-` tokens on the inner root; no `@property`, `@font-face`, `part`, document stylesheets. A host `@property` on a `--dcp-*` name is out of scope (D-23). |
 | ISO-06 | Hidden when printing. |
 | ISO-07 | Event wall on the **host element**: stop propagation of pointer, mouse, key, focus, input, clipboard, drag events (our global chords excepted). |
 | ISO-08 | Keys: three-modifier toggle on `event.code`; `preventDefault` only on exact match; `Escape` handled inside. |
@@ -1107,6 +1107,7 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-20 | **Not remembered:** capture on/off and filter search text. Remembered: settings, size, dock, last tab, filter chips. | Proposed |
 | D-21 | A **problem** (badge, status bar) = error entry, HTTP 5xx or failed, WebSocket error. Not 4xx, not `console.error`. | Proposed |
 | D-22 | The 2,000-node budget holds up to a 1,080 px panel; above that the list draws every visible row (~23 nodes each) rather than leaving rows blank. Views keep rows lean (text cells, one icon). Found in the S-04 review. | Proposed |
+| D-23 | A host page that registers a `--dcp-*` name with `@property` is out of scope (research S4): the theme keeps CSS variables. Only the loader, which must always be visible, uses literal colours. | Decided |
 
 ---
 
@@ -1114,7 +1115,7 @@ owner confirms or changes it before the spec that depends on it starts.
 
 | ID | Question | Why it matters | Who |
 |---|---|---|---|
-| OPEN-01 | Which Chrome / Edge versions run on the stations? | Below 114 there is no top layer; the fallback has known limits (`NFR-COMP-01`). | Owner — pilot |
+| OPEN-01 | ~~Which Chrome / Edge versions run on the stations?~~ **Answered (owner, 2026-10-18): Chrome 146.0.7680.72 and later only; Edge is not supported.** | `NFR-COMP-01` can drop the pre-114 fallbacks (not done yet). | Owner — answered |
 | OPEN-02 | How strict is the host apps' CSP in production (Trusted Types, `style-src`)? | Confirms `NFR-SEC-02` matters in practice. | Owner — pilot |
 | OPEN-03 | What does `bdi_W` do for rules, lint, CI, agents, structure? | Updates §7. Needs a session that can reach it. | Owner |
 | OPEN-04 | Do the copy fallback and the download link work from inside the panel's shadow root in the station browser? | `C-5`; otherwise copy or download from the panel adds a node to `<body>` for a moment. | S-01 spike |

@@ -43,12 +43,8 @@ plain words (root `CLAUDE.md`).
 - Open questions `OPEN-01` … `OPEN-06` (HLD §11) — most important: station
   Chrome/Edge versions.
 - `bdi_W` practices comparison still waits for access to that repo.
-- **Theme colours vs. a hostile `@property --dcp-*` (whole-wave review, blocks S-08):**
-  the loader uses literal colours (research S4), but the P2 theme is all `var(--dcp-*)`.
-  The e2e S4 check passes only because the placeholder UI never adopts the theme.
-  Either (a) declare a host registering `--dcp-*` out of scope (HLD ISO-05/S4) and drop
-  those rules from `test/hostile-host/hostile.css`, or (b) have `theme-css.ts` emit
-  literal colours per theme from `TOKENS`.
+- Theme colours vs. a host `@property --dcp-*`: **decided (a)** — out of scope, HLD D-23.
+- OPEN-01 answered: Chrome 146.0.7680.72+ only, no Edge. Dropping the pre-114 fallbacks (NFR-COMP-01) awaits the owner's go.
 - D-21 (problem rule) is still "Proposed" in HLD §10, but the code relies on it.
 
 ## 5. Notes for wave 3 (from wave-2 reports and reviews)

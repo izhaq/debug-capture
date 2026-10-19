@@ -47,16 +47,7 @@ body {
   --dcp-bg-elevated: hotpink;
   --bg: hotpink;
 }
-@property --dcp-bg {
-  syntax: '<length>';
-  inherits: false;
-  initial-value: 0px;
-}
-@property --dcp-text {
-  syntax: '<length>';
-  inherits: false;
-  initial-value: 0px;
-}
+/* S4 (a host `@property` on a `--dcp-*` name) is out of scope: D-23. */
 
 /* S6: outer rules aimed at every element, every child of html/body, our tag, popovers. */
 * {

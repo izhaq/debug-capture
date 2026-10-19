@@ -190,7 +190,7 @@ test('ISO-02…05, research S1–S5: the panel’s own styles are the same with 
   expect(hostile.title).toEqual(calm.title);
   expect(hostile.root.direction).toBe('ltr');
   expect(hostile.root['font-size']).toBe('12px'); // not 10px-root rem (S5)
-  expect(hostile.root['background-color']).toBe('rgb(255, 255, 255)'); // not hotpink, not broken by @property (S3, S4)
+  expect(hostile.root['background-color']).toBe('rgb(255, 255, 255)'); // not hotpink (S3); S4 is out of scope (D-23)
 });
 
 test('research S13/L1: html filter, body opacity/transform and ::backdrop do not touch the launcher’s pixels', async ({
