@@ -108,8 +108,7 @@ real-app listeners, a zone.js page; it drives a **fake controller**,
 
 | State | Decisions |
 |---|---|
-| **Decided** | D-01, D-02, D-03, D-04, D-12, D-13, D-14, D-15 (changed), D-18 (changed), D-19, D-20, D-23 |
-| **Proposed, already built** — owner yes/no pending (docs only unless changed) | D-05…D-11, D-16, D-17, D-21, D-22 |
+| **Decided** (all of them, owner 2026-10-19) | D-01 … D-23. D-15 and D-18 were changed by the owner; D-05…D-11, D-16, D-17, D-21, D-22 were already built and accepted as built. |
 
 **Owner changes that wave 3 must implement:**
 - **D-18 / FR-HTTP-01:** the HTTP list is in **start order** like DevTools; a pending
@@ -234,8 +233,6 @@ Fix these **before** the tracks start, so they can work in parallel:
 
 ## 8. Open items for the owner (do not decide for them)
 
-- D-05…D-11, D-16, D-17, D-21, D-22: built, still "Proposed". Accepting them is a
-  docs-only change in HLD §10; changing one means code changes.
 - OPEN-02 (stations' CSP strictness), OPEN-03 (`bdi_W` practices — repo not
   reachable), OPEN-04 (copy / download from the shadow root on stations), OPEN-05
   (should opening need more than "flag on"), OPEN-06 (where the v2 repo will live).

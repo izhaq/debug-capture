@@ -1091,24 +1091,24 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-02 | v2 lives in `packages/debug-capture/`, seeded from v1; v1 stays in the host app unchanged. Later its own repository. | Decided |
 | D-03 | Overlay docked **bottom** by default, **right** as an option; never changes host layout. | Decided |
 | D-04 | One shared **JSON tree viewer** for console args, HTTP bodies and WS frames (entries are already JSON-safe, so this is cheap). | Decided |
-| D-05 | Show **pending** requests (core change C-1). The export keeps `schemaVersion` 1 with optional new fields; readers ignore unknown fields. | Proposed |
-| D-06 | Launcher on by default, bottom-right; toggle `Ctrl+Alt+Shift+P`. | Proposed |
-| D-07 | The launcher's problems badge is the one allowed cost while closed (O(1) per entry, ≤ 1 rAF per frame). | Proposed |
-| D-08 | Test runner: Karma + Jasmine + esbuild (keeps all v1 specs). | Proposed |
-| D-09 | Build with plain `tsc`; drop the Angular decorator (C-4). | Proposed |
-| D-10 | Split the panel into a **loader** (≤ 4 kB, at start: launcher, shortcut, badge) and a **UI chunk** (≤ 25 kB, dynamic `import()` on first open). | Proposed |
-| D-11 | Element name `debug-capture-panel-v2`; if taken, reuse the existing definition if it is ours, otherwise do nothing and stay silent. | Proposed |
+| D-05 | Show **pending** requests (core change C-1). The export keeps `schemaVersion` 1 with optional new fields; readers ignore unknown fields. | Decided |
+| D-06 | Launcher on by default, bottom-right; toggle `Ctrl+Alt+Shift+P`. | Decided |
+| D-07 | The launcher's problems badge is the one allowed cost while closed (O(1) per entry, ≤ 1 rAF per frame). | Decided |
+| D-08 | Test runner: Karma + Jasmine + esbuild (keeps all v1 specs). | Decided |
+| D-09 | Build with plain `tsc`; drop the Angular decorator (C-4). | Decided |
+| D-10 | Split the panel into a **loader** (≤ 4 kB, at start: launcher, shortcut, badge) and a **UI chunk** (≤ 25 kB, dynamic `import()` on first open). | Decided |
+| D-11 | Element name `debug-capture-panel-v2`; if taken, reuse the existing definition if it is ours, otherwise do nothing and stay silent. | Decided |
 | D-12 | **Clear** clears the capture buffer (not just the view), like v1's shortcut. | Decided |
 | D-13 | Theme **Auto** by default (dark/light by OS); colours as in §5.4. | Decided |
 | D-14 | UI in English; data bidi-safe. Hebrew UI later if needed. | Decided |
 | D-15 | **Fullscreen:** the panel and launcher are raised back on top, so they float over the fullscreen app and stay usable. **Host modal dialog:** the panel stays visible but is not clickable (browser rule), so a banner says so; the separate window (2.x) is the real fix for modals. | Decided |
-| D-16 | The panel never blocks the host's capture-phase listeners (doing so breaks the panel's own handlers). | Proposed |
-| D-17 | **One recorder for the page's life**: capture off/on removes and reinstalls probes on the same recorder (C-2). | Proposed |
+| D-16 | The panel never blocks the host's capture-phase listeners (doing so breaks the panel's own handlers). | Decided |
+| D-17 | **One recorder for the page's life**: capture off/on removes and reinstalls probes on the same recorder (C-2). | Decided |
 | D-18 | HTTP list in **start order**, like DevTools; a pending row keeps its place and updates when the request finishes. **Column sorting** by clicking a header (asc / desc / off), plus filters and search. | Decided |
 | D-19 | **Pause** freezes rendering only; Clear and evictions still apply; export always takes the whole buffer. To stop recording, use the **Capture on/off** switch (`FR-ACT-09`, like DevTools' record button), placed next to Pause in the toolbar. | Decided |
 | D-20 | **Not remembered:** capture on/off and filter search text. Remembered: settings, size, dock, last tab, filter chips. | Decided |
-| D-21 | A **problem** (badge, status bar) = error entry, HTTP 5xx or failed, WebSocket error. Not 4xx, not `console.error`. | Proposed |
-| D-22 | The 2,000-node budget holds up to a 1,080 px panel; above that the list draws every visible row (~23 nodes each) rather than leaving rows blank. Views keep rows lean (text cells, one icon). Found in the S-04 review. | Proposed |
+| D-21 | A **problem** (badge, status bar) = error entry, HTTP 5xx or failed, WebSocket error. Not 4xx, not `console.error`. | Decided |
+| D-22 | The 2,000-node budget holds up to a 1,080 px panel; above that the list draws every visible row (~23 nodes each) rather than leaving rows blank. Views keep rows lean (text cells, one icon). Found in the S-04 review. | Decided |
 | D-23 | A host page that registers a `--dcp-*` name with `@property` is out of scope (research S4): the theme keeps CSS variables. Only the loader, which must always be visible, uses literal colours. | Decided |
 
 ---
