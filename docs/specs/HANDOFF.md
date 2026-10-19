@@ -1,12 +1,14 @@
 # Handoff — debug-capture v2, wave 3 (written 2026-10-19)
 
-You are the new **orchestrator** for debug-capture v2. Waves 1 and 2 are done and
+You are the new **orchestrator** for debug-capture v2 (GitHub Copilot in agent
+mode, on the owner's **Windows laptop** — see §10 for setup). Waves 1 and 2 are done and
 merged. Your job is **wave 3**: S-05 HTTP view, S-06 WebSocket view, S-07 Console
 view, S-08 frame + toolbar + status bar. This file is everything you need to start.
 Read it first; open other files only when a step needs them, by line range or grep
 (§9).
 
-**Talking to the owner** (root `CLAUDE.md`): short, simple words, as if to a junior
+**Talking to the owner** (root `CLAUDE.md` — written for Claude, but it applies to
+you too; read it): short, simple words, as if to a junior
 developer; main point first; small tables over long text. Ask before anything hard
 to undo. Never merge into the integration branch yourself.
 
@@ -194,8 +196,9 @@ Fix these **before** the tracks start, so they can work in parallel:
 
 ### Steps 3–4 — reviews and the wave PR
 
-- S-08: fresh-context adversarial review (default model) → fix round → narrow
-  confirmation review (diff only, `model: "sonnet"`).
+- S-08: a fresh-context adversarial review (a new chat / session that has not seen
+  the code being written, given only the diff, the spec and the ISO rules) → fix
+  round → a narrow confirmation review of the fix commits only.
 - S-05…S-07: your own diff read + checks; add a review only if something looks risky.
 - One whole-wave review focused on the **seams** between tracks, not each file again.
   Fix, then open `claude/dc-v2-wave3` → integration. **Do not merge it.**
@@ -240,49 +243,82 @@ Fix these **before** the tracks start, so they can work in parallel:
 
 ## 9. How to work — token-saving rules (the owner's budget is tight)
 
-1. **Don't read big files whole.** `grep` and line ranges; open only the HLD section
-   a step needs (§2).
-2. **At most 2–3 agents at once.** Four tracks → two rounds of two, or S-08 plus one
-   view at a time.
-3. **Small fixes: do them yourself**, or a **fresh** agent with a short brief.
-   **Never resume a long-history agent for a small fix** — a resume re-reads its whole
-   history (100k–300k tokens).
-4. **Models:** implementation and fix agents `model: "sonnet"`; fresh-context reviews
-   of security / isolation / hot path (S-08) the default model; confirmation reviews
-   `model: "sonnet"`, diff only.
-5. **Short briefs, short reports.** Briefs point to the spec file instead of
-   repeating it; reports ≤ 300–400 words.
-6. **Run `npm run check` once per merge.** Read logs with
-   `grep -E "TOTAL|spec count|e2e count|FAILED|core  |panel-"`; never `cat` a log.
+1. **Don't read big files whole.** Search and read line ranges; open only the HLD
+   section a step needs (§2).
+2. **Work in small units.** One track at a time per chat / session, or at most two in
+   parallel if your tool runs background agents. Four tracks → S-08 first (it fixes
+   the frame the views mount in), then the views.
+3. **Small fixes: do them yourself.** Start a **fresh** chat only for a review (it must
+   not have seen the code being written). Don't drag a long chat history into small
+   fixes — start a new one with a short brief instead.
+4. **Model choice** (if you can choose): a fast model for implementation and fixes; the
+   strongest model for the S-08 security / isolation review; a fast model for narrow
+   confirmation reviews (diff only).
+5. **Short briefs, short reports.** Briefs point to the spec file instead of repeating
+   it; reports ≤ 300–400 words.
+6. **Run `npm run check` once per merge**, and read only the summary lines (`TOTAL`,
+   `spec count`, `e2e count`, `FAILED`, the size table), not the whole log.
 7. **No reviewers for docs-only changes.**
-8. **Usage-limit stop:** little left → finish it yourself; a lot left → resume that
-   agent with `SendMessage` after the reset (it keeps its work).
+8. **If a session runs out of budget mid-track:** commit and push what works (on the
+   track branch, never the wave or integration branch), write 5 lines of "where I
+   stopped" in the PR description, and continue in a new session from there.
 9. **Owner updates:** a few lines or a small table; ask for a "go" before each step.
 10. **Prove new tests:** for each fix, show the new spec failing on the old code once
     (revert the fix, run the tests, restore).
 
-## 10. Environment (a new container starts empty)
+## 10. Environment — Windows laptop
 
-- Package checks:
-  ```bash
-  cd packages/debug-capture && npm ci
-  CHROME_BIN=/opt/pw-browsers/chromium-1194/chrome-linux/chrome npm run check
-  ```
-  Node 22. Playwright finds Chromium in `/opt/pw-browsers`; **never run
-  `playwright install`**.
-- Host app (must stay unaffected): from the repo root `npm ci`, then
-  `npx tsc -p tsconfig.app.json --noEmit && npm run lint:layers`. A wave that changes
-  nothing outside the package cannot affect it — check with
-  `git diff --stat <base>...<head> -- . ':!packages/debug-capture'`.
-- One git worktree per branch (`git worktree add ../wt-x <branch>`); each needs its
-  own `npm ci` in `packages/debug-capture`.
-- GitHub through the MCP tools: `mcp__github__create_pull_request`,
-  `mcp__github__merge_pull_request` with `merge_method: "merge"` and the full 40-char
-  `expectedHeadSha`. No `gh` CLI.
-- The auto-mode permission check may block a plain `git pull` right after a merge;
-  use `git fetch` plus `checkout -B <branch> origin/<branch>` or a fresh worktree.
-- Commits end with the two trailer lines the session's system reminder gives
-  (`Co-Authored-By: …`, `Claude-Session: …`); PR bodies end with the line it gives.
-  Never put a model name in commits or PRs. Never commit `/tmp` or scratchpad paths.
-- **Who merges:** track PRs into the **wave branch** — you, after the checks. PRs into
-  the **integration branch** (wave PR, docs or decision PRs) — the owner.
+**Browsers:** the laptop has **Chrome 155**; the stations run **Chrome 146.0.7680.72+**
+(NFR-COMP-01). Do **not** use web APIs or CSS added after Chrome 146, even though they
+work on the laptop. The automated tests run in Playwright's own Chromium (141 for the
+pinned `@playwright/test` 1.56.1), which keeps you honest. Use Chrome 155 only for
+looking at the panel by hand.
+
+**One-time setup** (PowerShell, from the repo root):
+
+```powershell
+git config core.autocrlf false        # the package's .gitattributes forces LF; this avoids CRLF noise
+git fetch origin
+git switch claude/air-gapped-debug-logging-zkn1nr
+cd packages/debug-capture
+npm ci                                # Node 22 LTS (engines: ^20.19 || ^22.13 || >=24)
+npx playwright install chromium       # once per machine; downloads Playwright's Chromium
+```
+
+(The old "never run `playwright install`" rule was for the cloud container only. On
+the laptop you must run it once.)
+
+**Every check run** (from `packages/debug-capture`):
+
+```powershell
+npm run check
+```
+
+- Karma uses Playwright's Chromium automatically; to use another Chrome, set
+  `$env:CHROME_BIN = "C:\Program Files\Google\Chrome\Application\chrome.exe"`
+  first.
+- The checks expect **LF line endings** (Prettier, the contrast check). The package's
+  `.gitattributes` forces LF on checkout. If `format:check` fails on every file, run
+  `git add --renormalize .` once, or check `core.autocrlf`.
+- The e2e servers use ports 4319 and 4329 (`E2E_PORT`, `E2E_HOSTILE_PORT` change
+  them). Allow them through the Windows firewall prompt if asked; they bind to
+  127.0.0.1 only.
+
+**Host app** (must stay unaffected): a wave that changes nothing outside the package
+cannot affect it. Check with
+`git diff --stat <base>...<head> -- . ":!packages/debug-capture"`. If it ever does
+change something outside, run from the repo root `npm ci`, then
+`npx tsc -p tsconfig.app.json --noEmit` and `npm run lint:layers`.
+
+**Git and GitHub:**
+- Branches as in §5. A second folder per branch is handy
+  (`git worktree add ..\wt-08 claude/dc-v2-w3-08-frame`); each needs its own `npm ci`
+  in `packages/debug-capture`.
+- Open and merge PRs on github.com or with the GitHub CLI
+  (`gh pr create --base <branch>`, `gh pr merge <n> --merge`). Always use a **merge
+  commit**, never squash or rebase.
+- Commits: conventional commits, scope `debug-capture v2` (AGENTS rule 22). Never put
+  an AI model name in commits or PRs. Never commit temp paths.
+- **Who merges:** track PRs into the **wave branch** — you, after re-running the checks
+  and reading the diff. PRs into `claude/air-gapped-debug-logging-zkn1nr` (the wave PR,
+  docs or decision PRs) — **only the owner**.
