@@ -35,8 +35,8 @@ function rgb(hex: string): [number, number, number] {
 /**
  * `top` at `alpha` over the opaque `bottom`, rounded per channel — the same
  * maths as `scripts/contrast-check.mjs`, so the badge colours that ship are
- * the ones the contrast check measured. Precomputed because `color-mix()`
- * needs Chromium 111 and the panel supports 90+.
+ * the ones the contrast check measured. Precomputed, not `color-mix()`, so
+ * the contrast check can measure the exact colour that ships.
  */
 export function blendHex(top: string, bottom: string, alpha: number): string {
   const t = rgb(top);

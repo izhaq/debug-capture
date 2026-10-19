@@ -44,7 +44,7 @@ plain words (root `CLAUDE.md`).
   Chrome/Edge versions.
 - `bdi_W` practices comparison still waits for access to that repo.
 - Theme colours vs. a host `@property --dcp-*`: **decided (a)** — out of scope, HLD D-23.
-- OPEN-01 answered: Chrome 146.0.7680.72+ only, no Edge. Dropping the pre-114 fallbacks (NFR-COMP-01) awaits the owner's go.
+- OPEN-01 answered: Chrome 146.0.7680.72+ only, no Edge; the pre-114 fallbacks are removed.
 - D-21 (problem rule) is still "Proposed" in HLD §10, but the code relies on it.
 
 ## 5. Notes for wave 3 (from wave-2 reports and reviews)

@@ -271,7 +271,7 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 | NFR-REL-01 | The panel never throws into the host, never logs to `console`, never leaves an unhandled rejection; its own failures cannot reach the recorder (no feedback loop). | MUST |
 | NFR-A11Y-01 | Keyboard-complete; visible focus; WCAG 2.1 AA contrast (verified tokens, §5.4); works in forced-colors mode; respects `prefers-reduced-motion`; status never shown by colour alone. | MUST |
 | NFR-I18N-01 | UI text is English, left-to-right. Data cells are bidi-safe (`dir="auto"`, `unicode-bidi: plaintext`) so Hebrew or Arabic data cannot reorder the layout. | MUST |
-| NFR-COMP-01 | Chromium **114+**: full behaviour (top layer via `popover`). Chromium **102–113**: `position: fixed` fallback with its known limits. Chromium **90–101**: same, and no `inert` — the closed panel root uses `display: none`. Language target ES2020 (§7.2). Other browsers: best effort. | MUST (pending `OPEN-01`) |
+| NFR-COMP-01 | **Chrome 146.0.7680.72+** only (`OPEN-01`, answered by the owner); no Edge, no other browsers. Top layer via `popover` and `inert` are always present, so there are no old-browser fallbacks. Language target stays ES2020 (§7.2). | MUST |
 | NFR-COMP-02 | Screens from 1280 × 720 up. Pointer and keyboard; touch not required. | MUST |
 | NFR-PORT-01 | Same behaviour in an Angular host, a React host and a plain HTML page — each covered by an end-to-end test. The package ships a prebuilt ESM file per entry point (`dist/*.mjs`) so a plain page needs no bundler (§6.6). | MUST |
 
@@ -909,7 +909,7 @@ has its evidence, severity and test). Short form:
 | ISO-13 | Overlay, never dock into the layout; `overscroll-behavior: contain`. |
 | ISO-14 | Safe registration: `customElements.get` first; prefixed, versioned name; never throw. |
 | ISO-15 | Static host element: no id/class/attribute changes on it after mount (open/closed state lives on inner nodes); no `window` globals. |
-| ISO-16 | Focus: never steal focus on automatic open; return focus on close; no focus trap. When closed, the **inner panel root** (never the host element, which also holds the launcher) is `hidden` + `inert`; Chromium 90–101: `display: none`. |
+| ISO-16 | Focus: never steal focus on automatic open; return focus on close; no focus trap. When closed, the **inner panel root** (never the host element, which also holds the launcher) is `hidden` + `inert`. |
 | ISO-17 | A11y: `role="dialog"` `aria-modal="false"`, `aria-label`, `lang="en"`, `dir="ltr"`; no `aria-live` on rows; reduced motion; forced colours. |
 | ISO-18 | Bidi-safe data cells. |
 | ISO-19 | Drag/resize with pointer capture on our element; no document-level move listeners. |
@@ -962,7 +962,7 @@ v2 adopts the v2 rule set in `docs/research/practices-baseline.md` §3 (31
 | Need | Choice | Status |
 |---|---|---|
 | Test runner | Karma + Jasmine + esbuild, headless Chromium — keeps every v1 spec as it is | Proposed `D-08` |
-| Language target | ES2020, `lib: es2020, dom` (Chromium 90+, `NFR-COMP-01`) | Proposed |
+| Language target | ES2020, `lib: es2020, dom`. The browser is Chrome 146+ (`NFR-COMP-01`); raising the target is a separate decision. | Proposed |
 | Build | Plain `tsc` → ESM + `.d.ts` per entry point (needs `C-4`); esbuild → prebuilt `dist/*.mjs` per entry, the UI as a separate chunk | Proposed `D-09` |
 | Lint | ESLint + typescript-eslint: `no-explicit-any`, `no-console` (with the listed exceptions), no `innerHTML`-family, no `Date.now()` outside the clock | Proposed |
 | Format | Prettier, single quotes, 2 spaces | Proposed |
@@ -1115,7 +1115,7 @@ owner confirms or changes it before the spec that depends on it starts.
 
 | ID | Question | Why it matters | Who |
 |---|---|---|---|
-| OPEN-01 | ~~Which Chrome / Edge versions run on the stations?~~ **Answered (owner, 2026-10-18): Chrome 146.0.7680.72 and later only; Edge is not supported.** | `NFR-COMP-01` can drop the pre-114 fallbacks (not done yet). | Owner — answered |
+| OPEN-01 | ~~Which Chrome / Edge versions run on the stations?~~ **Answered (owner, 2026-10-18): Chrome 146.0.7680.72 and later only; Edge is not supported.** | `NFR-COMP-01` updated; the pre-114 fallbacks are removed. | Owner — answered |
 | OPEN-02 | How strict is the host apps' CSP in production (Trusted Types, `style-src`)? | Confirms `NFR-SEC-02` matters in practice. | Owner — pilot |
 | OPEN-03 | What does `bdi_W` do for rules, lint, CI, agents, structure? | Updates §7. Needs a session that can reach it. | Owner |
 | OPEN-04 | Do the copy fallback and the download link work from inside the panel's shadow root in the station browser? | `C-5`; otherwise copy or download from the panel adds a node to `<body>` for a moment. | S-01 spike |

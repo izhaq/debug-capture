@@ -4,8 +4,8 @@ import { THEME_CSS } from './theme-css';
 /**
  * CSS the panel must never ship (ISO-03, ISO-05): `rem` follows the host's
  * root font size; `@font-face`, `@property` and `@import` reach outside the
- * shadow root (or the network); `url(` could fetch; `color-mix(` needs
- * Chromium 111, and 90–110 drop the whole declaration.
+ * shadow root (or the network); `url(` could fetch; `color-mix(` would ship
+ * a colour the contrast check never measured (use `blendHex`).
  */
 const FORBIDDEN_CSS = /\d(?:\.\d+)?rem\b|@font-face|@property|@import|url\s*\(|color-mix\s*\(/i;
 

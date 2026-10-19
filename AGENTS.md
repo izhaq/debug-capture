@@ -31,8 +31,9 @@ and the HLD disagree, the HLD wins — or change the HLD first, in its own PR.
 ## Code
 
 7. TypeScript 5.1.6, strict, with the flags in `tsconfig.json`. No `any`: use
-   `unknown` and narrow. Target `lib: es2020, dom` and Chromium 90+ — no
-   `.at()`, `Object.hasOwn`, `replaceAll`, `using`.
+   `unknown` and narrow. The browser is Chrome 146+ (`NFR-COMP-01`), but the
+   language target stays `lib: es2020, dom` — no `.at()`, `Object.hasOwn`,
+   `replaceAll`, `using`.
 8. Inject the outside world: globals, time, sockets, storage, `document` come
    in as a parameter (an `InjectionToken` in `src/angular/`). Specs pass fakes
    and never patch `window`. Time comes only from `src/core/clock.ts`: no

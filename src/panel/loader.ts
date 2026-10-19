@@ -56,7 +56,7 @@ const DISPOSED = 3;
 
 type Chord = (event: KeyboardEvent) => boolean;
 type Run = <T>(work: () => T) => T;
-type Popover = HTMLElement & { showPopover?(): void };
+type Popover = HTMLElement & { showPopover(): void }; // not in TS 5.1's lib.dom yet
 type Chunk = { readonly mountPanelUi: MountPanelUi };
 
 export function inertHandle(): DebugPanelHandle {
@@ -143,10 +143,9 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
       }
     }
     try {
-      host.showPopover?.();
+      host.showPopover();
     } catch {
-      // Already showing. Without popover (Chromium < 114) the :host rule's
-      // `position: fixed` and max `z-index` are the fallback.
+      // Already showing.
     }
   };
 
