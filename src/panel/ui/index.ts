@@ -37,6 +37,7 @@ export { createSplitPane } from './split-pane';
 export type { SplitDirection, SplitPaneControl, SplitPaneOptions } from './split-pane';
 export { createTabs } from './tabs';
 export type { TabItem, TabsControl, TabsOptions } from './tabs';
+export type { CreateView, PanelView, ViewDeps, ViewSettings } from './view-contract';
 export * from './theme';
 export * from './virtual-list';
 export * from './json-viewer';
