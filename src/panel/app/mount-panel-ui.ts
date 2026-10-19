@@ -4,6 +4,11 @@ import { CaptureController } from '../views';
 export interface MountPanelUiOptions {
   /** The host page's document; the UI reads no globals of its own. */
   readonly document: Document;
+  /**
+   * The loader's panel root (`.dcp-root`, the dialog) inside `root`: the UI
+   * builds in it. Handed over so the UI never looks it up by class (C3-2).
+   */
+  readonly panelRoot: HTMLElement;
   /** `localStorage` key for settings and filter chips; `false` keeps nothing. */
   readonly storageKey: string | false;
   /** Where the panel docks when no stored setting says otherwise. */
@@ -34,7 +39,7 @@ export type MountPanelUi = (
  * title and a close button inside the loader's panel root, plain DOM and
  * text only. S-08 replaces it with the frame. It lands in its own chunk.
  */
-export const mountPanelUi: MountPanelUi = (root, _controller, options) => {
+export const mountPanelUi: MountPanelUi = (_root, _controller, options) => {
   const doc = options.document;
   const frame = doc.createElement('div');
   const title = doc.createElement('span');
@@ -60,7 +65,7 @@ export const mountPanelUi: MountPanelUi = (root, _controller, options) => {
   };
   // On the panel root, not the frame: the loader focuses the root itself, and
   // a key pressed there never passes through its children.
-  const parent = root.querySelector('.dcp-root') ?? root;
+  const parent = options.panelRoot;
   close.addEventListener('click', requestClose);
   parent.addEventListener('keydown', onKey as EventListener);
   parent.appendChild(frame);

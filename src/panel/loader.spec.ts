@@ -721,6 +721,9 @@ describe('panel loader (S-02)', () => {
       expect(root).toBe(h.shadow());
       expect(controller).toBe(h.controller);
       expect(options.document).toBe(document);
+      // C3-2: the UI builds in the loader's own panel root, never one found by class.
+      expect(options.panelRoot).toBe(h.root() as HTMLElement);
+      expect(options.panelRoot.parentNode).toBe(h.shadow());
       expect(options.storageKey).toBe('debug-capture:panel');
       expect(options.defaultDock).toBe('bottom');
       expect(custom.ui.lastOptions().storageKey).toBeFalse();

@@ -253,6 +253,7 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
     root.inert = false;
     const mounted = loaded.mountPanelUi(shadow, controller, {
       document: doc,
+      panelRoot: root,
       storageKey: options.storageKey ?? 'debug-capture:panel',
       defaultDock: options.defaultDock ?? 'bottom',
       onRequestClose: guard(close),
