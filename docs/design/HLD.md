@@ -1106,7 +1106,7 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-17 | **One recorder for the page's life**: capture off/on removes and reinstalls probes on the same recorder (C-2). | Decided |
 | D-18 | HTTP list in **start order**, like DevTools; a pending row keeps its place and updates when the request finishes. **Column sorting** by clicking a header (asc / desc / off), plus filters and search. | Decided |
 | D-19 | **Pause** freezes rendering only; Clear and evictions still apply; export always takes the whole buffer. To stop recording, use the **Capture on/off** switch (`FR-ACT-09`, like DevTools' record button), placed next to Pause in the toolbar. | Decided |
-| D-20 | **Not remembered:** capture on/off and filter search text. Remembered: settings, size, dock, last tab, filter chips. | Decided |
+| D-20 | **Not remembered:** capture on/off and filter search text. Remembered: settings, size, dock, last tab, filter chips. The HTTP column sort (`D-18`) is not remembered either: it resets on reload, like the search text. | Decided |
 | D-21 | A **problem** (badge, status bar) = error entry, HTTP 5xx or failed, WebSocket error. Not 4xx, not `console.error`. | Decided |
 | D-22 | The 2,000-node budget holds up to a 1,080 px panel; above that the list draws every visible row (~23 nodes each) rather than leaving rows blank. Views keep rows lean (text cells, one icon). Found in the S-04 review. | Decided |
 | D-23 | A host page that registers a `--dcp-*` name with `@property` is out of scope (research S4): the theme keeps CSS variables. Only the loader, which must always be visible, uses literal colours. | Decided |

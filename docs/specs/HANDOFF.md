@@ -20,11 +20,21 @@ to undo. Never merge into the integration branch yourself.
   #77 (plan `wave-3.md` + specs S-05…S-08), #78 (spec notes; **D-24**: no Launcher
   Show/Hide setting in 2.0), #79 (**D-25**: UI chunk budget **40 kB**; loader stays
   4 kB).
-- **Next: step 1, the contract PR** — items C3-1…C3-6 in `wave-3.md`, on branch
-  `claude/dc-v2-w3-contract` (not created yet). No track branches exist yet.
-- Last known checks on `claude/dc-v2-wave3`: green — 935 unit specs, 19 e2e; loader
-  4,041 / 4,096 B, panel-ui 22,695 / 40,960 B.
+- **Step 1, the contract PR: code done, in review** — C3-1…C3-6 on
+  `claude/dc-v2-w3-contract` (PR into the wave branch). The names every track
+  codes against are in `wave-3.md` "Names fixed now" (view types in
+  `src/panel/ui/view-contract.ts`; HTTP sort rules; virtual list `sortable` /
+  `onSort` / `setSort` / `follow` / `setNewCount`; `panelRoot`). HLD D-20 now
+  says the HTTP sort is not remembered.
+- **Next:** after the owner merges the contract PR, step 2 starts with **S-08
+  frame** (`claude/dc-v2-w3-08-frame`). No track branches exist yet.
+- Last known checks on `claude/dc-v2-w3-contract`: green — **971** unit specs
+  (floor 971), 19 e2e; loader **4,046 / 4,096 B (50 B left)**, panel-ui
+  **24,086 / 40,960 B**.
 - `wave-3.md` is your main guide; its status table must be kept current.
+- **Windows tip:** a terminal opened by the IDE may not have the user variable
+  `CHROME_BIN`; Karma then tries the blocked `chrome.exe` (`spawn EPERM`). Set
+  it in the command: `$env:CHROME_BIN = [Environment]::GetEnvironmentVariable('CHROME_BIN','User')`.
 
 **Setup (Windows, PowerShell; details in §10):**
 
@@ -50,8 +60,8 @@ npm run check
 - **Commits:** conventional commits, scope `debug-capture v2`
   (`feat(debug-capture v2): view interface and stub views`). No trailer lines. Never
   an AI model name in commits or PRs.
-- **Budgets:** UI chunk 40 kB (`D-25`). The **loader has 55 B left** — ask the owner
-  before raising its 4 kB budget (R2).
+- **Budgets:** UI chunk 40 kB (`D-25`). The **loader has 50 B left** (55 B before
+  `panelRoot`) — ask the owner before raising its 4 kB budget (R2).
 
 **Your first reply to the owner:**
 

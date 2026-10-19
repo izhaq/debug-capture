@@ -36,7 +36,7 @@ orchestrator re-runs `npm run check` on the PR head and reads the diff.
 
 | # | What | Where |
 |---|---|---|
-| C3-1 | **View interface** (below) and three stub views, so every track codes against names that exist | `src/panel/views/view.ts`, `views/index.ts`, `views/{http,ws,console}/index.ts` (stubs) |
+| C3-1 | **View interface** (below) and three stub views, so every track codes against names that exist | `src/panel/ui/view-contract.ts` (types), `src/panel/views/view.ts` (`VIEW_CSS`), `views/index.ts`, `views/{http,ws,console}/index.ts` (stubs) |
 | C3-2 | **`panelRoot: HTMLElement`** in `MountPanelUiOptions`; the loader passes its `.dcp-root`, so P4 stops looking it up by class. Update S02-09. | `src/panel/app/mount-panel-ui.ts`, `src/panel/loader.ts`, `docs/specs/02-panel-loader/spec.md` |
 | C3-3 | **Stylesheet contract** (below) | `view.ts` doc comment, this file |
 | C3-4 | **HTTP order (`D-18`, R3):** `selectHttpRows` returns **start order** (`t`, then `seq`), pending rows in their place; `PanelState.httpSort: HttpSort \| null`; `store.setHttpSort(key)` cycles asc → desc → `null`. Filters apply on top. | `src/panel/model/**` |
@@ -47,7 +47,12 @@ The contract PR raises `test/unit/spec-floor.json` to its new count.
 
 ## Names fixed now (so tracks never wait for each other)
 
-**View interface — `src/panel/views/view.ts` (P3; P4 may import P3):**
+**View interface — `src/panel/ui/view-contract.ts` (P2, types only; re-exported by the P3 barrel):**
+
+The types sit in P2, not in `views/view.ts`: a track's folder (`views/http/`…)
+may import only its own directory and the P2 barrel (`lint:layers` rule 4), so
+P2 is the one place every track can reach (contract PR finding). `views/view.ts`
+keeps `VIEW_CSS` and the stylesheet contract.
 
 ```ts
 /** What the frame gives each view. */
@@ -58,12 +63,16 @@ export interface ViewDeps {
   readonly source: PanelDataSource;
   readonly store: PanelStore;
   readonly settings: ViewSettings;
+  /** The frame's once-per-frame scheduler, outside Angular's zone (ISO-09): the virtual list's `requestFrame`. */
+  requestFrame(callback: () => void): void;
+  /** The frame's timer, outside Angular's zone: the search box's `schedule` (debounce). */
+  readonly schedule: Schedule;
   /** A panel failure: counted in the status bar (§4.11). Never throws, never logs. */
   report(error: unknown): void;
 }
 
 export interface ViewSettings {
-  readonly time: TimeFormat;              // 'clock' | 'relative' (P1)
+  readonly time: TimeFormat;              // P1: { mode: 'clock', utcOffsetMinutes } | { mode: 'relative', origin }
   readonly rowHeight: 20 | 22 | 26;       // Small / Normal / Large (§5.3)
   readonly dock: 'bottom' | 'right';      // where the detail pane goes (§4.6)
 }
@@ -83,6 +92,55 @@ export interface PanelView {
 export type CreateView = (deps: ViewDeps) => PanelView;
 ```
 
+`requestFrame` and `schedule` were added in the contract PR (the handoff's
+"a scheduler" in deps): the virtual list and the search box need the frame's
+scheduler, outside Angular's zone, and P3 may not reach for globals.
+
+**HTTP order and sort (C3-4, `D-18`; P1 model, `src/panel/model/`):**
+
+- `selectHttpRows(state)` returns **start order**: by `t` (an entry's `t` is
+  its start time, like a pending row's), so a finished request lands where its
+  pending row was. Equal times: finished rows by `seq`, then pending rows by id.
+- `PanelState.httpSort: HttpSort | null` — `null` = start order.
+  `HttpSort = { key: HttpSortKey; dir: 'asc' | 'desc' }`,
+  `HttpSortKey = 'time' | 'method' | 'status' | 'name' | 'type' | 'size' | 'duration'`
+  (the seven columns, §5.6).
+- `store.setHttpSort(key)`: a new column → ascending; the same column →
+  descending → `null` (start order). One notify per call.
+- Filters and search apply on top of the sort; keyboard moves walk the sorted,
+  filtered rows. The sort is **not remembered** (resets on reload, `D-20`).
+- Sort rules:
+
+| Key | Sorts by |
+|---|---|
+| `time` | start time (`t`) |
+| `method` | the method text (upper-case already) |
+| `status` | the number; **Failed / Aborted / Timeout** (no number shown — also an abort that kept a code) go after the numbered rows and before pending rows |
+| `name` | the shown Name (`httpName(url)`: last path segment + query), ignoring upper and lower case |
+| `type` | `fetch` / `xhr` |
+| `size` | `bytes` |
+| `duration` | `durationMs` |
+
+- **Rows with no value** (pending rows on Status, Size, Duration; a finished
+  row whose Size or Duration shows `—`) go **last, in both directions**.
+- **Ties keep start order**, in both directions; so do the rows inside the
+  "no number" and "no value" groups.
+
+**Virtual list additions (C3-5; P2, `src/panel/ui/virtual-list/`):**
+
+| Name | What |
+|---|---|
+| `VirtualListColumn.sortable?: boolean` | the header becomes a native `<button>` (`dcp-vlist__sort`); the sortable headers are **one tab stop** (ArrowLeft / ArrowRight / Home / End move between them) |
+| `VirtualListOptions.onSort?(columnKey: string)` | a click, or Enter / Space (native button keys), on a sortable header. The list reorders nothing: the caller calls `store.setHttpSort`, then `setItems` and `setSort` |
+| `VirtualList.setSort(sort: VirtualListSort \| null)` | `aria-sort="ascending"` / `"descending"` on that header and a CSS arrow (alt text `""`); `null` clears. `VirtualListSort = { key: string; dir: 'asc' \| 'desc' }` — `HttpSort` fits it as is |
+| `VirtualListOptions.follow?: boolean` | builds `VirtualList.followButton` |
+| `VirtualList.followButton: HTMLButtonElement \| null` | the "↓ N new" button (`dcp-btn dcp-vlist__follow`). It lives **outside** the grid (a grid owns only rows): append it next to `element` inside a `dcp-list-pane`; it places itself bottom-right, 8 px in (§5.7) |
+| `VirtualList.setNewCount(count: number)` | N on "↓ N new". Shown while the list is not at its end and N > 0; a click scrolls to the end and focuses the list. Reset N to 0 when `onScrollChange` reports `true` |
+
+Who counts N: the view (or the frame) counts its list's new rows since
+following stopped (e.g. new entries of its kind, by `seq`); the list only
+shows the number.
+
 **Exports from the P3 barrel** (added by C3-1 as stubs; each track fills its own folder):
 
 | Name | File | Track |
@@ -90,7 +148,7 @@ export type CreateView = (deps: ViewDeps) => PanelView;
 | `createHttpView: CreateView`, `HTTP_VIEW_CSS: string` | `views/http/index.ts` | S-05 |
 | `createWsView: CreateView`, `WS_VIEW_CSS: string` | `views/ws/index.ts` | S-06 |
 | `createConsoleView: CreateView`, `CONSOLE_VIEW_CSS: string` | `views/console/index.ts` | S-07 |
-| `VIEW_CSS: string` (shared view chrome: filter bar, detail header, detail body) | `views/view.ts` | contract |
+| `VIEW_CSS: string` (shared view chrome: filter bar, list pane, detail header, detail body) | `views/view.ts` | contract |
 
 **Stylesheet contract (C3-3):**
 
@@ -109,7 +167,7 @@ export type CreateView = (deps: ViewDeps) => PanelView;
 | Class | Owner of the look | Used by |
 |---|---|---|
 | `dcp-root`, tokens, badges, `dcp-match`, `dcp-row*` | wave 2 (P2) | all |
-| `dcp-view`, `dcp-filter-bar`, `dcp-detail`, `dcp-detail-header`, `dcp-detail-body` | contract (`VIEW_CSS`) | S-05, S-06, S-07 |
+| `dcp-view`, `dcp-filter-bar`, `dcp-list-pane`, `dcp-detail`, `dcp-detail-header`, `dcp-detail-body` | contract (`VIEW_CSS`) | S-05, S-06, S-07 |
 | `dcp-frame`, `dcp-titlebar`, `dcp-toolbar`, `dcp-banner`, `dcp-statusbar`, `dcp-resize` | S-08 (`FRAME_CSS`) | S-08 |
 | `dcp-http-*` / `dcp-ws-*` / `dcp-console-*` | the view's track | that track only |
 
@@ -150,19 +208,32 @@ the orchestrator runs `npm run check` on the wave branch and raises the floors.
 
 | ID | Risk | Plan |
 |---|---|---|
-| R1 | UI chunk 22,695 B with only the placeholder — the old 25,600 B budget left ~2.9 kB | **Decided: budget raised to 40 kB (`D-25`, `size-budgets.json` 40960).** C3-6 still measures and reports; each track reports its own growth (estimate: frame ~5 kB, HTTP ~4–5, WS ~3, Console ~2) |
-| R2 | Loader 4,041 / 4,096 B — 55 B left; `panelRoot` and the fullscreen listener touch it | Trim, or owner raises the 4 kB budget |
-| R3 | HTTP order not in the model yet | C3-4 |
+| R1 | UI chunk 22,695 B with only the placeholder — the old 25,600 B budget left ~2.9 kB | **Decided: budget raised to 40 kB (`D-25`, `size-budgets.json` 40960).** C3-6 measured **24,086 B** after the contract (16.9 kB left); each track reports its own growth (estimate: frame ~5 kB, HTTP ~4–5, WS ~3, Console ~2) |
+| R2 | Loader 4,041 / 4,096 B — 55 B left; `panelRoot` and the fullscreen listener touch it | `panelRoot` cost 5 B: **4,046 / 4,096, 50 B left** for the fullscreen listener (S-08). Trim, or owner raises the 4 kB budget |
+| R3 | HTTP order not in the model yet | **Done** in C3-4 |
 | R4 | Fullscreen must be proven | S-08 e2e: `requestFullscreen()` → launcher and panel on top and clickable; modal `<dialog>` → banner |
+
+**C3-6 — what the UI chunk holds** (minified bytes before gzip, by folder,
+contract PR head): model 16.9 kB · ui (blocks) 15.4 kB · virtual list 11.7 kB ·
+JSON viewer 11.3 kB · theme 10.5 kB · views 2.3 kB (`VIEW_CSS` + 3 stubs) ·
+app 2.0 kB (placeholder). Total 70.8 kB min, **24,086 B** min+gzip; the
+capture core stays in the shared chunk.
 
 ## Status
 
 | Step / track | PR | State |
 |---|---|---|
-| 0 specs | — | in owner review |
-| 1 contract | — | not started |
+| 0 specs | #77, #78, #79 | done (D-24, D-25) |
+| 1 contract | `claude/dc-v2-w3-contract` | in review: C3-1…C3-6 done, 971 specs |
 | 08 | — | not started |
 | 05 | — | not started |
 | 06 | — | not started |
 | 07 | — | not started |
+
+
+
+
+
+
+
 
