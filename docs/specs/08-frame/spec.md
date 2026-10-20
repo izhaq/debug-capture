@@ -22,7 +22,7 @@ the launcher back on top when the page goes fullscreen (`D-15`).
 | S08-05 | Resize by dragging the inner edge (6 px hit area, the cursor shows the direction), with **pointer capture on our own element** and no `document` move listeners. | FR-WIN-03, ISO-19 |
 | S08-06 | **Maximize** fills the window; the button toggles back. | FR-WIN-04 |
 | S08-07 | Toolbar: **Pause / Resume** (`store.pause/resume`; `Paused · N new`, N capped at capacity); **Capture on/off next to Pause** (`source.capture.start/stop`); **Clear** (`source.clear()`, no question, not undoable); **Export ▾** — Download all (`source.download(root)`), Copy all (`source.copyText(source.exportJson(), root)`) — always the whole buffer; settings `⚙`; maximize `⤢`; close `✕`. | FR-BAR-01, FR-BAR-03, FR-BAR-04, FR-ACT-09, D-19, §4.9 |
-| S08-08 | Follow: wires the virtual list's follow button (C3-5) for each view; scrolling up stops following, "↓ N new" jumps back. | FR-BAR-02, §4.4 |
+| S08-08 | ~~Follow~~ — **moved to the views** (S05-15, S06-10, S07-09): each view owns its virtual list, and the view contract gives the frame no handle on it. The frame's part of FR-BAR-02 is Pause's `Paused · N new` (S08-07). | FR-BAR-02, §4.4 |
 | S08-09 | Status bar: `N / M shown` for the visible list (`selectListCounts`), problems in the buffer (`isProblemEntry`), `buffer n / capacity`, `dropped`, `evicted`, `capture ● on` / `○ off` (dot **and** word), `panel error N` when N > 0. Updates on every entry, clear and stats change. | FR-BAR-06, §4.9, §4.11, C-6 |
 | S08-10 | Settings popover (P2 `createPopover`): Theme Auto / Dark / Light (Auto by a CSS `prefers-color-scheme` query, no JS listener), Dock, Text size Small / Normal / Large (text 11 / 12 / 14 px, meta 10 / 11 / 13 px, rows 20 / 22 / 26 px; the frame sets the text sizes on `panelRoot`), Time Clock / Relative, Capture On / Off. Changes reach the views by `applySettings`. No Launcher setting in 2.0 (`D-24`). | FR-BAR-07, §4.10, D-13, D-24 |
 | S08-11 | Storage: `localStorage[storageKey]` keeps settings (not Capture), size, dock, last tab and filter **chips** — never search text, never captured data. Every read and write in `try/catch`; blocked or corrupt storage → defaults; `storageKey: false` → nothing stored. | FR-ACT-08, D-20, §4.10, §6.8 |
@@ -56,7 +56,7 @@ only (`FR-BAR-05`, 2.x). The separate window (§6.9).
 | FR-WIN-07 | S08-12, S08-13 | e2e: `requestFullscreen()` → launcher and panel on top and clickable; modal `<dialog>` → banner |
 | FR-ACT-08 | S08-11 | unit: storage round trip, blocked storage, corrupt value, `storageKey: false`; no search text stored |
 | FR-ACT-09 | S08-07, S08-12 | unit: switch and banner; e2e: capture off → no new rows; on → rows again |
-| FR-BAR-01, 02, 03, 04, 06, 07 | S08-07…10 | unit: toolbar, follow, status counts, settings; e2e: pause, clear, export |
+| FR-BAR-01, 02, 03, 04, 06, 07 | S08-07…10 | unit: toolbar, status counts, settings (follow: S05-15, S06-10, S07-09); e2e: pause, clear, export |
 | NFR-PERF-01 | S08-13 | e2e `panel-zone`: closed cost (one more listener only) |
 | NFR-PERF-03 | S08-02 | unit: one apply per frame, budget respected |
 | NFR-REL-01 | S08-16 | unit: a throwing view → `panel error 1`, frame keeps working |

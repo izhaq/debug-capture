@@ -21,6 +21,7 @@ Message and Info. It renders the P1 model with P2 blocks.
 | S06-07 | Message detail, sub-tab **Info**: connection URL, socket id, state, opened / closed time, close code and reason, counts. | FR-WS-04 |
 | S06-08 | Detail placement, `↑` `↓`, `✕` and `handleEscape()` as in S05-07; a removed entry keeps its detail with "This entry was removed from the buffer." | §4.4, §4.6, §4.11 |
 | S06-09 | Safe, quiet and cheap as S05-13 and S05-14 (text only, no `console`, guarded callbacks, < 2,000 nodes, long frames "Show all"). Data cells bidi-safe. | NFR-SEC-01, NFR-REL-01, NFR-PERF-04, NFR-I18N-01, FR-COM-02 |
+| S06-10 | Follow (C3-5): the list is built with `follow: true` and its `followButton` placed next to `element` in a `dcp-list-pane`. While the user is scrolled up, the view counts rows of this list that arrived since (by `seq`) and calls `setNewCount(n)`; back at the end (`onScrollChange(true)`) it resets to 0. | FR-BAR-02, §4.4 |
 
 ## Out of scope
 
@@ -47,4 +48,5 @@ beyond the lists and detail (S-09).
 | FR-WS-05 | S06-02 | unit: all connections + socket-id column |
 | FR-COM-04 | S06-05 | unit: empty and no-match texts |
 | NFR-SEC-01, NFR-REL-01, NFR-PERF-04 | S06-09 | lint; unit: hostile frames render as text; node count |
+| FR-BAR-02 | S06-10 | unit: as S05-15 |
 

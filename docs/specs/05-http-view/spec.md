@@ -27,6 +27,7 @@ blocks; order, filters and selection live in the store, not in the view.
 | S05-12 | A selected entry that leaves the buffer keeps its detail with "This entry was removed from the buffer." (virtual list `onSelectionLost`; the handler does not call `select` / `setItems`). | §4.4, §4.11 |
 | S05-13 | Safe and quiet: DOM only through `createDom` / text nodes; no `href` / `src` from captured data; no `console`; every callback in `try/catch`, failures to `deps.report`. | NFR-SEC-01, NFR-REL-01, ISO-04, ISO-12 |
 | S05-14 | Cost: renders only in `update(state)`; under 2,000 DOM nodes including the detail (`D-22`); a long body renders its first part with "Show all (N chars)". | NFR-PERF-04, FR-COM-02, ISO-10 |
+| S05-15 | Follow (C3-5): the list is built with `follow: true` and its `followButton` placed next to `element` in a `dcp-list-pane`. While the user is scrolled up, the view counts rows of this list that arrived since (by `seq`) and calls `setNewCount(n)`; back at the end (`onScrollChange(true)`) it resets to 0. | FR-BAR-02, §4.4 |
 
 ## Out of scope
 
@@ -57,4 +58,5 @@ The keyboard map beyond the list and detail, forced colours (S-09).
 | FR-COM-04 | S05-06 | unit: empty and no-match texts, Clear filters |
 | NFR-SEC-01, NFR-REL-01 | S05-13 | lint; unit: hostile strings render as text; a throwing renderer → `report` |
 | NFR-PERF-04 | S05-14 | unit: node count with 5,000 rows and an open detail |
+| FR-BAR-02 | S05-15 | unit: scroll up → new rows counted on "↓ N new"; click → end, count 0 |
 

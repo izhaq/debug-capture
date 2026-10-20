@@ -20,6 +20,7 @@ filters and search, and a one-page detail with each argument as a JSON tree
 | S07-06 | Empty: "No console messages yet." No match: "No entries match the filter." + **Clear filters**. | FR-COM-04, §4.11 |
 | S07-07 | Detail placement, `↑` `↓`, `✕` and `handleEscape()` as in S05-07; a removed entry keeps its detail with "This entry was removed from the buffer." | §4.4, §4.6, §4.11 |
 | S07-08 | Safe, quiet and cheap as S05-13 and S05-14; the view never writes to `console`, so the panel cannot feed the recorder. Data cells bidi-safe. | NFR-SEC-01, NFR-REL-01, NFR-PERF-04, NFR-I18N-01, ISO-12 |
+| S07-09 | Follow (C3-5): the list is built with `follow: true` and its `followButton` placed next to `element` in a `dcp-list-pane`. While the user is scrolled up, the view counts rows of this list that arrived since (by `seq`) and calls `setNewCount(n)`; back at the end (`onScrollChange(true)`) it resets to 0. | FR-BAR-02, §4.4 |
 
 ## Out of scope
 
@@ -44,4 +45,5 @@ keyboard map beyond the list and detail (S-09).
 | FR-CON-04 | S07-04 | unit: level toggles, search, highlight |
 | FR-COM-04 | S07-06 | unit: empty and no-match texts |
 | NFR-REL-01, ISO-12 | S07-08 | e2e: panel use adds no console entries; unit: a throwing renderer → `report` |
+| FR-BAR-02 | S07-09 | unit: as S05-15 |
 
