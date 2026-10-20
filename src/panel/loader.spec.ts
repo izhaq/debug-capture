@@ -922,6 +922,31 @@ describe('panel loader (S-02)', () => {
       expect(document.activeElement).toBe(other);
     });
 
+    it('fullscreen: the panel is shown on top again and focus stays where it was (D-15, S08-13)', async () => {
+      const h = install();
+      pressToggle(hostInput());
+      await settle();
+      expect(h.shadow().activeElement).toBe(h.root());
+
+      document.dispatchEvent(new Event('fullscreenchange'));
+      expect((h.host() as HTMLElement).matches(':popover-open')).toBeTrue();
+      expect(h.shadow().activeElement).withContext('focus inside the panel').toBe(h.root());
+
+      pressToggle(h.root() as HTMLElement);
+      const input = hostInput();
+      document.dispatchEvent(new Event('fullscreenchange'));
+      expect((h.host() as HTMLElement).matches(':popover-open')).toBeTrue();
+      expect(document.activeElement).withContext('focus on the page').toBe(input);
+    });
+
+    it('fullscreen does not put back an element the host removed (ISO-20)', () => {
+      const h = install();
+      const host = h.host() as HTMLElement;
+      host.remove();
+      document.dispatchEvent(new Event('fullscreenchange'));
+      expect(host.isConnected).toBeFalse();
+    });
+
     it('a slow chunk does not take focus the user moved to the host page meanwhile', async () => {
       const h = install();
       let resolve: (chunk: { mountPanelUi: typeof h.ui.mount }) => void = () => undefined;

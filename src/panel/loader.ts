@@ -321,8 +321,10 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
   if (toggleChord) doc.addEventListener('keydown', onKey);
 
   // D-15: a fullscreen element enters the top layer above us; shown again, we
-  // are on top of it. Hide + show in one task: nothing renders in between.
+  // are on top of it. Hide + show in one task: nothing renders in between, and
+  // focus stays where it was. Not when the host removed us (ISO-20).
   const raise = guard(() => {
+    if (!host.isConnected) return;
     host.hidePopover();
     mount();
   });
