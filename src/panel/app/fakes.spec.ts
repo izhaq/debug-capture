@@ -81,10 +81,10 @@ export class FakeSource implements PanelDataSource {
   readonly capture: PanelDataSource['capture'];
 
   constructor() {
-    const source = this;
+    const isOn = (): boolean => this.on;
     this.capture = {
       get on(): boolean {
-        return source.on;
+        return isOn();
       },
       start: () => this.setCapture(true),
       stop: () => this.setCapture(false),
