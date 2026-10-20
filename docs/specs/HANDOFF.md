@@ -67,7 +67,7 @@ npm run check
 
 1. Did `npm run check` pass on `claude/dc-v2-wave3`? Test counts and the size table,
    or the exact error.
-2. Your plan for the contract PR (C3-1…C3-6), in a few lines.
+2. Your plan for the next step in the status above, in a few lines.
 3. Anything in the docs that looks unclear or contradictory.
 
 Then **wait for the owner's "go"** before writing code, and ask for a "go" before
