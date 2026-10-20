@@ -170,7 +170,7 @@ test('ISO-02…05, research S1–S5: the panel’s own styles are the same with 
       launcherRect,
       root: await page.evaluate(computedAll, { inner: '.dcp-root' }),
       button: await page.evaluate(computedAll, { inner: '.dcp-root button' }),
-      title: await page.evaluate(computedAll, { inner: '.dcp-root span' }),
+      title: await page.evaluate(computedAll, { inner: '.dcp-title' }),
     };
   };
   // Host custom properties do reach our nodes (research S3, `all` skips them) and are
@@ -238,7 +238,7 @@ test('ISO-07, research E1–E5/E7/E9: clicks, keys, wheel and clipboard inside t
   // The toggle chord itself was typed on the page, outside the panel: the host may see it.
   await page.evaluate(() => (window.__host.hotkeys = []));
 
-  const title = page.locator('debug-capture-panel-v2 .dcp-root span');
+  const title = page.locator('debug-capture-panel-v2 .dcp-title');
   await title.click();
   await title.dblclick();
   await title.click({ button: 'right' });
@@ -300,7 +300,7 @@ test('research E2: the host’s "click outside closes the menu" still works for 
   await page.keyboard.press(TOGGLE);
   await expect.poll(() => panelState(page)).toMatchObject({ rootVisible: true });
 
-  await page.locator('debug-capture-panel-v2 .dcp-root span').click();
+  await page.locator('debug-capture-panel-v2 .dcp-title').click();
   expect(await page.evaluate(() => window.__host.menuOpen)).toBe(true);
 
   await page.locator('#app h1').click({ force: true });

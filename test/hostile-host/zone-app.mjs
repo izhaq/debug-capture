@@ -6,7 +6,7 @@
  * both lists to stay empty.
  */
 import { installDebugPanel } from '/dist/panel.mjs';
-import { createFakeController, recordEntry } from '/fake-controller.mjs';
+import { createController, recordEntry } from '/controller.mjs';
 
 const zone = { scheduled: [], invoked: [] };
 const angular = window.Zone.root.fork({
@@ -20,7 +20,8 @@ const angular = window.Zone.root.fork({
     return delegate.invokeTask(target, task, applyThis, applyArgs);
   },
 });
-const controller = createFakeController();
+// Capture starts outside the Angular-like zone, as an app's bootstrap code would.
+const controller = createController();
 const handle = angular.run(() => installDebugPanel(controller));
 zone.run = (fn) => angular.run(fn);
 zone.record = () => angular.run(() => recordEntry(controller, true));

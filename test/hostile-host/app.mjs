@@ -4,10 +4,10 @@
  * first), `?nopanel` (host only, for baselines).
  */
 import { installDebugPanel, PANEL_ELEMENT_NAME } from '/dist/panel.mjs';
-import { CONTROLLER_KEYS, RECORDER_KEYS, SESSION_KEYS, createFakeController, recordEntry } from '/fake-controller.mjs';
+import { CONTROLLER_KEYS, RECORDER_KEYS, SESSION_KEYS, createController, recordEntry } from '/controller.mjs';
 
 const params = new URLSearchParams(location.search);
-const controller = createFakeController();
+const controller = createController();
 const dc = {
   controller,
   handle: null,
@@ -17,7 +17,7 @@ const dc = {
   /** Loads a second copy of the loader (a new module instance, as a second bundle would be). */
   async installSecondCopy() {
     const second = await import('/dist/panel.mjs?copy=2');
-    return second.installDebugPanel(createFakeController());
+    return second.installDebugPanel(controller);
   },
 };
 window.__dc = dc;

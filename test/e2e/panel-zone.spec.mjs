@@ -40,7 +40,7 @@ test('ISO-09, NFR-PERF-01/05: neither the closed loader nor the open panel sched
   // Open (UI chunk loads), use, close — from the shortcut, the launcher and the host's own API call in the zone.
   await page.keyboard.press(TOGGLE);
   await expect(page.getByRole('dialog', { name: 'Debug panel' })).toBeVisible();
-  await page.locator('debug-capture-panel-v2 .dcp-root span').click();
+  await page.locator('debug-capture-panel-v2 .dcp-title').click();
   await page.keyboard.press('Escape');
   await launcher.click();
   await page.keyboard.press(TOGGLE);

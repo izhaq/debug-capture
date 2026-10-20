@@ -24,8 +24,17 @@ window.__host = host;
 const TYPES = [
   'pointerdown',
   'pointerup',
+  'pointermove',
+  'pointerover',
+  'pointerout',
   'mousedown',
   'mouseup',
+  'mousemove',
+  'mouseover',
+  'mouseout',
+  'touchstart',
+  'touchmove',
+  'touchend',
   'click',
   'dblclick',
   'contextmenu',
@@ -40,7 +49,14 @@ const TYPES = [
   'copy',
   'cut',
   'paste',
+  'compositionstart',
+  'compositionupdate',
+  'compositionend',
   'dragstart',
+  'drag',
+  'dragend',
+  'dragover',
+  'drop',
 ];
 const isOurs = (event) => event.composedPath().some((n) => n.localName === 'debug-capture-panel-v2');
 for (const type of TYPES) {
