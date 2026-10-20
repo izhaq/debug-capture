@@ -929,12 +929,15 @@ describe('panel loader (S-02)', () => {
       expect(h.shadow().activeElement).toBe(h.root());
 
       document.dispatchEvent(new Event('fullscreenchange'));
+      // After the next frame: a focus fix-up from the brief hide would show by then.
+      await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
       expect((h.host() as HTMLElement).matches(':popover-open')).toBeTrue();
       expect(h.shadow().activeElement).withContext('focus inside the panel').toBe(h.root());
 
       pressToggle(h.root() as HTMLElement);
       const input = hostInput();
       document.dispatchEvent(new Event('fullscreenchange'));
+      await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
       expect((h.host() as HTMLElement).matches(':popover-open')).toBeTrue();
       expect(document.activeElement).withContext('focus on the page').toBe(input);
     });

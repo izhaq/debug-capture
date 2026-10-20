@@ -176,11 +176,14 @@ function build(
   };
 
   let errors = 0;
+  /** Set while a frame runs: a failure there is shown by that frame's status bar, not by a new frame. */
+  let framing = false;
   // Declared before anything can fail, so `report` always has a scheduler to wake.
   let invalidate = (): void => undefined;
   const report = (_error: unknown): void => {
     errors++;
-    invalidate();
+    // A frame that fails every time must not ask for the next one (no endless redraw).
+    if (!framing) invalidate();
   };
   const safely = (work: () => void): void => {
     try {
@@ -202,11 +205,27 @@ function build(
   later(
     source.subscribe((event) => {
       queue.push(event);
+      // No frames in a background tab: never hold more than the buffer can (the store drops the oldest).
+      if (queue.length > source.capacity()) safely(() => queue.flush());
       invalidate();
     }),
   );
 
-  const scheduler = createScheduler(deps.scope, deps.run, () => frame(), report);
+  const scheduler = createScheduler(
+    deps.scope,
+    deps.run,
+    () => {
+      framing = true;
+      try {
+        frame();
+      } catch (error) {
+        report(error);
+      } finally {
+        framing = false;
+      }
+    },
+    report,
+  );
   later(() => scheduler.destroy());
   invalidate = () => scheduler.invalidate();
   later(store.subscribe(() => invalidate()));
@@ -488,7 +507,8 @@ function build(
   listeners.on(panelRoot, 'keydown', (event) => {
     if (event.defaultPrevented) return;
     const plain = !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey;
-    if (event.key === 'Escape' && plain) {
+    // Escape that ends an IME composition belongs to the input method.
+    if (event.key === 'Escape' && plain && !event.isComposing) {
       // Innermost first: the view's own menu or detail, then our popups, then the panel (FR-WIN-05).
       event.preventDefault();
       const view = viewFor();
@@ -500,8 +520,11 @@ function build(
       else if (exportMenu.isOpen) exportMenu.close();
       else requestClose();
     } else if (event.code === 'KeyF' && (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey) {
+      // No view to search in: the browser keeps its own Find.
+      const view = viewFor();
+      if (!view) return;
       event.preventDefault();
-      viewFor()?.focusFilter();
+      safely(() => view.focusFilter());
     } else if (
       (event.code === 'Digit1' || event.code === 'Digit2') &&
       event.altKey &&
@@ -518,12 +541,15 @@ function build(
 
   // The host modal dialog check runs only while mounted, on our timer (S08-12, ISO-21).
   let dialogOpen = false;
+  let dialogFailed = false;
   const checkDialog = (): void => {
     let open = false;
     try {
       open = deps.hasModalDialog() === true;
     } catch (error) {
-      report(error);
+      // Counted once: a check that always fails would raise the count every 500 ms.
+      if (!dialogFailed) report(error);
+      dialogFailed = true;
     }
     if (open !== dialogOpen) {
       dialogOpen = open;

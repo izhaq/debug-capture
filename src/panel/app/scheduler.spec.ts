@@ -133,6 +133,22 @@ describe('S-08 event queue (≤ 1 apply per frame, 8 ms budget)', () => {
     expect(batches.length).toBe(1);
   });
 
+  it('S08-16: one bad event loses only itself; the rest of its batch is applied and the error is thrown once', () => {
+    const applied: number[] = [];
+    const queue = createEventQueue(
+      {
+        apply: (batch) => {
+          if (batch.some((e) => e.type === 'entry' && e.entry.seq === 2)) throw new Error('bad event');
+          batch.forEach((e) => e.type === 'entry' && applied.push(e.entry.seq));
+        },
+      },
+      () => 0,
+    );
+    events(4).forEach((e) => queue.push(e));
+    expect(() => queue.flush()).toThrowError('bad event');
+    expect(applied).toEqual([1, 3, 4]);
+  });
+
   it('NFR-PERF-03: a slow batch halves the next one; the rest waits; order is kept across frames', () => {
     // 0.01 ms per event: 1024 events cost 10.24 ms (over 8), 512 cost 5.12 ms (fits, over half).
     let clock = 0;

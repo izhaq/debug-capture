@@ -58,7 +58,21 @@ export function createEventQueue(
       }
       const start = now();
       try {
-        store.apply(batch);
+        try {
+          store.apply(batch);
+        } catch (error) {
+          // One bad event must not take the good ones of its batch with it: apply them one
+          // by one, and throw the first failure once (the frame counts it).
+          let first: unknown = null;
+          for (const event of batch) {
+            try {
+              store.apply([event]);
+            } catch (failure) {
+              first ??= failure;
+            }
+          }
+          throw first ?? error;
+        }
       } finally {
         const spent = now() - start;
         if (spent > budgetMs) limit = Math.max(MIN_BATCH, Math.floor(limit / 2));

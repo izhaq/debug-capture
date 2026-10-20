@@ -304,6 +304,7 @@ describe('S-08 frame (mountFrame)', () => {
     named('Settings').click();
     radio('dock', 'right').click();
     expect(stage.panelRoot.getAttribute('data-dock')).toBe('right');
+    expect(rig.storage.items.size).withContext('nothing written to blocked storage').toBe(0);
 
     stage.remove();
     stage = createStage();
@@ -357,12 +358,52 @@ describe('S-08 frame (mountFrame)', () => {
     expect(onRequestClose).toHaveBeenCalledTimes(1);
     expect(press(stage.panelRoot, { key: 'Escape', shiftKey: true }).defaultPrevented).toBeFalse();
 
+    expect(press(stage.panelRoot, { key: 'Escape', isComposing: true }).defaultPrevented)
+      .withContext('Escape that ends an IME composition is not ours')
+      .toBeFalse();
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+
     const find = press(stage.panelRoot, { key: 'f', code: 'KeyF', ctrlKey: true });
     expect(find.defaultPrevented).toBeTrue();
     expect(http.filterFocus).toBe(1);
 
     named('Close debug panel').click();
     expect(onRequestClose).toHaveBeenCalledTimes(2);
+  });
+
+  it('S08-16: a frame that fails every time asks for no new frame (no endless redraw)', () => {
+    mount();
+    rig.scope.frame();
+    const http = rig.views.logs.http;
+    if (!http) throw new Error('no http view');
+    const store = http.deps.store as { getState: () => unknown };
+    store.getState = () => {
+      throw new Error('store broken');
+    };
+    rig.source.push(logEntry(1));
+    rig.scope.frame(); // applies the entry; the store change asks for one more frame
+    rig.scope.frame(); // fails again; the failure itself asks for nothing
+    expect(rig.scope.frames.size).withContext('no frame asked for by the failure').toBe(0);
+  });
+
+  it('S08-12, S08-16: a dialog check that keeps failing is counted once', () => {
+    rig = createRig({
+      hasModalDialog: () => {
+        throw new Error(':modal not supported');
+      },
+    });
+    mount();
+    for (let i = 0; i < 4; i++) rig.scope.tick();
+    rig.scope.frame();
+    expect(statusParts()).toContain('panel error 1');
+  });
+
+  it('NFR-PERF-03: events never pile up past the buffer while no frame runs (a background tab)', () => {
+    mount();
+    const http = rig.views.logs.http;
+    if (!http) throw new Error('no http view');
+    for (let seq = 1; seq <= rig.source.capacity() + 100; seq++) rig.source.push(logEntry(seq));
+    expect(http.deps.store.getState().entries.length).withContext('applied without a frame').toBeGreaterThan(0);
   });
 
   it('S08-16, NFR-REL-01: a view that throws is counted as "panel error", and the frame keeps working', () => {
@@ -374,6 +415,10 @@ describe('S-08 frame (mountFrame)', () => {
     mount();
     rig.scope.frame();
     expect(statusParts()).toContain('panel error 1');
+
+    expect(press(stage.panelRoot, { key: 'f', code: 'KeyF', ctrlKey: true }).defaultPrevented)
+      .withContext('no view: the browser keeps its Find')
+      .toBeFalse();
 
     press(stage.panelRoot, { key: '2', code: 'Digit2', altKey: true });
     const consoleLog = views.logs.console;
