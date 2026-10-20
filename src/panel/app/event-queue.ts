@@ -34,6 +34,8 @@ export function createEventQueue(
   let queue: PanelDataEvent[] = [];
   let head = 0;
   let limit = FIRST_BATCH;
+  /** A flush asked for while one runs (an event emitted inside `apply`) waits, so order is kept. */
+  let flushing = false;
 
   return {
     push(event): void {
@@ -45,6 +47,8 @@ export function createEventQueue(
     flush(): boolean {
       const waiting = queue.length - head;
       if (waiting === 0) return false;
+      if (flushing) return true;
+      flushing = true;
       const end = head + Math.min(waiting, limit);
       const batch = queue.slice(head, end);
       head = end;
@@ -74,6 +78,7 @@ export function createEventQueue(
           throw first ?? error;
         }
       } finally {
+        flushing = false;
         const spent = now() - start;
         if (spent > budgetMs) limit = Math.max(MIN_BATCH, Math.floor(limit / 2));
         else if (spent * 2 < budgetMs && batch.length === limit) limit = Math.min(MAX_BATCH, limit * 2);

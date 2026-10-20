@@ -25,12 +25,25 @@ to undo. Never merge into the integration branch yourself.
   (view types in `src/panel/ui/view-contract.ts`; HTTP sort rules; virtual list
   `sortable` / `onSort` / `setSort` / `follow` / `setNewCount`; `panelRoot`). HLD
   D-20 now says the HTTP sort is not remembered.
-- **Next:** step 2, **S-08 frame** on `claude/dc-v2-w3-08-frame` (the branch
-  exists at the wave-branch head; no S-08 work on it yet). The other track
-  branches do not exist yet.
-- Last known checks on `claude/dc-v2-wave3` (after #81): green — **971** unit
-  specs (floor 971), 19 e2e; loader **4,046 / 4,096 B (50 B left)**, panel-ui
-  **24,086 / 40,960 B**.
+- **Step 2, S-08 frame: merged** — **PR #83** (finished by Claude after a Copilot
+  WIP). Frame, toolbar (Capture next to Pause), status bar, settings + storage,
+  dock / resize / maximize, once-per-frame scheduler, banners. Fresh-context review
+  done, fixes confirmed. Read `src/panel/app/frame.ts` to see how views are mounted
+  (`ViewDeps`: `store`, `source`, `root`, `requestFrame`, `schedule`, `report`).
+- **Fullscreen (D-15, updated):** Chrome blocks clicks and focus outside a fullscreen
+  element (it matches `:modal`). The panel is drawn on top and live; a banner says it
+  cannot be used until fullscreen ends.
+- **Follow button ("↓ N new") is the views' job** (S05-15, S06-10, S07-09), not the
+  frame's.
+- **Next: S-05 HTTP view** on `claude/dc-v2-w3-05-http` (create it from
+  `claude/dc-v2-wave3`). Then S-06 and S-07 (may run together).
+- Last known checks on `claude/dc-v2-wave3` (after #83): green — **1017** unit specs
+  (floor 1017), **24** e2e (floor 24); loader **4,084 / 4,096 B (12 B left)**,
+  panel-ui **30,540 / 40,960 B** (~10.4 kB left for three views: about 4–5 HTTP,
+  3 WS, 2 Console — report your growth in the PR).
+- The hostile host uses the real `createCaptureController` (`test/hostile-host/controller.mjs`).
+  A view's e2e makes real traffic with `page.evaluate` (fetch / XHR / WebSocket /
+  console) and finds rows inside the shadow root.
 - `wave-3.md` is your main guide; its status table must be kept current.
 - **Windows tip:** a terminal opened by the IDE may not have the user variable
   `CHROME_BIN`; Karma then tries the blocked `chrome.exe` (`spawn EPERM`). Set

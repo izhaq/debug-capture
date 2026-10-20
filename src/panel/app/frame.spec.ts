@@ -386,6 +386,19 @@ describe('S-08 frame (mountFrame)', () => {
     expect(rig.scope.frames.size).withContext('no frame asked for by the failure').toBe(0);
   });
 
+  it('S08-16: a failing apply still lets the frame show the error count', () => {
+    mount();
+    rig.scope.frame();
+    const http = rig.views.logs.http;
+    if (!http) throw new Error('no http view');
+    (http.deps.store as unknown as { apply: () => void }).apply = () => {
+      throw new Error('apply failed');
+    };
+    rig.source.push(logEntry(1));
+    rig.scope.frame();
+    expect(statusParts()).toContain('panel error 1');
+  });
+
   it('S08-12, S08-16: a dialog check that keeps failing is counted once', () => {
     rig = createRig({
       hasModalDialog: () => {

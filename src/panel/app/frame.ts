@@ -565,7 +565,10 @@ function build(
   let shownPaused: string | null = null;
   let shownCapture: boolean | null = null;
   const frame = (): void => {
-    if (queue.flush()) invalidate();
+    // A failing apply must not skip the rest of the frame: the status bar shows the count.
+    let more = false;
+    safely(() => (more = queue.flush()));
+    if (more) invalidate();
     const state = store.getState();
     const view = viewFor();
     if (view && (state !== shownState || viewStale)) {

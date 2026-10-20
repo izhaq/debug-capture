@@ -149,6 +149,28 @@ describe('S-08 event queue (≤ 1 apply per frame, 8 ms budget)', () => {
     expect(applied).toEqual([1, 3, 4]);
   });
 
+  it('a flush asked for inside apply waits, so newer events never jump ahead', () => {
+    const seqs: number[] = [];
+    let queue: ReturnType<typeof createEventQueue> | null = null;
+    queue = createEventQueue(
+      {
+        apply: (batch) => {
+          // The first apply emits a newer event and asks for a flush before it records its own batch.
+          if (seqs.length === 0) {
+            events(1, 9).forEach((e) => queue?.push(e));
+            expect(queue?.flush()).toBeTrue();
+          }
+          batch.forEach((e) => e.type === 'entry' && seqs.push(e.entry.seq));
+        },
+      },
+      () => 0,
+    );
+    events(2).forEach((e) => queue?.push(e));
+    queue.flush();
+    queue.flush();
+    expect(seqs).toEqual([1, 2, 9]);
+  });
+
   it('NFR-PERF-03: a slow batch halves the next one; the rest waits; order is kept across frames', () => {
     // 0.01 ms per event: 1024 events cost 10.24 ms (over 8), 512 cost 5.12 ms (fits, over half).
     let clock = 0;
