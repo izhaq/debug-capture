@@ -1,4 +1,4 @@
-# Handoff — debug-capture v2, wave 3 (updated 2026-10-19)
+# Handoff — debug-capture v2, wave 3 (updated 2026-10-20)
 
 You are the new **orchestrator** for debug-capture v2 (GitHub Copilot in agent
 mode, on the owner's **Windows laptop** — see §10 for setup). Waves 1 and 2 are done and
@@ -20,16 +20,16 @@ to undo. Never merge into the integration branch yourself.
   #77 (plan `wave-3.md` + specs S-05…S-08), #78 (spec notes; **D-24**: no Launcher
   Show/Hide setting in 2.0), #79 (**D-25**: UI chunk budget **40 kB**; loader stays
   4 kB).
-- **Step 1, the contract PR: code done, in review** — C3-1…C3-6 on
-  `claude/dc-v2-w3-contract`, **PR #81** into the wave branch. The names every track
-  codes against are in `wave-3.md` "Names fixed now" (view types in
-  `src/panel/ui/view-contract.ts`; HTTP sort rules; virtual list `sortable` /
-  `onSort` / `setSort` / `follow` / `setNewCount`; `panelRoot`). HLD D-20 now
-  says the HTTP sort is not remembered.
-- **Next:** after the owner merges the contract PR, step 2 starts with **S-08
-  frame** (`claude/dc-v2-w3-08-frame`). No track branches exist yet.
-- Last known checks on `claude/dc-v2-w3-contract`: green — **971** unit specs
-  (floor 971), 19 e2e; loader **4,046 / 4,096 B (50 B left)**, panel-ui
+- **Step 1, the contract PR: merged** — C3-1…C3-6, **PR #81** into the wave
+  branch. The names every track codes against are in `wave-3.md` "Names fixed now"
+  (view types in `src/panel/ui/view-contract.ts`; HTTP sort rules; virtual list
+  `sortable` / `onSort` / `setSort` / `follow` / `setNewCount`; `panelRoot`). HLD
+  D-20 now says the HTTP sort is not remembered.
+- **Next:** step 2, **S-08 frame** on `claude/dc-v2-w3-08-frame` (the branch
+  exists at the wave-branch head; no S-08 work on it yet). The other track
+  branches do not exist yet.
+- Last known checks on `claude/dc-v2-wave3` (after #81): green — **971** unit
+  specs (floor 971), 19 e2e; loader **4,046 / 4,096 B (50 B left)**, panel-ui
   **24,086 / 40,960 B**.
 - `wave-3.md` is your main guide; its status table must be kept current.
 - **Windows tip:** a terminal opened by the IDE may not have the user variable
