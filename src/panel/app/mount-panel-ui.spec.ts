@@ -1,12 +1,51 @@
-import type { CaptureController } from '../views';
-import { mountPanelUi } from './index';
+import type { CaptureController, CaptureEntry, ControlledCaptureSession, LiveRecorder } from './index';
+import { DEFAULT_CAPTURE_POLICY, mountPanelUi } from './index';
 
-describe('placeholder mountPanelUi (S02-15)', () => {
+/** The smallest real-shaped controller: an empty recorder that counts its listeners. */
+function emptyController(): { controller: CaptureController; listeners: () => number } {
+  const sets = [new Set<unknown>(), new Set<unknown>(), new Set<unknown>(), new Set<unknown>()];
+  const add =
+    (set: Set<unknown>) =>
+    (listener: unknown): (() => void) => {
+      set.add(listener);
+      return () => set.delete(listener);
+    };
+  const recorder = {
+    record: () => undefined,
+    snapshot: (): readonly CaptureEntry[] => [],
+    clear: () => undefined,
+    stats: () => ({ recorded: 0, dropped: 0, evicted: 0, failed: 0 }),
+    pending: () => [],
+    onEntry: add(sets[0] as Set<unknown>),
+    onPending: add(sets[1] as Set<unknown>),
+    onChange: add(sets[2] as Set<unknown>),
+  } as unknown as LiveRecorder;
+  const session = {
+    recorder,
+    policy: DEFAULT_CAPTURE_POLICY,
+    clock: { now: () => 0 },
+    active: true,
+    toJson: () => '{}',
+    download: () => undefined,
+    copy: async () => false,
+    clear: () => undefined,
+    dispose: () => undefined,
+  } as unknown as ControlledCaptureSession;
+  const controller: CaptureController = {
+    session,
+    on: true,
+    start: () => undefined,
+    stop: () => undefined,
+    onChange: add(sets[3] as Set<unknown>) as CaptureController['onChange'],
+  };
+  return { controller, listeners: () => sets.reduce((n, set) => n + set.size, 0) };
+}
+
+describe('mountPanelUi (P4 entry, real window)', () => {
   let host: HTMLElement;
   let shadow: ShadowRoot;
   let panelRoot: HTMLElement;
   let onRequestClose: jasmine.Spy<() => void>;
-  const controller = {} as CaptureController;
 
   beforeEach(() => {
     host = document.createElement('div');
@@ -22,64 +61,35 @@ describe('placeholder mountPanelUi (S02-15)', () => {
 
   afterEach(() => host.remove());
 
-  const mount = () =>
+  const mount = (controller: CaptureController) =>
     mountPanelUi(shadow, controller, { document, panelRoot, storageKey: false, defaultDock: 'bottom', onRequestClose });
 
-  it('renders a title and a named close button inside the panel root, as text only', () => {
-    mount();
-
-    expect(panelRoot.textContent).toContain('Debug');
-    const close = panelRoot.querySelector('button') as HTMLButtonElement;
-    expect(close.type).toBe('button');
-    expect(close.getAttribute('aria-label')).toBe('Close debug panel');
-    expect(panelRoot.querySelectorAll('[style]').length).toBe(0);
-  });
-
-  it('builds in the panelRoot it is given, never in an element found by class (C3-2)', () => {
+  it('builds the frame in the panelRoot it is given, never in one found by class (C3-2), and renders on a real frame', async () => {
     const decoy = document.createElement('div');
     decoy.className = 'dcp-root';
     shadow.insertBefore(decoy, panelRoot);
-    mount();
+    const ui = mount(emptyController().controller);
+    await new Promise((resolve) => requestAnimationFrame(resolve));
 
     expect(decoy.childNodes.length).toBe(0);
-    expect(panelRoot.querySelector('button')).not.toBeNull();
+    expect(panelRoot.querySelector('.dcp-frame')).not.toBeNull();
+    expect(panelRoot.querySelector('.dcp-statusbar')?.textContent).toContain('buffer 0 / 5,000');
+    ui.unmount();
   });
 
-  it('asks the loader to close from the close button and from Escape, never by itself', () => {
-    mount();
-    expect(onRequestClose).not.toHaveBeenCalled();
+  it('asks the loader to close from the close button and Escape; unmount leaves only the loader’s root', () => {
+    const { controller, listeners } = emptyController();
+    const ui = mount(controller);
+    expect(listeners()).toBe(4);
 
-    (shadow.querySelector('button') as HTMLButtonElement).click();
-    const other = new KeyboardEvent('keydown', { key: 'a', bubbles: true, cancelable: true });
-    (shadow.querySelector('button') as HTMLButtonElement).dispatchEvent(other);
-    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
-    (shadow.querySelector('button') as HTMLButtonElement).dispatchEvent(escape);
-
-    expect(onRequestClose).toHaveBeenCalledTimes(2);
-    expect(escape.defaultPrevented).toBeTrue();
-    expect(other.defaultPrevented).toBeFalse();
-  });
-
-  it('handles Escape pressed on the panel root itself (where the loader puts focus)', () => {
-    const ui = mount();
-    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
-    panelRoot.dispatchEvent(escape);
+    (panelRoot.querySelector('button[aria-label="Close debug panel"]') as HTMLButtonElement).click();
+    panelRoot.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     ui.unmount();
     panelRoot.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
 
-    expect(onRequestClose).toHaveBeenCalledTimes(1);
-    expect(escape.defaultPrevented).toBeTrue();
-  });
-
-  it('unmount removes its nodes and listeners and leaves the loader’s root; twice is harmless', () => {
-    const ui = mount();
-    const close = shadow.querySelector('button') as HTMLButtonElement;
-    ui.unmount();
-    ui.unmount();
-    close.click();
-
+    expect(onRequestClose).toHaveBeenCalledTimes(2);
     expect(panelRoot.childNodes.length).toBe(0);
     expect(Array.from(shadow.childNodes)).toEqual([panelRoot]);
-    expect(onRequestClose).not.toHaveBeenCalled();
+    expect(listeners()).toBe(0);
   });
 });

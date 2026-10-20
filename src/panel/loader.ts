@@ -56,7 +56,7 @@ const DISPOSED = 3;
 
 type Chord = (event: KeyboardEvent) => boolean;
 type Run = <T>(work: () => T) => T;
-type Popover = HTMLElement & { showPopover(): void }; // not in TS 5.1's lib.dom yet
+type Popover = HTMLElement & { showPopover(): void; hidePopover(): void }; // not in TS 5.1's lib.dom yet
 type Chunk = { readonly mountPanelUi: MountPanelUi };
 
 export function inertHandle(): DebugPanelHandle {
@@ -320,6 +320,14 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
   });
   if (toggleChord) doc.addEventListener('keydown', onKey);
 
+  // D-15: a fullscreen element enters the top layer above us; shown again, we
+  // are on top of it. Hide + show in one task: nothing renders in between.
+  const raise = guard(() => {
+    host.hidePopover();
+    mount();
+  });
+  doc.addEventListener('fullscreenchange', raise);
+
   if (options.launcher !== false) {
     launcher = doc.createElement('button');
     launcher.type = 'button';
@@ -362,6 +370,7 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
     state = DISPOSED;
     unsubscribe.forEach((stop) => stop());
     doc.removeEventListener('keydown', onKey);
+    doc.removeEventListener('fullscreenchange', raise);
     if (frame !== null) scope.cancelAnimationFrame(frame);
     quiet = true;
     registered[LIVE] = false;

@@ -1,4 +1,5 @@
-import type { CaptureController, LiveRecorder } from '..';
+import { createRecorder, resolvePolicy, systemClock } from '..';
+import type { CaptureController } from '..';
 import type { MountPanelUi, MountPanelUiOptions } from './app';
 import * as panel from './index';
 import { DebugPanelHandle, DebugPanelOptions, InstallDebugPanel, PANEL_ELEMENT_NAME, installDebugPanel } from './index';
@@ -75,12 +76,15 @@ describe('debug-capture/panel public API (P5 loader)', () => {
   });
 
   it('installDebugPanel(controller) mounts the real element and loads the real UI chunk on open', async () => {
-    // Only what the loader and the placeholder UI read; S-01's controller replaces it later.
-    const recorder: Pick<LiveRecorder, 'onEntry' | 'onChange'> = {
-      onEntry: () => () => undefined,
+    // What the loader and the frame read: a real recorder, no probes (none are installed here).
+    const policy = resolvePolicy();
+    const controller = {
+      session: { recorder: createRecorder(policy), policy, clock: systemClock },
+      on: true,
+      start: () => undefined,
+      stop: () => undefined,
       onChange: () => () => undefined,
-    };
-    const controller = { session: { recorder }, on: true } as unknown as CaptureController;
+    } as unknown as CaptureController;
     const handle = installDebugPanel(controller);
     try {
       const host = document.documentElement.querySelector(`:scope > ${PANEL_ELEMENT_NAME}`) as HTMLElement;
