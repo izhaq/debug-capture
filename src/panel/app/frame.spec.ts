@@ -323,7 +323,9 @@ describe('S-08 frame (mountFrame)', () => {
     const banners = stage.panelRoot.querySelectorAll<HTMLElement>('.dcp-banner');
     const dialog = banners[1] as HTMLElement;
     expect(dialog.hidden).toBeFalse();
-    expect(dialog.textContent).toBe('The page has a dialog open. The panel may not respond until it closes.');
+    expect(dialog.textContent).toBe(
+      'The page has a dialog open or is fullscreen. The panel can be seen but not used until it closes.',
+    );
     expect(Array.from(rig.scope.timers.values()).map((t) => t.delayMs)).toEqual([500]);
 
     rig.dialog = false;

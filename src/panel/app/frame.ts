@@ -70,7 +70,10 @@ export interface FrameDeps {
   /** Local minus UTC, for clock time. */
   readonly utcOffsetMinutes: number;
   readonly viewport: () => { readonly width: number; readonly height: number };
-  /** Whether the host page has a modal dialog open (S08-12). Asked only while the panel is open. */
+  /**
+   * Whether the host page has a modal dialog open or is fullscreen (S08-12): Chrome makes
+   * everything outside either one unclickable and unfocusable. Asked only while the panel is open.
+   */
   readonly hasModalDialog: () => boolean;
   /** How often that is asked, ms. */
   readonly dialogCheckMs: number;
@@ -99,8 +102,9 @@ export function defaultFrameDeps(doc: Document): FrameDeps {
     timeOrigin,
     utcOffsetMinutes: -new Date(timeOrigin).getTimezoneOffset(),
     viewport: () => ({ width: win.innerWidth, height: win.innerHeight }),
-    // Light DOM only: a dialog inside a host component's shadow root is not seen (ISO-21 limit).
-    hasModalDialog: () => doc.querySelector('dialog:modal') !== null,
+    // `:modal` matches a modal `<dialog>` and the fullscreen element. Light DOM only: one inside a
+    // host component's shadow root is not seen (ISO-21 limit).
+    hasModalDialog: () => doc.querySelector(':modal') !== null,
     dialogCheckMs: DIALOG_CHECK_MS,
   };
 }
@@ -358,7 +362,9 @@ function build(
       action ? action.element : null,
     ]);
   const captureBanner = banner('Capture is off — nothing new is recorded.', turnOn);
-  const dialogBanner = banner('The page has a dialog open. The panel may not respond until it closes.');
+  const dialogBanner = banner(
+    'The page has a dialog open or is fullscreen. The panel can be seen but not used until it closes.',
+  );
 
   const status = createStatusBar(dom);
   const frameElement = dom.el('div', { className: 'dcp-frame' }, [

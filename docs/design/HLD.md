@@ -198,7 +198,7 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 | FR-WIN-04 | **Maximize** to fill the window, and back. | SHOULD |
 | FR-WIN-05 | **Close** button, the toggle shortcut, and `Escape` (when no menu, popover or detail view is open — §4.12) close the panel. | MUST |
 | FR-WIN-06 | Two top tabs: **Network** and **Console**. Network has two sub-tabs: **HTTP** and **WebSocket**. | MUST |
-| FR-WIN-07 | **Fullscreen:** when the page enters fullscreen, the panel and the launcher are raised back on top of it (shown again in the top layer), so they float over the fullscreen app and stay usable (`D-15`). **Modal dialog:** the browser makes everything outside the dialog unclickable, so the panel stays visible but says so in a banner (`ISO-21`). | SHOULD |
+| FR-WIN-07 | **Fullscreen:** when the page enters fullscreen, the launcher and the panel are raised back on top of it (shown again in the top layer), so they stay **visible and live** over the fullscreen app (`D-15`). Chrome makes everything outside a fullscreen element unclickable and unfocusable, as it does for a modal dialog (the fullscreen element matches `:modal`; proven in the S-08 e2e on Chromium 141), so while fullscreen the panel is for watching: the toggle shortcut still opens and closes it, a banner says it cannot be used, and it works again when fullscreen ends. **Modal dialog:** the same — visible, not usable, banner (`ISO-21`). | SHOULD |
 
 ### 3.4 Functional — Network › HTTP
 
@@ -916,7 +916,7 @@ has its evidence, severity and test). Short form:
 | ISO-18 | Bidi-safe data cells. |
 | ISO-19 | Drag/resize with pointer capture on our element; no document-level move listeners. |
 | ISO-20 | Survive removal: clean up on disconnect, remount on next open; no MutationObserver fights. |
-| ISO-21 | Document the limits (host modal, `inert`, fullscreen, host capture-phase listeners). |
+| ISO-21 | Document the limits (host modal **and fullscreen** — Chrome makes the panel unclickable and unfocusable while either is open, `D-15`; `inert`; host capture-phase listeners). |
 | ISO-22 | A "hostile host" fixture; every rule tested against it. |
 
 ### 6.8 Security design
@@ -1101,7 +1101,7 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-12 | **Clear** clears the capture buffer (not just the view), like v1's shortcut. | Decided |
 | D-13 | Theme **Auto** by default (dark/light by OS); colours as in §5.4. | Decided |
 | D-14 | UI in English; data bidi-safe. Hebrew UI later if needed. | Decided |
-| D-15 | **Fullscreen:** the panel and launcher are raised back on top, so they float over the fullscreen app and stay usable. **Host modal dialog:** the panel stays visible but is not clickable (browser rule), so a banner says so; the separate window (2.x) is the real fix for modals. | Decided |
+| D-15 | **Fullscreen:** the panel and launcher are raised back on top, so they stay visible and live over the fullscreen app (you can watch it beside the app). Chrome makes everything outside a fullscreen element unclickable and unfocusable, as it does for a modal dialog (the fullscreen element matches `:modal`; proven in the S-08 e2e on Chromium 141): while fullscreen the panel can be seen and toggled by the shortcut, not clicked; a banner says so. **Host modal dialog:** the same. The separate window (2.x) is the real fix for both. | Decided |
 | D-16 | The panel never blocks the host's capture-phase listeners (doing so breaks the panel's own handlers). | Decided |
 | D-17 | **One recorder for the page's life**: capture off/on removes and reinstalls probes on the same recorder (C-2). | Decided |
 | D-18 | HTTP list in **start order**, like DevTools; a pending row keeps its place and updates when the request finishes. **Column sorting** by clicking a header (asc / desc / off), plus filters and search. | Decided |

@@ -211,7 +211,7 @@ the orchestrator runs `npm run check` on the wave branch and raises the floors.
 | R1 | UI chunk 22,695 B with only the placeholder — the old 25,600 B budget left ~2.9 kB | **Decided: budget raised to 40 kB (`D-25`, `size-budgets.json` 40960).** C3-6 measured **24,086 B** after the contract (16.9 kB left); each track reports its own growth (estimate: frame ~5 kB, HTTP ~4–5, WS ~3, Console ~2) |
 | R2 | Loader 4,041 / 4,096 B — 55 B left; `panelRoot` and the fullscreen listener touch it | `panelRoot` cost 5 B: **4,046 / 4,096, 50 B left** for the fullscreen listener (S-08). Trim, or owner raises the 4 kB budget |
 | R3 | HTTP order not in the model yet | **Done** in C3-4 |
-| R4 | Fullscreen must be proven | S-08 e2e: `requestFullscreen()` → launcher and panel on top and clickable; modal `<dialog>` → banner |
+| R4 | Fullscreen must be proven | **Done in S-08:** drawn on top and live, but Chrome blocks clicks and focus outside the fullscreen element (like a modal), so a banner says so (`D-15` updated) |
 
 **C3-6 — what the UI chunk holds** (minified bytes before gzip, by folder,
 contract PR head): model 16.9 kB · ui (blocks) 15.4 kB · virtual list 11.7 kB ·
