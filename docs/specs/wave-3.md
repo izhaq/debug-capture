@@ -226,7 +226,7 @@ capture core stays in the shared chunk.
 | 0 specs | #77, #78, #79 | done (D-24, D-25) |
 | 1 contract | #81 | merged: C3-1…C3-6, 971 specs |
 | 08 | #83 | merged: frame, toolbar, status bar, settings, layout, scheduler; hostile host on the real controller; `panel-frame` e2e; fresh-context review fixed + confirmed; 1017 specs, 24 e2e; loader 4,084 B, panel-ui 30,540 B |
-| 05 | — | not started |
+| 05 | #84 | merged: HTTP list (start order, sort, status cells, follow count), filters, detail (sub-tabs, bodies, timing, Copy ▾ with cURL), removed-entry note; `panel-http` e2e with a real copy from the shadow root; 1043 specs, 26 e2e; panel-ui 34,043 B (+3.5 kB) |
 | 06 | — | not started |
 | 07 | — | not started |
 

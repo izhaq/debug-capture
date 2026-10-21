@@ -1,4 +1,4 @@
-# Handoff — debug-capture v2, wave 3 (updated 2026-10-20)
+# Handoff — debug-capture v2, wave 3 (updated 2026-10-21)
 
 You are the new **orchestrator** for debug-capture v2 (GitHub Copilot in agent
 mode, on the owner's **Windows laptop** — see §10 for setup). Waves 1 and 2 are done and
@@ -35,12 +35,23 @@ to undo. Never merge into the integration branch yourself.
   cannot be used until fullscreen ends.
 - **Follow button ("↓ N new") is the views' job** (S05-15, S06-10, S07-09), not the
   frame's.
-- **Next: S-05 HTTP view** on `claude/dc-v2-w3-05-http` (create it from
-  `claude/dc-v2-wave3`). Then S-06 and S-07 (may run together).
-- Last known checks on `claude/dc-v2-wave3` (after #83): green — **1017** unit specs
-  (floor 1017), **24** e2e (floor 24); loader **4,084 / 4,096 B (12 B left)**,
-  panel-ui **30,540 / 40,960 B** (~10.4 kB left for three views: about 4–5 HTTP,
-  3 WS, 2 Console — report your growth in the PR).
+- **Step 3, S-05 HTTP view: merged** — **PR #84** (three commits on
+  `claude/dc-v2-w3-05-http`: list, filters, detail). Read `src/panel/views/http/`
+  as the pattern for S-06 / S-07: a `fakes.spec.ts` stage (real store, real theme,
+  fake source), the view renders only in `update(state)`, every P2 block gets
+  `onError: report`, the follow count by `seq` / pending id. The store keeps a
+  selected entry that left the buffer (`selection.<view>.removed === true`), so a
+  view can show its "removed" note from that instead of `onSelectionLost` (S05-12).
+- **Next: S-06 WebSocket** on `claude/dc-v2-w3-06-ws` and **S-07 Console** on
+  `claude/dc-v2-w3-07-console` (create each from `claude/dc-v2-wave3`; they may run
+  together). Then step 3's whole-wave review and step 4's wave PR.
+- Last known checks on `claude/dc-v2-w3-05-http` (#84 head): green — **1043** unit
+  specs (floor 1043), **26** e2e (floor 26); loader **4,084 / 4,096 B (12 B left)**,
+  panel-ui **34,043 / 40,960 B** (~6.9 kB left for two views: about 3 WS,
+  2 Console — report your growth in the PR).
+- **Flaky once:** `panel-hostile-host` "ISO-20 … the next open mounts it again"
+  timed out in `browserContext.newPage` (before the test body) on one slow run
+  (2 min); the re-run passed in 42 s. If it repeats, look at the machine first.
 - The hostile host uses the real `createCaptureController` (`test/hostile-host/controller.mjs`).
   A view's e2e makes real traffic with `page.evaluate` (fetch / XHR / WebSocket /
   console) and finds rows inside the shadow root.
@@ -73,8 +84,8 @@ npm run check
 - **Commits:** conventional commits, scope `debug-capture v2`
   (`feat(debug-capture v2): view interface and stub views`). No trailer lines. Never
   an AI model name in commits or PRs.
-- **Budgets:** UI chunk 40 kB (`D-25`). The **loader has 50 B left** (55 B before
-  `panelRoot`) — ask the owner before raising its 4 kB budget (R2).
+- **Budgets:** UI chunk 40 kB (`D-25`). The **loader has 12 B left** (4,084 /
+  4,096 B since S-08) — ask the owner before raising its 4 kB budget (R2).
 
 **Your first reply to the owner:**
 
@@ -152,7 +163,7 @@ Everything below is merged into it (as of `4ebda8a`).
 | 1 | S-00 Foundation | #59 | Merged |
 | 2 | S-01 core changes, S-02 loader, S-03 model, S-04 UI blocks | #60–#68, wave PR #70 | Merged |
 | after | Review notes, D-23, Chrome 146+, wave-3 decisions, handoff, Copilot / Windows setup | #69, #71–#76 | Merged |
-| 3 (in progress) | Wave branch `claude/dc-v2-wave3`: plan + specs, D-24, D-25 | #77, #78, #79 | Merged into the wave branch; step 1 next (§0) |
+| 3 (in progress) | Wave branch `claude/dc-v2-wave3`: plan + specs, D-24, D-25; contract, S-08, S-05 | #77–#79, #81, #83, #84 | Merged into the wave branch; current step in §0 |
 
 **Numbers** (`npm run check`, green): **935** unit specs (floor 935), **19** e2e
 (floor 19).
