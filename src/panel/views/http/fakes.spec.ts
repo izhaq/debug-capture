@@ -114,9 +114,11 @@ export interface Stage {
 }
 
 const hosts: HTMLElement[] = [];
+const views: { destroy(): void }[] = [];
 
-/** Removes every stage's host; call in `afterEach`. */
+/** Destroys every stage's view and removes its host; call in `afterEach`. */
 export function cleanup(): void {
+  for (const view of views.splice(0)) view.destroy();
   for (const host of hosts.splice(0)) host.remove();
 }
 
@@ -175,6 +177,7 @@ export function stage(options: StageOptions = {}): Stage {
     report: (error) => reported.push(error),
   });
   panel.appendChild(view.element);
+  views.push(view);
   // The frame renders once per frame after a change; the stage renders at once.
   store.subscribe((state) => view.update(state));
   view.update(store.getState());

@@ -42,6 +42,8 @@ to undo. Never merge into the integration branch yourself.
   `onError: report`, the follow count by `seq` / pending id. The store keeps a
   selected entry that left the buffer (`selection.<view>.removed === true`), so a
   view can show its "removed" note from that instead of `onSelectionLost` (S05-12).
+  **Its `cleanup()` must destroy each view** (fixed after #84): views left alive slowed
+  later timing specs (the virtual-list frame-budget spec failed at 9.6 ms on Linux).
 - **Next: S-06 WebSocket** on `claude/dc-v2-w3-06-ws` and **S-07 Console** on
   `claude/dc-v2-w3-07-console` (create each from `claude/dc-v2-wave3`; they may run
   together). Then step 3's whole-wave review and step 4's wave PR.
