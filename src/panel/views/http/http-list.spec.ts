@@ -1,6 +1,6 @@
 import { cleanup, http, log, pending, stage } from './fakes.spec';
 
-/** S-05 HTTP view — the request list (S05-01…04, S05-15; FR-HTTP-01, FR-HTTP-02, FR-BAR-02, D-18). */
+/** S-05 HTTP view — the request list (S05-01…04, S05-13, S05-15; FR-HTTP-01, FR-HTTP-02, FR-BAR-02, D-18). */
 describe('S-05 HTTP view: the list', () => {
   afterEach(cleanup);
 
@@ -153,6 +153,36 @@ describe('S-05 HTTP view: the list', () => {
     expect(follow.hidden).toBeTrue();
     s.apply({ type: 'entry', entry: http(44, { t: 1_600 }) });
     expect(follow.hidden).toBeTrue();
+
+    // Scrolled up again, the count starts from there, not from the first time.
+    grid.scrollTop = 0;
+    grid.dispatchEvent(new Event('scroll'));
+    s.apply({ type: 'entry', entry: http(45, { t: 1_700 }) });
+    expect(follow.textContent).toBe('↓ 1 new');
+
+    // A click on the button goes to the end and starts the count again too.
+    s.click(follow);
+    expect(follow.hidden).toBeTrue();
+    expect(grid.scrollTop + grid.clientHeight).toBeGreaterThanOrEqual(grid.scrollHeight - 1);
+    // The browser fires `scroll` a frame later; fire it now.
+    grid.dispatchEvent(new Event('scroll'));
+    grid.scrollTop = 0;
+    grid.dispatchEvent(new Event('scroll'));
+    s.apply({ type: 'entry', entry: http(46, { t: 1_800 }) });
+    expect(follow.textContent).toBe('↓ 1 new');
+    expect(s.reported).toEqual([]);
+  });
+
+  it('S05-13, NFR-REL-01, ISO-12: a cell that throws goes to report; the other cells and rows still render', () => {
+    const bad = Object.defineProperty({ ...http(2) }, 'url', {
+      get: (): string => {
+        throw new Error('bad url');
+      },
+    });
+    const s = stage({ entries: [http(1), bad, http(3)] });
+    expect(s.reported.length).toBeGreaterThan(0);
+    expect(s.rows().map((r) => r[2])).toEqual(['200', '200', '200']);
+    expect(s.rows().map((r) => r[3])).toEqual(['1?page=1', '', '3?page=1']);
   });
 
   it('destroy() removes the element; later updates and a second destroy are safe', () => {

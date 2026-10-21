@@ -3,6 +3,7 @@ import {
   createDom,
   createEmptyState,
   createSearchBox,
+  createSplitPane,
   createVirtualList,
   CreateView,
   HttpFilter,
@@ -15,8 +16,14 @@ import {
   rowKey,
   selectHttpRows,
   selectListCounts,
+  SplitDirection,
+  ViewSettings,
 } from '../../ui';
 import { HTTP_COLUMNS, renderHttpCell } from './http-cells';
+import { createHttpDetail } from './http-detail';
+
+/** Docked bottom the detail sits beside the list; docked right, below it (§4.6). */
+const direction = (settings: ViewSettings): SplitDirection => (settings.dock === 'bottom' ? 'row' : 'column');
 
 /** The newest request when following stopped; rows past it count as "new" (S05-15). */
 interface Mark {
@@ -65,7 +72,11 @@ export const createHttpView: CreateView = (deps) => {
     renderCell: (row, key, cell) => renderHttpCell(dom, row, key, cell, settings.time, query),
     getKey: rowKey,
     onSelect: (row) => store.select('http', row),
-    onActivate: (row) => store.select('http', row),
+    onActivate: (row) => {
+      // Enter / double-click: open the detail and move into it (§4.12).
+      store.select('http', row);
+      detail.focus();
+    },
     onSort: (key) => store.setHttpSort(key as HttpSortKey),
     follow: true,
     requestFrame: (callback) => deps.requestFrame(callback),
@@ -87,7 +98,21 @@ export const createHttpView: CreateView = (deps) => {
   });
 
   const pane = dom.el('div', { className: 'dcp-list-pane' }, [list.element, list.followButton]);
-  const element = dom.el('div', { className: 'dcp-view dcp-http' }, [pane]);
+  // Detail (S05-07): closing it gives focus back to the list, not to the page.
+  const closeDetail = (): void => {
+    store.clearSelection('http');
+    list.element.focus({ preventScroll: true });
+  };
+  const detail = createHttpDetail(dom, deps, closeDetail);
+  const split = createSplitPane(dom, {
+    direction: direction(settings),
+    first: pane,
+    second: detail.element,
+    ariaLabel: 'Resize detail',
+    onError: report,
+  });
+  split.handle.hidden = true;
+  const element = dom.el('div', { className: 'dcp-view dcp-http' }, [split.element]);
 
   // Filter bar (S05-05, §4.5): the store holds the filter; the chips start from it (`D-20`).
   let filters: HttpFilter = last.filters.http;
@@ -118,7 +143,7 @@ export const createHttpView: CreateView = (deps) => {
   });
   element.insertBefore(
     dom.el('div', { className: 'dcp-filter-bar' }, [search.element, types.element, statuses.element]),
-    pane,
+    split.element,
   );
 
   // List states (S05-06, §4.11): nothing captured yet, or nothing matches.
@@ -173,14 +198,25 @@ export const createHttpView: CreateView = (deps) => {
         const at = selected === null ? -1 : rows.indexOf(selected.row);
         list.select(at < 0 ? null : at);
       }
+      // The store keeps a removed entry selected (`removed: true`), so the detail needs no `onSelectionLost`.
+      detail.show(selected, state, rows);
+      split.handle.hidden = selected === null;
     },
     applySettings(next) {
       settings = next;
       list.setRowHeight(next.rowHeight);
       list.refresh();
+      split.setDirection(direction(next));
+      detail.setTime(next.time);
     },
     focusFilter: () => search.focus(),
-    handleEscape: () => false,
+    handleEscape() {
+      // Innermost first (§4.12): the Copy menu, then the detail; else the frame closes the panel.
+      if (detail.closeMenu()) return true;
+      if (last.selection.http === null) return false;
+      closeDetail();
+      return true;
+    },
     destroy() {
       if (destroyed) return;
       destroyed = true;
@@ -190,6 +226,8 @@ export const createHttpView: CreateView = (deps) => {
       types.destroy();
       statuses.destroy();
       noMatch.destroy();
+      detail.destroy();
+      split.destroy();
       element.remove();
     },
   };
