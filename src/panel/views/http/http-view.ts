@@ -1,14 +1,20 @@
 import {
+  createChipGroup,
   createDom,
+  createEmptyState,
+  createSearchBox,
   createVirtualList,
   CreateView,
+  HttpFilter,
   HttpRow,
   HttpSort,
   HttpSortKey,
+  HttpStatusGroup,
   isPendingRow,
   PanelState,
   rowKey,
   selectHttpRows,
+  selectListCounts,
 } from '../../ui';
 import { HTTP_COLUMNS, renderHttpCell } from './http-cells';
 
@@ -83,6 +89,54 @@ export const createHttpView: CreateView = (deps) => {
   const pane = dom.el('div', { className: 'dcp-list-pane' }, [list.element, list.followButton]);
   const element = dom.el('div', { className: 'dcp-view dcp-http' }, [pane]);
 
+  // Filter bar (S05-05, §4.5): the store holds the filter; the chips start from it (`D-20`).
+  let filters: HttpFilter = last.filters.http;
+  const search = createSearchBox(dom, {
+    ariaLabel: 'Filter requests',
+    placeholder: 'Filter URL, method, status',
+    value: filters.text,
+    schedule: deps.schedule,
+    onSearch: (text) => store.setFilter('http', { text }),
+    onError: report,
+  });
+  const types = createChipGroup(dom, {
+    ariaLabel: 'Type',
+    chips: [
+      { id: 'xhr', label: 'XHR' },
+      { id: 'fetch', label: 'Fetch' },
+    ],
+    selected: filters.type,
+    onChange: (type) => store.setFilter('http', { type: type as HttpFilter['type'] }),
+    onError: report,
+  });
+  const statuses = createChipGroup(dom, {
+    ariaLabel: 'Status',
+    chips: ['2xx', '3xx', '4xx', '5xx', 'Failed', 'Pending'].map((label) => ({ id: label.toLowerCase(), label })),
+    selected: filters.status,
+    onChange: (status) => store.setFilter('http', { status: status as readonly HttpStatusGroup[] }),
+    onError: report,
+  });
+  element.insertBefore(
+    dom.el('div', { className: 'dcp-filter-bar' }, [search.element, types.element, statuses.element]),
+    pane,
+  );
+
+  // List states (S05-06, §4.11): nothing captured yet, or nothing matches.
+  const empty = createEmptyState(dom, { message: 'No requests yet.' });
+  const noMatch = createEmptyState(dom, {
+    message: 'No entries match the filter.',
+    action: {
+      label: 'Clear filters',
+      onClick: () => {
+        // The search box holds text the store may not have yet (debounce): clear both.
+        search.setValue('');
+        store.clearFilters('http');
+      },
+    },
+    onError: report,
+  });
+  dom.append(pane, [empty.element, noMatch.element]);
+
   return {
     element,
     update(state) {
@@ -92,11 +146,21 @@ export const createHttpView: CreateView = (deps) => {
       const changed = next !== rows;
       if (changed) {
         rows = next;
+        // States first: the list measures its height in `setItems`, so the blocks beside it must be settled.
+        const total = selectListCounts(state, 'http').total;
+        empty.element.hidden = total > 0;
+        noMatch.element.hidden = total === 0 || rows.length > 0;
+        list.element.hidden = rows.length === 0;
         list.setItems(rows);
         countNew();
       }
-      if (state.filters.http.text !== query) {
-        query = state.filters.http.text;
+      if (state.filters.http !== filters) {
+        filters = state.filters.http;
+        types.setSelected(filters.type);
+        statuses.setSelected(filters.status);
+      }
+      if (filters.text !== query) {
+        query = filters.text;
         list.refresh();
       }
       if (state.httpSort !== sort) {
@@ -115,13 +179,17 @@ export const createHttpView: CreateView = (deps) => {
       list.setRowHeight(next.rowHeight);
       list.refresh();
     },
-    focusFilter: () => undefined,
+    focusFilter: () => search.focus(),
     handleEscape: () => false,
     destroy() {
       if (destroyed) return;
       destroyed = true;
       offScroll();
       list.destroy();
+      search.destroy();
+      types.destroy();
+      statuses.destroy();
+      noMatch.destroy();
       element.remove();
     },
   };
