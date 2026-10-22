@@ -22,6 +22,50 @@ import { createConsoleDetail } from './console-detail';
 /** Docked bottom the detail sits beside the list; docked right, below it (4.6). */
 const direction = (settings: ViewSettings): SplitDirection => (settings.dock === 'bottom' ? 'row' : 'column');
 
+/** What makes two entries identical (S07-05): the same level and arguments, or the same source, message and stack. */
+const identity = (row: ConsoleRow): string =>
+  JSON.stringify(row.kind === 'error' ? [row.source, row.message, row.stack] : [row.level, row.args]);
+
+/** Each entry's last comparison with the first entry of its run: entries never change, so a pair is compared once. */
+const sameAs = new WeakMap<ConsoleRow, { readonly first: ConsoleRow; readonly same: boolean }>();
+
+/** Runs of identical messages in a row (S07-05, FR-CON-05): each run's first entry, and the size of runs over 1. */
+function runs(rows: readonly ConsoleRow[]): { firsts: ConsoleRow[]; counts: Map<ConsoleRow, number> } {
+  const firsts: ConsoleRow[] = [];
+  const counts = new Map<ConsoleRow, number>();
+  let first: ConsoleRow | null = null;
+  let firstText: string | null = null;
+  for (const row of rows) {
+    if (first !== null) {
+      const known = sameAs.get(row);
+      let same = known?.first === first && known.same;
+      if (known?.first !== first) {
+        try {
+          if (row.kind === first.kind) {
+            if (firstText === null) firstText = identity(first);
+            same = identity(row) === firstText;
+          }
+        } catch {
+          // A value that cannot be read never joins a run; its cells report it.
+        }
+        sameAs.set(row, { first, same });
+      }
+      if (same) {
+        counts.set(first, (counts.get(first) ?? 1) + 1);
+        continue;
+      }
+    }
+    first = row;
+    firstText = null;
+    firsts.push(row);
+  }
+  return { firsts, counts };
+}
+
+/** `true` when a run's size differs between two groupings. */
+const stale = (before: Map<ConsoleRow, number>, after: Map<ConsoleRow, number>): boolean =>
+  before.size !== after.size || Array.from(after).some(([row, count]) => before.get(row) !== count);
+
 /** The newest entry when following stopped: console rows past it count as new (S07-09). */
 const lastSeq = (state: PanelState): number => state.entries[state.entries.length - 1]?.seq ?? 0;
 
@@ -36,7 +80,10 @@ export const createConsoleView: CreateView = (deps) => {
   const dom = createDom(deps.document);
   let settings = deps.settings;
   let query = '';
+  let shown: readonly ConsoleRow[] = [];
+  /** The list's rows: the first entry of each run (S07-05). */
   let rows: readonly ConsoleRow[] = [];
+  let counts = new Map<ConsoleRow, number>();
   let shownSelection: PanelState['selection']['console'] | undefined;
   let last = store.getState();
   let mark: number | null = null;
@@ -47,7 +94,7 @@ export const createConsoleView: CreateView = (deps) => {
     columns: CONSOLE_COLUMNS,
     header: false,
     ariaLabel: 'Console messages',
-    renderCell: (row, key, cell) => renderConsoleCell(dom, row, key, cell, settings.time, query),
+    renderCell: (row, key, cell) => renderConsoleCell(dom, row, key, cell, settings.time, query, counts.get(row) ?? 1),
     getKey: rowKey,
     rowClass: consoleRowClass,
     onSelect: (row) => store.select('console', row),
@@ -142,15 +189,19 @@ export const createConsoleView: CreateView = (deps) => {
       if (destroyed) return;
       last = state;
       const next = selectConsoleRows(state);
-      const changed = next !== rows;
+      const changed = next !== shown;
       if (changed) {
-        rows = next;
+        shown = next;
+        const before = counts;
+        ({ firsts: rows, counts } = runs(next));
         // States first: the list measures its height in `setItems`, so the blocks beside it must be settled.
         const total = selectListCounts(state, 'console').total;
         empty.element.hidden = total > 0;
         noMatch.element.hidden = total === 0 || rows.length > 0;
         list.element.hidden = rows.length === 0;
         list.setItems(rows);
+        // A run that grew or split keeps its first entry, so the list would not redraw its count by itself.
+        if (stale(before, counts)) list.refresh();
         countNew();
       }
       if (state.filters.console !== filters) {

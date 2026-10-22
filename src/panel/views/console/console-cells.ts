@@ -52,6 +52,7 @@ export function renderConsoleCell(
   cell: HTMLElement,
   time: TimeFormat,
   query: string,
+  count: number,
 ): void {
   let content: Node | string = '';
   if (key === 'level') content = levelLabel(dom, row);
@@ -60,8 +61,17 @@ export function renderConsoleCell(
     if (row.kind === 'error') content = highlightText(dom, row.source, query);
   } else {
     const text = consoleText(row);
-    if (key === 'message') content = highlightText(dom, preview(text), query);
-    else if (hasMore(row, text)) content = createIcon(dom, 'chevron-right', { label: 'More in the detail' });
+    if (key === 'message') {
+      // S07-05: a run of identical messages shows its size before the text.
+      if (count > 1) {
+        dom.append(cell, [
+          dom.el('span', { className: 'dcp-console-count', attrs: { title: `Repeated ${count} times` } }, [
+            `${count}\u00d7`,
+          ]),
+        ]);
+      }
+      content = highlightText(dom, preview(text), query);
+    } else if (hasMore(row, text)) content = createIcon(dom, 'chevron-right', { label: 'More in the detail' });
   }
   dom.append(cell, [content]);
 }

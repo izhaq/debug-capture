@@ -171,7 +171,7 @@ describe('S-07 Console view: detail', () => {
     const big = { items: Array.from({ length: 1_000 }, (_, i) => ({ id: i, name: `n${i}` })) };
     const wide = Object.fromEntries(Array.from({ length: 500 }, (_, i) => [`k${i}`, i]));
     const args = Array.from({ length: 100 }, (_, i) => (i % 2 === 0 ? big : wide));
-    const entries = Array.from({ length: 5_000 }, (_, i) => log(i + 1, 'log', i === 4_999 ? args : ['x']));
+    const entries = Array.from({ length: 5_000 }, (_, i) => log(i + 1, 'log', i === 4_999 ? args : [`x${i}`]));
     const s = stage({ entries, height: 600 });
     s.click(s.rowEls()[s.rowEls().length - 1] ?? null);
     expect(trees(s).length).toBe(MAX_ARG_TREES);

@@ -1,6 +1,8 @@
 /** The Console view's own rules (`dcp-console-*`, C3-3): px and `--dcp-` tokens only, nothing global. */
 export const CONSOLE_VIEW_CSS = [
   '.dcp-console-level{display:inline-flex;align-items:center;gap:4px}',
+  // S07-05: the size of a run of identical messages, before the text.
+  '.dcp-console-count{margin-right:6px;padding:0 4px;border-radius:8px;background-color:var(--dcp-bg-selected);color:var(--dcp-text-muted)}',
   // Detail header (4.6): level, time and source; close at the end.
   '.dcp-console-info{display:flex;align-items:center;gap:12px;flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap}',
   '.dcp-console-body{padding:8px}',
