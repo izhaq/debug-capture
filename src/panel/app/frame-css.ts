@@ -26,7 +26,6 @@ export const FRAME_CSS = [
   '.dcp-title>.dcp-icon{color:var(--dcp-accent)}',
   '.dcp-toolbar{display:flex;align-items:center;gap:4px;flex:none;margin-left:auto}',
   '.dcp-paused{font-family:var(--dcp-font-mono);font-size:var(--dcp-fs-meta);color:var(--dcp-warning)}',
-  '.dcp-btn[aria-pressed="true"]{background-color:var(--dcp-bg-selected);border-color:var(--dcp-accent)}',
   '.dcp-btn>.dcp-icon+.dcp-icon{margin-left:-2px}',
   '@container (max-width:720px){.dcp-toolbar .dcp-btn>span{display:none}' +
     '.dcp-toolbar .dcp-btn{min-width:var(--dcp-control-h);padding:0 4px}.dcp-paused{display:none}}',

@@ -184,6 +184,22 @@ describe('theme (S04-02)', () => {
     expect(style.color).toBe(rgb(TOKENS.dark.text));
   });
 
+  it('a pressed dcp-btn (aria-pressed="true") looks pressed with this sheet alone: views need no frame CSS (HLD §5.7)', () => {
+    root.setAttribute('data-theme', 'dark');
+    const button = (pressed: boolean): CSSStyleDeclaration => {
+      const el = document.createElement('button');
+      el.className = 'dcp-btn';
+      el.setAttribute('aria-pressed', String(pressed));
+      root.appendChild(el);
+      return getComputedStyle(el);
+    };
+    const on = button(true);
+    const off = button(false);
+    expect(on.backgroundColor).toBe(rgb(TOKENS.dark['bg-selected']));
+    expect(on.borderTopColor).toBe(rgb(TOKENS.dark.accent));
+    expect(off.backgroundColor).toBe(rgb(TOKENS.dark.bg));
+  });
+
   it('focus: 2 px accent ring on :focus-visible only, 1 px outside; inset on tabs and rows (HLD §5.7)', () => {
     expect(THEME_CSS).toContain('.dcp-root :focus{outline:none}');
     expect(THEME_CSS).toContain('.dcp-root :focus-visible{outline:2px solid var(--dcp-accent);outline-offset:1px}');

@@ -11,6 +11,8 @@ export const CONTROLS_CSS = [
     'background-color:var(--dcp-bg);color:var(--dcp-text);font-family:var(--dcp-font-ui);' +
     'font-size:var(--dcp-fs-ui);line-height:1;white-space:nowrap;cursor:pointer}',
   '.dcp-btn--icon{width:var(--dcp-control-h);padding:0}',
+  // A toggle button (Capture, Raw, maximize): pressed like a chip. Here, not in the frame, so a view needs only P2.
+  '.dcp-btn[aria-pressed="true"]{background-color:var(--dcp-bg-selected);border-color:var(--dcp-accent)}',
   '.dcp-btn:hover:not(:disabled),.dcp-chip:hover,.dcp-tab:hover,.dcp-menu__item:hover:not(:disabled)' +
     '{background-color:var(--dcp-bg-hover)}',
   // Tabs: muted; the active one in text colour, 600, with a 2 px accent line.
