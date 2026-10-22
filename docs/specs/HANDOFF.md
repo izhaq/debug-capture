@@ -44,9 +44,12 @@ to undo. Never merge into the integration branch yourself.
   view can show its "removed" note from that instead of `onSelectionLost` (S05-12).
   **Its `cleanup()` must destroy each view** (fixed after #84): views left alive slowed
   later timing specs (the virtual-list frame-budget spec failed at 9.6 ms on Linux).
-- **Next: S-06 WebSocket** on `claude/dc-v2-w3-06-ws` and **S-07 Console** on
-  `claude/dc-v2-w3-07-console` (create each from `claude/dc-v2-wave3`; they may run
-  together). Then step 3's whole-wave review and step 4's wave PR.
+- **S-07 Console: merged (#87)** — 1076 unit specs, 28 e2e on the wave branch; panel-ui
+  35,824 / 40,960 B.
+- **Next: finish S-06 WebSocket** on `claude/dc-v2-w3-06-ws` (lists done in 6b2e510; filters,
+  detail, Copy menu, e2e left; ~3.5 kB size share, ~2.4 kB of it left). Before its PR merges,
+  merge the latest `claude/dc-v2-wave3` into it. Then step 3's whole-wave review and step 4's
+  wave PR.
 - Last known checks on `claude/dc-v2-w3-05-http` (#84 head): green — **1043** unit
   specs (floor 1043), **26** e2e (floor 26); loader **4,084 / 4,096 B (12 B left)**,
   panel-ui **34,043 / 40,960 B** (~6.9 kB left for two views: about 3 WS,
