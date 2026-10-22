@@ -158,7 +158,7 @@ shows the number.
   (`el.style.x =` — allowed, `AGENTS.md` rule 11); inline styles win over the
   loader's default.
 - The frame builds **one** UI sheet with
-  `createThemeSheet(doc, [FRAME_CSS, VIEW_CSS, HTTP_VIEW_CSS, WS_VIEW_CSS, CONSOLE_VIEW_CSS])`
+  `createThemeSheet(doc, [VIRTUAL_LIST_CSS, JSON_VIEWER_CSS, FRAME_CSS, VIEW_CSS, HTTP_VIEW_CSS, WS_VIEW_CSS, CONSOLE_VIEW_CSS])`
   and **appends** it: `root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet]`.
   It never replaces the list, and removes only its own sheet on `unmount()`.
 

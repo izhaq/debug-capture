@@ -53,7 +53,9 @@ orchestrator (the owner decides the budget).
   nothing behind.
 - e2e `panel-frame`: resize with pointer capture (no host listener fires);
   dock right; maximize; settings kept across a reload; **fullscreen**: after
-  `requestFullscreen()` the launcher and the panel are on top and clickable;
+  `requestFullscreen()` the launcher and the panel are drawn on top, the
+  banner says the panel cannot be used (Chrome blocks clicks outside the
+  fullscreen element, `D-15`), and it is clickable again after fullscreen;
   a modal `<dialog>` shows the banner (R4).
 - e2e `panel-zone`: the closed cost gains only the `fullscreenchange` listener.
 
@@ -66,4 +68,5 @@ failing once. PR body: What · Review notes · Checks.
 
 View contents (05–07). Model and P2 changes (ask the orchestrator).
 Keyboard map beyond S08-03 / S08-14, forced colours, reduced motion (S-09).
+
 

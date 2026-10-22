@@ -259,6 +259,20 @@ describe('S-08 frame (mountFrame)', () => {
     ]);
   });
 
+  it('S08-09, FR-BAR-06: "N / M shown" counts entries — a Console run of three repeats is one row and 3 / 3', () => {
+    rig = createRig({ views: { http: createHttpView, ws: createWsView, console: createConsoleView } });
+    rig.storage.items.set('dcp-spec', JSON.stringify({ tab: 'console' }));
+    rig.source.entries = [1, 2, 3].map((seq) => logEntry(seq, { args: ['same'] }));
+    mount();
+    rig.scope.frame();
+
+    const rows = Array.from(
+      stage.panelRoot.querySelectorAll<HTMLElement>('#dcp-panel-console .dcp-vlist__body > [role="row"]'),
+    );
+    expect(rows.filter((row) => !row.hidden).length).toBe(1);
+    expect(statusParts()[0]).toBe('3 / 3 shown');
+  });
+
   it('S08-10: settings reach the panel root and the views; Capture in settings is a switch, never stored', () => {
     mount();
     rig.scope.frame();

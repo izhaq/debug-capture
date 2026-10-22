@@ -443,9 +443,10 @@ a close `✕`. `↑` / `↓` in the list moves the selection and updates the det
   buffer, always. The file is v1's format, `schemaVersion` 1, with two new
   optional fields (`pending`, `requestId` — `C-1`, §6.5).
 - **Problems** count: the rule in `FR-ACT-04`, over the buffer.
-- **`N / M shown`**: N = rows the current list shows after filters; M = rows
-  that list has before filters (not the whole buffer — that is the `buffer`
-  figure).
+- **`N / M shown`**: N = entries the current list shows after filters; M =
+  entries that list has before filters (not the whole buffer — that is the
+  `buffer` figure). A Console run of repeats (one row with a count, S07-05)
+  counts each of its entries (`FR-BAR-06`).
 - **v1 shortcuts** (`D` / `C` / `X`) belong to capture: while capture is off
   they do nothing; the panel's toolbar still exports and clears.
 
@@ -475,7 +476,7 @@ storage is blocked the panel uses defaults and works the same.
 | Capture off | Banner on top: "Capture is off — nothing new is recorded." **Turn on**. |
 | Paused | Toolbar: `Paused · N new` and **Resume**. |
 | Entry removed | Detail: "This entry was removed from the buffer." |
-| Host modal dialog | Banner: "The page has a dialog open. The panel may not respond until it closes." (Fullscreen needs no banner: the panel is raised on top, `FR-WIN-07`.) |
+| Host modal dialog or fullscreen | Banner: "The page has a dialog open or is fullscreen. The panel can be seen but not used until it closes." Chrome blocks clicks and focus outside a modal dialog or a fullscreen element; the panel is still drawn on top and live (`FR-WIN-07`, `D-15`, `ISO-21`). |
 | Panel failure | Status bar shows `panel error` with a count; the panel keeps working (`NFR-REL-01`). |
 
 ### 4.12 Keyboard
@@ -1112,7 +1113,7 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-22 | The 2,000-node budget holds up to a 1,080 px panel; above that the list draws every visible row (~23 nodes each) rather than leaving rows blank. Views keep rows lean (text cells, one icon). Found in the S-04 review. | Decided |
 | D-23 | A host page that registers a `--dcp-*` name with `@property` is out of scope (research S4): the theme keeps CSS variables. Only the loader, which must always be visible, uses literal colours. | Decided |
 | D-24 | The **Launcher Show / Hide** setting moves to 2.x: remembering "Hide" would make the always-loaded loader read storage at start (loader bytes, `NFR-SIZE-01`). In 2.0 a host turns the launcher off with the `launcher: false` option; the shortcut always works. | Decided |
-| D-25 | The **UI chunk** budget is **40 kB** min+gzip (was 25 kB). Measured before wave 3: 22.3 kB with only the model and the UI blocks (no views, no frame); wave 3 is estimated at +13–15 kB. The chunk loads once, on first open, from the local network; the host's start cost (the 4 kB loader) does not change. | Decided |
+| D-25 | The **UI chunk** budget is **40 kB** min+gzip (was 25 kB). Measured before wave 3: 22,695 B with only the model and the UI blocks (no views, no frame); wave 3 is estimated at +13–15 kB. The chunk loads once, on first open, from the local network; the host's start cost (the 4 kB loader) does not change. | Decided |
 | D-26 | The **WebSocket message detail has `Copy ▾`** (message, URL — `FR-WS-06`), as in the mockup (owner, 2026-10-22). Copy and export stay explicit user actions (`NFR-SEC-04`). | Decided |
 
 ---

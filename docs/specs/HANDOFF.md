@@ -208,7 +208,7 @@ real-app listeners, a zone.js page; it drives a **fake controller**,
 
 | State | Decisions |
 |---|---|
-| **Decided** (all of them, owner 2026-10-19) | D-01 … D-25. D-15 and D-18 were changed by the owner; D-05…D-11, D-16, D-17, D-21, D-22 were already built and accepted as built; D-24 (no Launcher setting in 2.0) and D-25 (UI chunk 40 kB) were added during wave-3 planning. |
+| **Decided** (all of them, owner 2026-10-19 / 2026-10-22) | D-01 … D-26. D-15 and D-18 were changed by the owner; D-05…D-11, D-16, D-17, D-21, D-22 were already built and accepted as built; D-24 (no Launcher setting in 2.0) and D-25 (UI chunk 40 kB) were added during wave-3 planning; D-26 (WebSocket detail Copy ▾) during S-06. |
 
 **Owner changes that wave 3 must implement:**
 - **D-18 / FR-HTTP-01:** the HTTP list is in **start order** like DevTools; a pending
@@ -216,9 +216,11 @@ real-app listeners, a zone.js page; it drives a **fake controller**,
   click a header → ascending → descending → back to start order, with `aria-sort`.
   Filters and search apply on top. The model does **not** do this yet (R3).
 - **D-15 / FR-WIN-07:** when the page goes **fullscreen**, the launcher and panel are
-  raised back on top (shown again in the top layer) and stay usable. A host **modal
-  dialog** makes the panel unclickable (browser rule), so a banner says so (§4.11).
-  Needs a loader change (R2).
+  raised back on top (shown again in the top layer) and stay **live**, but Chrome
+  blocks clicks and focus outside the fullscreen element (like a modal dialog), so a
+  banner says the panel cannot be used until fullscreen ends; the shortcut still
+  opens and closes it. A host **modal dialog** gets the same banner (§4.11). Built
+  in S-08.
 - **D-19:** Pause freezes the view only. **Capture on/off** (FR-ACT-09) is the "stop
   recording" switch, like DevTools' record button, and sits **next to Pause** in the
   toolbar.
@@ -312,9 +314,10 @@ Fix these **before** the tracks start, so they can work in parallel:
   to trim or ask the owner to raise the 4 kB budget.
 - **R3 — HTTP order.** `selectors.ts` `httpRows` still lists finished rows by `seq`
   with pending rows last. D-18 needs start order + sorting (step 1, item 4).
-- **R4 — prove fullscreen.** A Playwright test on the hostile host: after
-  `element.requestFullscreen()` the launcher and panel are on top and clickable; with
-  a modal `<dialog>` the banner shows.
+- **R4 — prove fullscreen: done in S-08.** A Playwright test on the hostile host: after
+  `element.requestFullscreen()` the launcher and panel are drawn on top and the banner
+  shows; after fullscreen the panel is clickable again; a modal `<dialog>` shows the
+  banner too.
 
 ## 7. Small leftovers from wave 2 (fix when you touch the file)
 
