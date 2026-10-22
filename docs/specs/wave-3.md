@@ -230,7 +230,7 @@ capture core stays in the shared chunk.
 | 05 fix | #85 | merged: the HTTP spec stage's `cleanup()` destroys every view (views left alive slowed later timing specs) |
 | 06 spec | — | HLD `FR-WS-06` + `D-26` (WS detail Copy ▾, owner 2026-10-22); S-06 spec: Socket column in every mode, chosen connection kept, unread Blob shown as `[Blob N bytes]` |
 | 06 | — | in progress on `claude/dc-v2-w3-06-ws` |
-| 07 | — | not started |
+| 07 | #87 | merged: console list (levels, sources, more mark, follow count), level toggles + search, detail (argument trees, collapsed stack, removed note), grouping of repeats (S07-05); `panel-console` e2e; 1076 specs, 28 e2e; panel-ui 35,824 B (+1.8 kB) |
 
 
 
