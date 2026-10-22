@@ -1,0 +1,157 @@
+import {
+  createDom,
+  createEmptyState,
+  createVirtualList,
+  CreateView,
+  PanelState,
+  rowKey,
+  selectListCounts,
+  selectWsConnections,
+  selectWsMessages,
+  WebSocketEntry,
+  WsConnection,
+} from '../../ui';
+import { ConnItem, renderConnCell, renderWsCell, WS_COLUMNS } from './ws-cells';
+
+const connKey = (item: ConnItem): number | 'all' => (item === 'all' ? 'all' : item.socketId);
+
+/**
+ * Network › WebSocket (S-06). Renders the P1 model with P2 blocks: the chosen
+ * connection, filters and selection live in the store; this view only shows
+ * them and turns user actions into store calls. It renders only in `update(state)`.
+ */
+export const createWsView: CreateView = (deps) => {
+  const { store, report } = deps;
+  const dom = createDom(deps.document);
+  let settings = deps.settings;
+  let query = '';
+  let rows: readonly WebSocketEntry[] = [];
+  let conns: readonly WsConnection[] | undefined;
+  let items: readonly ConnItem[] = [];
+  let shownConn: PanelState['wsConnection'] | undefined;
+  let shownSelection: PanelState['selection']['ws'] | undefined;
+  let last = store.getState();
+  /** The newest `seq` when following stopped; rows past it count as "new" (S06-10). */
+  let mark: number | null = null;
+  let destroyed = false;
+
+  // Connections (S06-01, S06-02): newest first, "All connections" last; a click scopes the messages.
+  const connList = createVirtualList<ConnItem>(deps.document, {
+    rowHeight: settings.rowHeight * 2,
+    columns: [{ key: 'c', label: 'Connection', width: 'flex' }],
+    header: false,
+    ariaLabel: 'Connections',
+    renderCell: (item, _key, cell) => renderConnCell(dom, item, cell, settings.time),
+    getKey: connKey,
+    onSelect: (item) => store.selectConnection(connKey(item)),
+    requestFrame: (callback) => deps.requestFrame(callback),
+    onError: report,
+  });
+  const list = createVirtualList<WebSocketEntry>(deps.document, {
+    rowHeight: settings.rowHeight,
+    columns: WS_COLUMNS,
+    ariaLabel: 'Messages',
+    renderCell: (row, key, cell) => renderWsCell(dom, row, key, cell, settings.time, query),
+    getKey: rowKey,
+    onSelect: (row) => store.select('ws', row),
+    follow: true,
+    requestFrame: (callback) => deps.requestFrame(callback),
+    onError: report,
+  });
+  const countNew = (): void => {
+    if (mark === null) return;
+    let count = 0;
+    for (const row of rows) if (row.seq > mark) count++;
+    list.setNewCount(count);
+  };
+  const offScroll = list.onScrollChange((atEnd) => {
+    if (atEnd) {
+      mark = null;
+      list.setNewCount(0);
+    } else if (mark === null) {
+      mark = last.entries[last.entries.length - 1]?.seq ?? 0;
+    }
+  });
+
+  const connPane = dom.el('div', { className: 'dcp-ws-conns' }, [connList.element]);
+  const pane = dom.el('div', { className: 'dcp-list-pane' }, [list.element, list.followButton]);
+  const element = dom.el('div', { className: 'dcp-view dcp-ws' }, [
+    dom.el('div', { className: 'dcp-ws-main' }, [connPane, pane]),
+  ]);
+  const dock = (): void => {
+    element.classList.toggle('dcp-ws--right', settings.dock === 'right');
+  };
+  dock();
+
+  // List states (S06-05, §4.11): no socket yet, or nothing matches.
+  const empty = createEmptyState(dom, { message: 'No WebSocket connections yet.' });
+  const noMatch = createEmptyState(dom, {
+    message: 'No entries match the filter.',
+    action: { label: 'Clear filters', onClick: () => store.clearFilters('ws') },
+    onError: report,
+  });
+  dom.append(pane, [empty.element, noMatch.element]);
+
+  return {
+    element,
+    update(state) {
+      if (destroyed) return;
+      last = state;
+      const nextConns = selectWsConnections(state);
+      if (nextConns !== conns) {
+        conns = nextConns;
+        items = [...nextConns, 'all'];
+        connPane.hidden = nextConns.length === 0;
+        connList.setItems(items);
+        shownConn = undefined;
+      }
+      // The chosen socket stays chosen while it has no row (after Clear): its new messages show again.
+      if (state.wsConnection !== shownConn) {
+        shownConn = state.wsConnection;
+        const at = items.findIndex((item) => connKey(item) === shownConn);
+        connList.select(at < 0 ? null : at);
+      }
+      const next = selectWsMessages(state);
+      const changed = next !== rows;
+      if (changed) {
+        rows = next;
+        // States first: the list measures its height in `setItems`, so the blocks beside it must be settled.
+        const total = selectListCounts(state, 'ws').total;
+        empty.element.hidden = nextConns.length > 0;
+        noMatch.element.hidden = total === 0 || rows.length > 0;
+        list.element.hidden = rows.length === 0;
+        list.setItems(rows);
+        countNew();
+      }
+      if (state.filters.ws.text !== query) {
+        query = state.filters.ws.text;
+        list.refresh();
+      }
+      const selected = state.selection.ws;
+      if (changed || selected !== shownSelection) {
+        shownSelection = selected;
+        const at = selected === null ? -1 : rows.indexOf(selected.row);
+        list.select(at < 0 ? null : at);
+      }
+    },
+    applySettings(next) {
+      settings = next;
+      list.setRowHeight(next.rowHeight);
+      connList.setRowHeight(next.rowHeight * 2);
+      list.refresh();
+      connList.refresh();
+      dock();
+    },
+    focusFilter: () => undefined,
+    handleEscape: () => false,
+    destroy() {
+      if (destroyed) return;
+      destroyed = true;
+      offScroll();
+      connList.destroy();
+      list.destroy();
+      noMatch.destroy();
+      element.remove();
+    },
+  };
+};
