@@ -1,6 +1,9 @@
 import {
+  ChipGroupControl,
+  createChipGroup,
   createDom,
   createEmptyState,
+  createSearchBox,
   createVirtualList,
   CreateView,
   PanelState,
@@ -10,6 +13,7 @@ import {
   selectWsMessages,
   WebSocketEntry,
   WsConnection,
+  WsFilter,
 } from '../../ui';
 import { ConnItem, renderConnCell, renderWsCell, WS_COLUMNS } from './ws-cells';
 
@@ -75,7 +79,29 @@ export const createWsView: CreateView = (deps) => {
 
   const connPane = dom.el('div', { className: 'dcp-ws-conns' }, [connList.element]);
   const pane = dom.el('div', { className: 'dcp-list-pane' }, [list.element, list.followButton]);
+
+  // Filter bar (S06-04, §4.5): the store holds the filter; the chips start from it (`D-20`).
+  let filters: WsFilter = last.filters.ws;
+  const search = createSearchBox(dom, {
+    ariaLabel: 'Filter messages',
+    placeholder: 'Filter message data',
+    value: filters.text,
+    schedule: deps.schedule,
+    onSearch: (text) => store.setFilter('ws', { text }),
+    onError: report,
+  });
+  const chips = (label: string, ids: readonly string[], key: 'direction' | 'data'): ChipGroupControl =>
+    createChipGroup(dom, {
+      ariaLabel: label,
+      chips: ids.map((id) => ({ id, label: id.charAt(0).toUpperCase() + id.slice(1) })),
+      selected: filters[key],
+      onChange: (on) => store.setFilter('ws', { [key]: on } as Partial<WsFilter>),
+      onError: report,
+    });
+  const directions = chips('Direction', ['sent', 'received'], 'direction');
+  const types = chips('Type', ['text', 'binary'], 'data');
   const element = dom.el('div', { className: 'dcp-view dcp-ws' }, [
+    dom.el('div', { className: 'dcp-filter-bar' }, [search.element, directions.element, types.element]),
     dom.el('div', { className: 'dcp-ws-main' }, [connPane, pane]),
   ]);
   const dock = (): void => {
@@ -87,7 +113,14 @@ export const createWsView: CreateView = (deps) => {
   const empty = createEmptyState(dom, { message: 'No WebSocket connections yet.' });
   const noMatch = createEmptyState(dom, {
     message: 'No entries match the filter.',
-    action: { label: 'Clear filters', onClick: () => store.clearFilters('ws') },
+    action: {
+      label: 'Clear filters',
+      onClick: () => {
+        // The search box holds text the store may not have yet (debounce): clear both.
+        search.setValue('');
+        store.clearFilters('ws');
+      },
+    },
     onError: report,
   });
   dom.append(pane, [empty.element, noMatch.element]);
@@ -123,8 +156,13 @@ export const createWsView: CreateView = (deps) => {
         list.setItems(rows);
         countNew();
       }
-      if (state.filters.ws.text !== query) {
-        query = state.filters.ws.text;
+      if (state.filters.ws !== filters) {
+        filters = state.filters.ws;
+        directions.setSelected(filters.direction);
+        types.setSelected(filters.data);
+      }
+      if (filters.text !== query) {
+        query = filters.text;
         list.refresh();
       }
       const selected = state.selection.ws;
@@ -142,7 +180,7 @@ export const createWsView: CreateView = (deps) => {
       connList.refresh();
       dock();
     },
-    focusFilter: () => undefined,
+    focusFilter: () => search.focus(),
     handleEscape: () => false,
     destroy() {
       if (destroyed) return;
@@ -150,6 +188,9 @@ export const createWsView: CreateView = (deps) => {
       offScroll();
       connList.destroy();
       list.destroy();
+      search.destroy();
+      directions.destroy();
+      types.destroy();
       noMatch.destroy();
       element.remove();
     },

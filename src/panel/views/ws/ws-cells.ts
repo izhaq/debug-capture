@@ -54,7 +54,8 @@ export function renderWsCell(
   else if (key === 'time') content = formatTime(e.t, time);
   else if (key === 'socket') content = `#${e.socketId}`;
   else if (key === 'size') content = e.bytes === null ? '' : formatSize(e.bytes);
-  else if (e.opcode === null) content = dom.el('span', { className: tone }, [label.text.slice(word.length + 1)]);
+  else if (e.opcode === null)
+    content = dom.el('span', { className: tone }, [highlightText(dom, label.text.slice(word.length + 1), query)]);
   else content = e.opcode === 'binary' ? binaryText(e) : highlightText(dom, preview(e.data ?? ''), query);
   dom.append(cell, [content]);
 }
