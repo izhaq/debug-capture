@@ -160,4 +160,3 @@ test('FR-WS-06, D-26, OPEN-04: Copy message by a real click inside the shadow ro
   expect(host.copies).toBe(0);
   expect(host.bubbled).toEqual([]);
 });
-
