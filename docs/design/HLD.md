@@ -221,6 +221,7 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 | FR-WS-03 | Filters: text search in message data, direction (All / Sent / Received), type (Text / Binary). | MUST |
 | FR-WS-04 | Selecting a message opens the detail with sub-tabs **Message** (JSON tree / Raw; binary as base64 and hex — a truncated base64 tail that does not decode is shown as `…` with the note *cut*) and **Info** (connection URL, socket id, state, close code/reason, counts). | MUST |
 | FR-WS-05 | An "all connections" choice shows every socket's messages together, with the socket id in a column. | SHOULD |
+| FR-WS-06 | The message detail has **Copy ▾**: Copy message (the data as stored: text as-is, binary as base64) and Copy URL — only on the user's action, inside the panel (`D-26`, `NFR-SEC-04`). | SHOULD |
 
 ### 3.6 Functional — Console
 
