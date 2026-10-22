@@ -231,6 +231,8 @@ capture core stays in the shared chunk.
 | 06 spec | — | HLD `FR-WS-06` + `D-26` (WS detail Copy ▾, owner 2026-10-22); S-06 spec: Socket column in every mode, chosen connection kept, unread Blob shown as `[Blob N bytes]` |
 | 06 | #89 | merged: connections + messages lists, direction / type chips + search, detail Message (JSON / Raw, base64 + hex, cut tail) and Info, Copy ▾ (D-26), follow count, removed note; WebSocket echo in the hostile-host server; `panel-ws` e2e with a real socket and a real copy; 1109 specs, 30 e2e; panel-ui 38,587 B (+2.8 kB) |
 | 07 | #87 | merged: console list (levels, sources, more mark, follow count), level toggles + search, detail (argument trees, collapsed stack, removed note), grouping of repeats (S07-05); `panel-console` e2e; 1076 specs, 28 e2e; panel-ui 35,824 B (+1.8 kB) |
+| 3 review | #90 | whole-wave review of the seams (fresh context, diff only): 0 blockers, 0 majors, 8 minors, 3 nits — all fixed: Escape reads the store (#2), pressed button look in P2 (#4), Network sub-tabs in the view's filter bar (#1, owner), status bar counts entries — HLD §4.9 (#3, owner), reload e2e (#8), docs (#5, #6, #7, #9); 1115 specs, 31 e2e; panel-ui 38,674 B (+87 B) |
+| 4 wave PR | — | next, after the owner's "go": wave branch → integration; the owner merges |
 
 
 

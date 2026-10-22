@@ -1,4 +1,4 @@
-# Handoff — debug-capture v2, wave 3 (updated 2026-10-21)
+# Handoff — debug-capture v2, wave 3 (updated 2026-10-22)
 
 You are the new **orchestrator** for debug-capture v2 (GitHub Copilot in agent
 mode, on the owner's **Windows laptop** — see §10 for setup). Waves 1 and 2 are done and
@@ -49,10 +49,20 @@ to undo. Never merge into the integration branch yourself.
 - **S-06 WebSocket: merged (#89)** — all four tracks are done. Wave branch: **1109** unit specs
   (floor 1109), **30** e2e (floor 30); loader **4,084 / 4,096 B**, panel-ui **38,587 / 40,960 B**
   (2.4 kB left).
-- **Next: step 3, the whole-wave review** (HANDOFF §5, `wave-3.md` "Reviews"): one fresh reviewer on
-  `git diff origin/claude/air-gapped-debug-logging-zkn1nr...origin/claude/dc-v2-wave3 -- packages/debug-capture`,
-  focused on the seams (view contract, scheduler, stylesheet, storage, sizes); fix round; then step 4:
-  one PR `claude/dc-v2-wave3` → `claude/air-gapped-debug-logging-zkn1nr` for the owner (do not merge it).
+- **Step 3, the whole-wave review: done.** One fresh reviewer on the wave diff, focused on the
+  seams: 0 blockers, 0 majors, 8 minors, 3 nits. All fixed in **PR #90**
+  (`claude/dc-v2-w3-review-fixes` → wave branch): Escape reads the store; pressed button look in
+  P2; the Network sub-tabs sit in the view's filter bar (HLD §5.2, owner); the status bar counts
+  entries (HLD §4.9 text, owner); a reload e2e for settings; docs match the code. Checks on the
+  #90 head: **1115** unit specs (floor 1115), **31** e2e (floor 31); loader **4,084 / 4,096 B**,
+  panel-ui **38,674 / 40,960 B** (2.2 kB left).
+- **Next: step 4.** After the owner's "go": merge #90 into `claude/dc-v2-wave3` (merge commit),
+  re-run `npm run check` on the wave branch, then open one PR `claude/dc-v2-wave3` →
+  `claude/air-gapped-debug-logging-zkn1nr` for the owner (**do not merge it**).
+- **Known limits to name in the wave PR:** fullscreen and a host modal dialog — the panel is drawn
+  on top and live but cannot be clicked (Chrome rule, `D-15`; the 2.x separate window is the real
+  fix); a modal dialog inside a host's shadow root is not seen (ISO-21); the loader has 12 B left;
+  in a narrow right dock the HTTP filter bar clips its last chips.
 - Last known checks on `claude/dc-v2-w3-05-http` (#84 head): green — **1043** unit
   specs (floor 1043), **26** e2e (floor 26); loader **4,084 / 4,096 B (12 B left)**,
   panel-ui **34,043 / 40,960 B** (~6.9 kB left for two views: about 3 WS,
