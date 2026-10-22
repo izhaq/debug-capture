@@ -229,7 +229,7 @@ capture core stays in the shared chunk.
 | 05 | #84 | merged: HTTP list (start order, sort, status cells, follow count), filters, detail (sub-tabs, bodies, timing, Copy ▾ with cURL), removed-entry note; `panel-http` e2e with a real copy from the shadow root; 1043 specs, 26 e2e; panel-ui 34,043 B (+3.5 kB) |
 | 05 fix | #85 | merged: the HTTP spec stage's `cleanup()` destroys every view (views left alive slowed later timing specs) |
 | 06 spec | — | HLD `FR-WS-06` + `D-26` (WS detail Copy ▾, owner 2026-10-22); S-06 spec: Socket column in every mode, chosen connection kept, unread Blob shown as `[Blob N bytes]` |
-| 06 | — | in progress on `claude/dc-v2-w3-06-ws` |
+| 06 | #89 | merged: connections + messages lists, direction / type chips + search, detail Message (JSON / Raw, base64 + hex, cut tail) and Info, Copy ▾ (D-26), follow count, removed note; WebSocket echo in the hostile-host server; `panel-ws` e2e with a real socket and a real copy; 1109 specs, 30 e2e; panel-ui 38,587 B (+2.8 kB) |
 | 07 | #87 | merged: console list (levels, sources, more mark, follow count), level toggles + search, detail (argument trees, collapsed stack, removed note), grouping of repeats (S07-05); `panel-console` e2e; 1076 specs, 28 e2e; panel-ui 35,824 B (+1.8 kB) |
 
 

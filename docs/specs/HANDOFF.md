@@ -46,10 +46,13 @@ to undo. Never merge into the integration branch yourself.
   later timing specs (the virtual-list frame-budget spec failed at 9.6 ms on Linux).
 - **S-07 Console: merged (#87)** — 1076 unit specs, 28 e2e on the wave branch; panel-ui
   35,824 / 40,960 B.
-- **Next: finish S-06 WebSocket** on `claude/dc-v2-w3-06-ws` (lists done in 6b2e510; filters,
-  detail, Copy menu, e2e left; ~3.5 kB size share, ~2.4 kB of it left). Before its PR merges,
-  merge the latest `claude/dc-v2-wave3` into it. Then step 3's whole-wave review and step 4's
-  wave PR.
+- **S-06 WebSocket: merged (#89)** — all four tracks are done. Wave branch: **1109** unit specs
+  (floor 1109), **30** e2e (floor 30); loader **4,084 / 4,096 B**, panel-ui **38,587 / 40,960 B**
+  (2.4 kB left).
+- **Next: step 3, the whole-wave review** (HANDOFF §5, `wave-3.md` "Reviews"): one fresh reviewer on
+  `git diff origin/claude/air-gapped-debug-logging-zkn1nr...origin/claude/dc-v2-wave3 -- packages/debug-capture`,
+  focused on the seams (view contract, scheduler, stylesheet, storage, sizes); fix round; then step 4:
+  one PR `claude/dc-v2-wave3` → `claude/air-gapped-debug-logging-zkn1nr` for the owner (do not merge it).
 - Last known checks on `claude/dc-v2-w3-05-http` (#84 head): green — **1043** unit
   specs (floor 1043), **26** e2e (floor 26); loader **4,084 / 4,096 B (12 B left)**,
   panel-ui **34,043 / 40,960 B** (~6.9 kB left for two views: about 3 WS,
