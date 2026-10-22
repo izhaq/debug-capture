@@ -1,9 +1,9 @@
 /**
  * S-08 frame on the hostile host (strict CSP + Trusted Types, hostile CSS,
  * the real capture controller): resize, dock, maximize, fullscreen, the
- * host-dialog banner and capture off / on (FR-WIN-01…04, FR-WIN-07,
- * FR-ACT-09, ISO-13, ISO-19, ISO-21, D-15). Every test also checks that the
- * page saw no CSP violation and no page error.
+ * host-dialog banner, capture off / on and settings kept across a reload
+ * (FR-WIN-01…04, FR-WIN-07, FR-ACT-09, ISO-13, ISO-19, ISO-21, D-15, D-20).
+ * Every test also checks that the page saw no CSP violation and no page error.
  */
 import { expect, test } from '@playwright/test';
 
@@ -172,4 +172,26 @@ test('FR-ACT-09, D-19: Capture off records nothing new and shows the banner; Tur
   await expect(banner).toBeHidden();
   await page.evaluate(() => console.log('on again'));
   expect(await recorded()).toBe(on + 1);
+});
+
+test('D-20, S08-11: the dock and a filter chip are kept across a reload in the real localStorage', async ({ page }) => {
+  await openPanel(page);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('radio', { name: 'Right' }).check();
+  await page.keyboard.press('Escape');
+  const chip = () => page.getByRole('group', { name: 'Status' }).getByRole('button', { name: '4xx' });
+  await chip().click();
+  await expect(chip()).toHaveAttribute('aria-pressed', 'true');
+  // The frame writes on its next frame: wait for the chip to reach storage.
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('debug-capture:panel') ?? '')).toContain('4xx');
+  const right = await rootBox(page);
+
+  await page.reload();
+  await page.waitForFunction(() => window.__ready === true);
+  await page.locator('#host-input').focus();
+  await page.keyboard.press(TOGGLE);
+  await expect(page.locator(`${PANEL} .dcp-frame`)).toBeVisible();
+
+  await expect(chip()).toHaveAttribute('aria-pressed', 'true');
+  expect(await rootBox(page)).toEqual(right);
 });
