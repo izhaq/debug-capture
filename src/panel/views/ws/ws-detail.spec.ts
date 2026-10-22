@@ -76,6 +76,18 @@ describe('S-06 WebSocket view: detail', () => {
     expect(s.reported).toEqual([]);
   });
 
+  it('S06-08, §4.12: Escape asks the store, not the last render — a message picked before the next frame closes first', () => {
+    const s = stage({ entries: [ws(1, { data: 'a' })] });
+    const before = s.store.getState();
+    s.click(s.rowEl(0));
+    // The frame renders once per frame: until then the view has drawn an older state than the store holds.
+    s.view.update(before);
+
+    expect(s.view.handleEscape()).toBeTrue();
+    expect(s.store.getState().selection.ws).toBeNull();
+    expect(s.reported).toEqual([]);
+  });
+
   it('S06-08, §4.12: Enter on a message opens the detail and moves focus into its tabs', () => {
     const s = stage({ entries: [ws(1)] });
     const grid = s.q('.dcp-list-pane .dcp-vlist');

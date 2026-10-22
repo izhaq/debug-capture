@@ -232,7 +232,8 @@ export const createConsoleView: CreateView = (deps) => {
     focusFilter: () => search.focus(),
     handleEscape() {
       // Escape closes the detail; with none open the frame closes the panel (4.12).
-      if (last.selection.console === null) return false;
+      // The store, not `last`: a row picked since the last frame is open already.
+      if (store.getState().selection.console === null) return false;
       closeDetail();
       return true;
     },

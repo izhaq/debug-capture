@@ -66,6 +66,17 @@ describe('S-05 HTTP view: detail', () => {
     expect(s.q('.dcp-split').getAttribute('data-direction')).toBe('column');
   });
 
+  it('S05-07, §4.12: Escape asks the store, not the last render — a row picked before the next frame closes first', () => {
+    const s = stage({ entries: [http(1)] });
+    const before = s.store.getState();
+    s.click(s.rowEl(0));
+    // The frame renders once per frame: until then the view has drawn an older state than the store holds.
+    s.view.update(before);
+
+    expect(s.view.handleEscape()).toBeTrue();
+    expect(s.store.getState().selection.http).toBeNull();
+  });
+
   it('S05-08, FR-HTTP-07: Headers — General, request and response headers as captured, redacted values badged', () => {
     const t = Date.UTC(2026, 9, 15, 14, 3, 27, 412);
     const s = open(

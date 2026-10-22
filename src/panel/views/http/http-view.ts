@@ -213,7 +213,8 @@ export const createHttpView: CreateView = (deps) => {
     handleEscape() {
       // Innermost first (§4.12): the Copy menu, then the detail; else the frame closes the panel.
       if (detail.closeMenu()) return true;
-      if (last.selection.http === null) return false;
+      // The store, not `last`: a row picked since the last frame is open already.
+      if (store.getState().selection.http === null) return false;
       closeDetail();
       return true;
     },

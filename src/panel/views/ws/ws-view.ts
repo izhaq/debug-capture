@@ -215,7 +215,8 @@ export const createWsView: CreateView = (deps) => {
     handleEscape() {
       // Innermost first (§4.12): the Copy menu, then the detail; else the frame closes the panel.
       if (detail.closeMenu()) return true;
-      if (last.selection.ws === null) return false;
+      // The store, not `last`: a message picked since the last frame is open already.
+      if (store.getState().selection.ws === null) return false;
       closeDetail();
       return true;
     },

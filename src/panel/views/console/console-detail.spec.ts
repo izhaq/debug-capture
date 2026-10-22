@@ -54,6 +54,17 @@ describe('S-07 Console view: detail', () => {
     expect(s.view.handleEscape()).toBeFalse();
   });
 
+  it('S07-07, 4.12: Escape asks the store, not the last render - a row picked before the next frame closes first', () => {
+    const s = stage({ entries: [log(1)] });
+    const before = s.store.getState();
+    s.click(s.rowEl(0));
+    // The frame renders once per frame: until then the view has drawn an older state than the store holds.
+    s.view.update(before);
+
+    expect(s.view.handleEscape()).toBeTrue();
+    expect(s.store.getState().selection.console).toBeNull();
+  });
+
   it('S07-07, 4.6, 4.12: docked right the detail goes below the list; Enter on a row moves focus into the detail', () => {
     const s = stage({ entries: [log(1)], settings: { ...SETTINGS, dock: 'right' } });
     expect(s.q('.dcp-split').getAttribute('data-direction')).toBe('column');
