@@ -4,6 +4,7 @@ import {
   createDom,
   createEmptyState,
   createSearchBox,
+  createSplitPane,
   createVirtualList,
   CreateView,
   PanelState,
@@ -11,13 +12,19 @@ import {
   selectListCounts,
   selectWsConnections,
   selectWsMessages,
+  SplitDirection,
+  ViewSettings,
   WebSocketEntry,
   WsConnection,
   WsFilter,
 } from '../../ui';
 import { ConnItem, renderConnCell, renderWsCell, WS_COLUMNS } from './ws-cells';
+import { createWsDetail } from './ws-detail';
 
 const connKey = (item: ConnItem): number | 'all' => (item === 'all' ? 'all' : item.socketId);
+
+/** Docked bottom the detail sits beside the messages; docked right, below them (§4.6, as S05-07). */
+const direction = (settings: ViewSettings): SplitDirection => (settings.dock === 'bottom' ? 'row' : 'column');
 
 /**
  * Network › WebSocket (S-06). Renders the P1 model with P2 blocks: the chosen
@@ -58,6 +65,11 @@ export const createWsView: CreateView = (deps) => {
     renderCell: (row, key, cell) => renderWsCell(dom, row, key, cell, settings.time, query),
     getKey: rowKey,
     onSelect: (row) => store.select('ws', row),
+    onActivate: (row) => {
+      // Enter / double-click: open the detail and move into it (§4.12).
+      store.select('ws', row);
+      detail.focus();
+    },
     follow: true,
     requestFrame: (callback) => deps.requestFrame(callback),
     onError: report,
@@ -79,6 +91,20 @@ export const createWsView: CreateView = (deps) => {
 
   const connPane = dom.el('div', { className: 'dcp-ws-conns' }, [connList.element]);
   const pane = dom.el('div', { className: 'dcp-list-pane' }, [list.element, list.followButton]);
+  // Detail (S06-08): closing it gives focus back to the list, not to the page.
+  const closeDetail = (): void => {
+    store.clearSelection('ws');
+    list.element.focus({ preventScroll: true });
+  };
+  const detail = createWsDetail(dom, deps, closeDetail);
+  const split = createSplitPane(dom, {
+    direction: direction(settings),
+    first: pane,
+    second: detail.element,
+    ariaLabel: 'Resize detail',
+    onError: report,
+  });
+  split.handle.hidden = true;
 
   // Filter bar (S06-04, §4.5): the store holds the filter; the chips start from it (`D-20`).
   let filters: WsFilter = last.filters.ws;
@@ -102,7 +128,7 @@ export const createWsView: CreateView = (deps) => {
   const types = chips('Type', ['text', 'binary'], 'data');
   const element = dom.el('div', { className: 'dcp-view dcp-ws' }, [
     dom.el('div', { className: 'dcp-filter-bar' }, [search.element, directions.element, types.element]),
-    dom.el('div', { className: 'dcp-ws-main' }, [connPane, pane]),
+    dom.el('div', { className: 'dcp-ws-main' }, [connPane, split.element]),
   ]);
   const dock = (): void => {
     element.classList.toggle('dcp-ws--right', settings.dock === 'right');
@@ -171,6 +197,9 @@ export const createWsView: CreateView = (deps) => {
         const at = selected === null ? -1 : rows.indexOf(selected.row);
         list.select(at < 0 ? null : at);
       }
+      // The store keeps a removed entry selected (`removed: true`), so the detail needs no `onSelectionLost`.
+      detail.show(selected, state);
+      split.handle.hidden = selected === null;
     },
     applySettings(next) {
       settings = next;
@@ -178,10 +207,18 @@ export const createWsView: CreateView = (deps) => {
       connList.setRowHeight(next.rowHeight * 2);
       list.refresh();
       connList.refresh();
+      split.setDirection(direction(next));
+      detail.setTime(next.time);
       dock();
     },
     focusFilter: () => search.focus(),
-    handleEscape: () => false,
+    handleEscape() {
+      // Innermost first (§4.12): the Copy menu, then the detail; else the frame closes the panel.
+      if (detail.closeMenu()) return true;
+      if (last.selection.ws === null) return false;
+      closeDetail();
+      return true;
+    },
     destroy() {
       if (destroyed) return;
       destroyed = true;
@@ -192,6 +229,8 @@ export const createWsView: CreateView = (deps) => {
       directions.destroy();
       types.destroy();
       noMatch.destroy();
+      detail.destroy();
+      split.destroy();
       element.remove();
     },
   };

@@ -67,20 +67,21 @@ const STATES: Readonly<Record<WsConnection['state'], readonly [IconName, string]
   error: ['error', 'error'],
 };
 
+/** A connection's state as icon and word (the connections list and the detail's Info). */
+export function stateLabel(dom: Dom, state: WsConnection['state']): HTMLElement {
+  const [icon, tone] = STATES[state];
+  return dom.el('span', { className: `dcp-ws-dir dcp-tone-${tone}` }, [createIcon(dom, icon), state]);
+}
+
 /** Fills a connection row (S06-01): state, `#id` and URL; then ↑ sent, ↓ received and the opened time. */
 export function renderConnCell(dom: Dom, item: ConnItem, cell: HTMLElement, time: TimeFormat): void {
   if (item === 'all') {
     dom.append(cell, ['All connections']);
     return;
   }
-  const [icon, tone] = STATES[item.state];
   setAttr(cell, 'title', item.url);
   dom.append(cell, [
-    dom.el('div', null, [
-      dom.el('span', { className: `dcp-ws-dir dcp-tone-${tone}` }, [createIcon(dom, icon), item.state]),
-      ` #${item.socketId} `,
-      item.url,
-    ]),
+    dom.el('div', null, [stateLabel(dom, item.state), ` #${item.socketId} `, item.url]),
     dom.el('div', { className: 'dcp-meta' }, [
       createIcon(dom, 'sent', { label: 'sent' }),
       ` ${item.sent} `,
