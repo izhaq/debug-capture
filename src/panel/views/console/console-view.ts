@@ -5,6 +5,7 @@ import {
   createDom,
   createEmptyState,
   createSearchBox,
+  createSplitPane,
   createVirtualList,
   CreateView,
   LogLevel,
@@ -12,8 +13,14 @@ import {
   rowKey,
   selectConsoleRows,
   selectListCounts,
+  SplitDirection,
+  ViewSettings,
 } from '../../ui';
 import { CONSOLE_COLUMNS, consoleRowClass, renderConsoleCell } from './console-cells';
+import { createConsoleDetail } from './console-detail';
+
+/** Docked bottom the detail sits beside the list; docked right, below it (4.6). */
+const direction = (settings: ViewSettings): SplitDirection => (settings.dock === 'bottom' ? 'row' : 'column');
 
 /** The newest entry when following stopped: console rows past it count as new (S07-09). */
 const lastSeq = (state: PanelState): number => state.entries[state.entries.length - 1]?.seq ?? 0;
@@ -44,6 +51,11 @@ export const createConsoleView: CreateView = (deps) => {
     getKey: rowKey,
     rowClass: consoleRowClass,
     onSelect: (row) => store.select('console', row),
+    onActivate: (row) => {
+      // Enter / double-click: open the detail and move into it (4.12).
+      store.select('console', row);
+      detail.focus();
+    },
     follow: true,
     requestFrame: (callback) => deps.requestFrame(callback),
     onError: report,
@@ -65,6 +77,20 @@ export const createConsoleView: CreateView = (deps) => {
   });
 
   const pane = dom.el('div', { className: 'dcp-list-pane' }, [list.element, list.followButton]);
+  // Detail (S07-07): closing it gives focus back to the list, not to the page.
+  const closeDetail = (): void => {
+    store.clearSelection('console');
+    list.element.focus({ preventScroll: true });
+  };
+  const detail = createConsoleDetail(dom, deps, closeDetail);
+  const split = createSplitPane(dom, {
+    direction: direction(settings),
+    first: pane,
+    second: detail.element,
+    ariaLabel: 'Resize detail',
+    onError: report,
+  });
+  split.handle.hidden = true;
 
   // Filter bar (S07-04, 4.5, 4.8: levels, then search): the store holds the filter; the chips start from it (`D-20`).
   let filters: ConsoleFilter = last.filters.console;
@@ -91,7 +117,7 @@ export const createConsoleView: CreateView = (deps) => {
   });
   const element = dom.el('div', { className: 'dcp-view dcp-console' }, [
     dom.el('div', { className: 'dcp-filter-bar' }, [levels.element, search.element]),
-    pane,
+    split.element,
   ]);
 
   // List states (S07-06, 4.11): nothing captured yet, or nothing matches.
@@ -141,14 +167,24 @@ export const createConsoleView: CreateView = (deps) => {
         const at = selected === null ? -1 : rows.indexOf(selected.row);
         list.select(at < 0 ? null : at);
       }
+      // The store keeps a removed entry selected (`removed: true`), so the detail needs no `onSelectionLost`.
+      detail.show(selected, state);
+      split.handle.hidden = selected === null;
     },
     applySettings(next) {
       settings = next;
       list.setRowHeight(next.rowHeight);
       list.refresh();
+      split.setDirection(direction(next));
+      detail.setTime(next.time);
     },
     focusFilter: () => search.focus(),
-    handleEscape: () => false,
+    handleEscape() {
+      // Escape closes the detail; with none open the frame closes the panel (4.12).
+      if (last.selection.console === null) return false;
+      closeDetail();
+      return true;
+    },
     destroy() {
       if (destroyed) return;
       destroyed = true;
@@ -157,6 +193,8 @@ export const createConsoleView: CreateView = (deps) => {
       levels.destroy();
       search.destroy();
       noMatch.destroy();
+      detail.destroy();
+      split.destroy();
       element.remove();
     },
   };
