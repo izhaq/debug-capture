@@ -227,7 +227,9 @@ capture core stays in the shared chunk.
 | 1 contract | #81 | merged: C3-1…C3-6, 971 specs |
 | 08 | #83 | merged: frame, toolbar, status bar, settings, layout, scheduler; hostile host on the real controller; `panel-frame` e2e; fresh-context review fixed + confirmed; 1017 specs, 24 e2e; loader 4,084 B, panel-ui 30,540 B |
 | 05 | #84 | merged: HTTP list (start order, sort, status cells, follow count), filters, detail (sub-tabs, bodies, timing, Copy ▾ with cURL), removed-entry note; `panel-http` e2e with a real copy from the shadow root; 1043 specs, 26 e2e; panel-ui 34,043 B (+3.5 kB) |
-| 06 | — | not started |
+| 05 fix | #85 | merged: the HTTP spec stage's `cleanup()` destroys every view (views left alive slowed later timing specs) |
+| 06 spec | — | HLD `FR-WS-06` + `D-26` (WS detail Copy ▾, owner 2026-10-22); S-06 spec: Socket column in every mode, chosen connection kept, unread Blob shown as `[Blob N bytes]` |
+| 06 | — | in progress on `claude/dc-v2-w3-06-ws` |
 | 07 | — | not started |
 
 
