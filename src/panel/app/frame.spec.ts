@@ -1,6 +1,7 @@
 import { mountFrame } from './frame';
 import { createRig, createStage, errorEntry, frameOptions, logEntry, NO_CONTROLLER, Rig, Stage } from './fakes.spec';
 import type { MountPanelUiOptions } from './mount-panel-ui';
+import { createConsoleView, createHttpView, createWsView } from './index';
 import type { CreateView, PanelUiHandle } from './index';
 
 describe('S-08 frame (mountFrame)', () => {
@@ -140,6 +141,29 @@ describe('S-08 frame (mountFrame)', () => {
     expect(q('#dcp-panel-console').hidden).toBeFalse();
     expect(rig.views.logs.console).toBeDefined();
     expect(rig.views.logs.http).toBeUndefined();
+  });
+
+  it('S08-03, HLD §5.2: the Network sub-tabs sit in the shown view’s filter bar — at 160 px a Network list is as tall as the Console list', () => {
+    rig = createRig({ views: { http: createHttpView, ws: createWsView, console: createConsoleView } });
+    rig.storage.items.set('dcp-spec', JSON.stringify({ height: 160 }));
+    mount();
+    rig.scope.frame();
+    const paneHeight = (list: string): number => q(`#dcp-panel-${list} .dcp-list-pane`).getBoundingClientRect().height;
+
+    expect(q('#dcp-panel-http .dcp-filter-bar').contains(q('#dcp-subtab-http'))).toBeTrue();
+    const http = paneHeight('http');
+    expect(http).toBeGreaterThanOrEqual(3 * 22); // the header and two rows at Normal text
+
+    // Arrow keys move the sub-tabs into the WebSocket view's bar; focus stays on the chosen tab.
+    q('#dcp-subtab-http').focus();
+    press(q('#dcp-subtab-http'), { key: 'ArrowRight' });
+    rig.scope.frame();
+    expect(q('#dcp-panel-ws .dcp-filter-bar').contains(q('#dcp-subtab-ws'))).toBeTrue();
+    expect(stage.root.activeElement).toBe(q('#dcp-subtab-ws'));
+
+    press(stage.panelRoot, { key: '2', code: 'Digit2', altKey: true });
+    rig.scope.frame();
+    expect(paneHeight('console')).toBe(http);
   });
 
   it('S08-07: toolbar order — Pause, Capture next to it, Clear, Export, settings, maximize, close', () => {

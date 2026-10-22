@@ -367,11 +367,10 @@ function build(
     ws: tabPanel(PANEL_ID.ws, 'dcp-subtab-ws'),
     console: tabPanel(PANEL_ID.console, 'dcp-tab-console'),
   };
-  const network = tabPanel('dcp-panel-network', 'dcp-tab-network', [
-    dom.el('div', { className: 'dcp-subbar' }, [sub.element]),
-    panels.http,
-    panels.ws,
-  ]);
+  // The Network sub-tabs go first in the shown view's filter bar (§5.2): a bar of their own would take
+  // 32 px from the list. The holder keeps them only for a view with no filter bar (one that failed).
+  const subHolder = dom.el('div', { className: 'dcp-subbar' }, [sub.element]);
+  const network = tabPanel('dcp-panel-network', 'dcp-tab-network', [subHolder, panels.http, panels.ws]);
 
   // Banners (§4.11).
   const turnOn = button('Turn on', 'opened', () => source.capture.start());
@@ -450,6 +449,16 @@ function build(
       if (view) safely(() => view.applySettings(next));
     }
   };
+  const placeSubTabs = (list: NetworkList): void => {
+    const bar = views[list]?.element.querySelector('.dcp-filter-bar') ?? null;
+    const into = bar ?? subHolder;
+    subHolder.hidden = bar !== null;
+    if (into.firstChild === sub.element) return;
+    // Moving a node drops its focus (arrow keys between the sub-tabs): give it back.
+    const focused = sub.element.contains(root.activeElement);
+    into.insertBefore(sub.element, into.firstChild);
+    if (focused) sub.focus();
+  };
 
   let active: ListId = settings.tab;
   let lastNetwork: NetworkList = settings.tab === 'ws' ? 'ws' : 'http';
@@ -464,6 +473,7 @@ function build(
     panels.http.hidden = list !== 'http';
     panels.ws.hidden = list !== 'ws';
     ensureView(list);
+    if (list !== 'console') placeSubTabs(list);
     viewStale = true;
     invalidate();
     if (settings.tab !== list) {

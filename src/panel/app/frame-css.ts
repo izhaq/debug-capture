@@ -35,9 +35,10 @@ export const FRAME_CSS = [
     'border-bottom:1px solid var(--dcp-divider);background-color:var(--dcp-bg-elevated);' +
     'box-shadow:inset 2px 0 0 var(--dcp-warning)}',
   '.dcp-banner__text{flex:1 1 auto;min-width:0}',
-  // Tab panels and the Network sub-tab bar.
+  // Tab panels; the Network sub-tabs open the view's filter bar (§5.2), or their own bar if it has none.
   '.dcp-body{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-width:0;min-height:0}',
   '.dcp-tabpanel{display:flex;flex-direction:column;flex:1 1 auto;min-width:0;min-height:0}',
+  '.dcp-filter-bar>.dcp-tabs{margin-left:-8px;border-right:1px solid var(--dcp-divider)}',
   '.dcp-subbar{display:flex;align-items:stretch;flex:none;height:var(--dcp-bar-h);padding:0 4px;' +
     'border-bottom:1px solid var(--dcp-divider);background-color:var(--dcp-bg-elevated)}',
   // Settings popover: one row per setting.

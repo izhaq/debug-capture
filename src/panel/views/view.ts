@@ -10,12 +10,15 @@
  * - The frame owns size and dock by inline styles on `panelRoot`
  *   (`el.style.x =`, AGENTS rule 11); inline styles beat the loader default.
  * - The frame builds one UI sheet,
- *   `createThemeSheet(doc, [FRAME_CSS, VIEW_CSS, HTTP_VIEW_CSS, WS_VIEW_CSS, CONSOLE_VIEW_CSS])`,
- *   and appends it: `root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet]`.
+ *   `createThemeSheet(doc, [VIRTUAL_LIST_CSS, JSON_VIEWER_CSS, FRAME_CSS, VIEW_CSS, HTTP_VIEW_CSS, WS_VIEW_CSS,
+ *   CONSOLE_VIEW_CSS])`, and appends it: `root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet]`.
  *   On `unmount()` it removes only its own sheet.
  * - Views adopt no sheets and style nothing outside their element: their look
  *   is their `*_VIEW_CSS` string, with classes `dcp-http-*`, `dcp-ws-*`,
  *   `dcp-console-*`, plus the shared classes below.
+ * - The frame puts the Network sub-tabs (its `.dcp-tabs`) first in the HTTP and
+ *   WebSocket views' first `.dcp-filter-bar` (HLD §5.2). Those views keep their
+ *   filter bar in their element from the start and put nothing before the tabs.
  *
  * Same rules as the theme: px and `--dcp-` tokens only, nothing global.
  */
