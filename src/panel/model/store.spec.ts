@@ -288,6 +288,57 @@ describe('pause (S03-09)', () => {
     expect(state.buffer.used).toBe(3);
   });
 
+  it('a request already on screen updates in place when it finishes while paused', () => {
+    const pending = pendingRequest(5);
+    const store = storeWith({ entries: [logEntry(1)], pending: [pending] });
+    store.select('http', pending);
+    store.pause();
+    const finished = httpEntry(2, { requestId: 5, t: pending.t, status: 201 });
+    store.apply([
+      { type: 'pending-end', id: 5 },
+      entry(finished),
+      entry(logEntry(3)),
+      { type: 'pending-start', request: pendingRequest(9) },
+    ]);
+    const state = store.getState();
+    expect(seqs(state.entries)).toEqual([1, 2]);
+    expect(state.pending).toEqual([]);
+    expect(state.selection.http).toEqual({ row: finished, removed: false });
+    expect(httpKeys(selectHttpRows(state))).toEqual(['#2']);
+    expect(state.newSincePause).toBe(1);
+    expect(state.buffer.used).toBe(3);
+  });
+
+  it('a request that starts while paused stays hidden until resume', () => {
+    const store = storeWith({ entries: [logEntry(1)] });
+    store.pause();
+    const frozen = store.getState();
+    const started = pendingRequest(8);
+    store.apply([
+      { type: 'pending-start', request: started },
+      { type: 'pending-end', id: 8 },
+      entry(httpEntry(2, { requestId: 8, t: started.t })),
+    ]);
+    expect(store.getState().entries).toBe(frozen.entries);
+    expect(store.getState().pending).toBe(frozen.pending);
+    expect(store.getState().newSincePause).toBe(1);
+    store.resume();
+    expect(seqs(store.getState().entries)).toEqual([1, 2]);
+    expect(store.getState().pending).toEqual([]);
+  });
+
+  it('an updated row still disappears if the buffer evicts it while paused', () => {
+    const pending = pendingRequest(5);
+    const store = storeWith({ entries: [logEntry(1)], pending: [pending], capacity: 2 });
+    store.pause();
+    store.apply([{ type: 'pending-end', id: 5 }, entry(httpEntry(2, { requestId: 5, t: pending.t }))]);
+    expect(seqs(store.getState().entries)).toEqual([1, 2]);
+    store.apply([entry(logEntry(3))]);
+    expect(seqs(store.getState().entries)).toEqual([2]);
+    store.apply([entry(logEntry(4))]);
+    expect(store.getState().entries).toEqual([]);
+  });
+
   it('evicted rows still disappear while paused; newSincePause is capped at capacity', () => {
     const store = storeWith({ entries: [logEntry(1), logEntry(2), logEntry(3)], capacity: 3 });
     store.pause();

@@ -86,10 +86,12 @@ export function createPanelStore(options: PanelStoreOptions): PanelStore {
   const livePending = new Map<number, PendingRequest>();
 
   // Pause: the view is the buffer's entries up to `pauseSeq` that are still
-  // in it — always a prefix of the buffer, `viewCount` long.
+  // in it — always a prefix of the buffer, `viewCount` long. A pending HTTP
+  // row already on screen is replaced, when it finishes, by `shownAfterPause`.
   let pauseSeq = 0;
   let viewCount = 0;
   let arrived = 0;
+  let shownAfterPause: CaptureEntry[] = [];
 
   const isProblem = (entry: CaptureEntry): boolean => {
     try {
@@ -160,6 +162,16 @@ export function createPanelStore(options: PanelStoreOptions): PanelStore {
     return Object.freeze({ ...selection, [list]: value === null ? null : Object.freeze(value) }) as PanelSelection;
   }
 
+  /** The frozen prefix, plus finished requests that were already pending on screen. */
+  function pausedViewEntries(): CaptureEntry[] {
+    const frozen = buf.slice(head, head + viewCount);
+    if (shownAfterPause.length === 0) return frozen;
+    const live = new Set(buf.slice(head));
+    const extra = shownAfterPause.filter((item) => live.has(item));
+    if (extra.length !== shownAfterPause.length) shownAfterPause = extra;
+    return extra.length === 0 ? frozen : frozen.concat(extra);
+  }
+
   function apply(events: readonly PanelDataEvent[]): void {
     if (events.length === 0) return;
     const paused = state.paused;
@@ -187,7 +199,18 @@ export function createPanelStore(options: PanelStoreOptions): PanelStore {
           addEntry(entry);
           stats.recorded++;
           liveChanged = true;
-          if (paused) arrived++;
+          if (paused) {
+            const requestId = entry.kind === 'http' ? entry.requestId : undefined;
+            const onScreen = requestId !== undefined && pausedPending.some((row) => row.id === requestId);
+            if (onScreen) {
+              // Same row, already visible: show the result. It is not a new arrival.
+              pausedPending = Object.freeze(pausedPending.filter((row) => row.id !== requestId));
+              shownAfterPause.push(entry);
+              viewChanged = true;
+            } else {
+              arrived++;
+            }
+          }
           if (buf.length - head > capacity) {
             const old = buf[head] as CaptureEntry;
             head++;
@@ -195,6 +218,10 @@ export function createPanelStore(options: PanelStoreOptions): PanelStore {
             if (problemEntries.has(old)) problems--;
             if (paused && old.seq <= pauseSeq) {
               viewCount--;
+              viewChanged = true;
+            }
+            if (shownAfterPause.includes(old)) {
+              shownAfterPause = shownAfterPause.filter((item) => item !== old);
               viewChanged = true;
             }
             markRemoved(old);
@@ -235,6 +262,7 @@ export function createPanelStore(options: PanelStoreOptions): PanelStore {
             arrived = 0;
             viewChanged = true;
             pausedPending = Object.freeze([]);
+            shownAfterPause = [];
           }
           for (const list of ['http', 'ws', 'console'] as const) {
             const sel = selection[list];
@@ -258,7 +286,7 @@ export function createPanelStore(options: PanelStoreOptions): PanelStore {
 
     const patch: Writable<Partial<PanelState>> = { selection, captureOn, buffer: sameBuffer(bufferState()) };
     if (paused) {
-      if (viewChanged) patch.entries = Object.freeze(buf.slice(head, head + viewCount));
+      if (viewChanged) patch.entries = Object.freeze(pausedViewEntries());
       patch.pending = pausedPending;
       patch.newSincePause = Math.min(arrived, capacity);
     } else {
@@ -332,10 +360,12 @@ export function createPanelStore(options: PanelStoreOptions): PanelStore {
       pauseSeq = lastSeq;
       viewCount = buf.length - head;
       arrived = 0;
+      shownAfterPause = [];
       commit({ paused: true, newSincePause: 0 });
     },
     resume() {
       if (!state.paused) return;
+      shownAfterPause = [];
       commit({
         paused: false,
         newSincePause: 0,
