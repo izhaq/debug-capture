@@ -160,6 +160,9 @@ export const createHttpView: CreateView = (deps) => {
     },
     onError: report,
   });
+  // The no-match block is not true yet. Leave it hidden so the first paint
+  // does not read both messages (S09, NFR-A11Y-01). The first update sets it.
+  noMatch.element.hidden = true;
   dom.append(pane, [empty.element, noMatch.element]);
 
   return {

@@ -1,3 +1,4 @@
+import { FRAME_CSS } from './frame-css';
 import { mountFrame } from './frame';
 import { createRig, createStage, errorEntry, frameOptions, logEntry, NO_CONTROLLER, Rig, Stage } from './fakes.spec';
 import type { MountPanelUiOptions } from './mount-panel-ui';
@@ -497,5 +498,17 @@ describe('S-08 frame (mountFrame)', () => {
     button.click();
     expect(stage.panelRoot.style.height).toBe('40%');
     expect(button.getAttribute('aria-pressed')).toBe('false');
+  });
+});
+
+describe('FRAME_CSS forced colours (S09-03, §5.7)', () => {
+  it('keeps the banner 2 px mark when forced colours drop the inset shadow', () => {
+    const rule = FRAME_CSS.slice(FRAME_CSS.indexOf('@media (forced-colors:active)'));
+    expect(rule.startsWith('@media (forced-colors:active)'))
+      .withContext('the banner mark is a shadow, which forced colours discard')
+      .toBeTrue();
+    expect(rule).toContain('.dcp-banner{');
+    expect(rule).toContain('box-shadow:none');
+    expect(rule).toContain('border-inline-start:2px solid CanvasText');
   });
 });

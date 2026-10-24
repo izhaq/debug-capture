@@ -55,4 +55,7 @@ export const FRAME_CSS = [
   '.dcp-status__part+.dcp-status__part::before{content:"\\00b7"/"";padding:0 6px;color:var(--dcp-text-faint)}',
   '.dcp-status__icon{display:inline-flex}',
   '.dcp-status__icon>.dcp-icon{width:12px;height:12px;vertical-align:0}',
+  // §5.7 banner bar is an inset shadow. Forced colours drop shadows, so the
+  // mark becomes a 2 px border in the system text colour (S09-02, NFR-A11Y-01).
+  '@media (forced-colors:active){.dcp-banner{box-shadow:none;border-inline-start:2px solid CanvasText}}',
 ].join('\n');
