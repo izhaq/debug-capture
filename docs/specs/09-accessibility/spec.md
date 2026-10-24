@@ -18,18 +18,19 @@ whole panel:
 
 - The banner's 2 px bar is only a shadow, so forced colours drop it. In that
   mode it becomes a 2 px border.
-- Each view's "no match" block started visible, so the first paint showed it
-  together with "nothing yet". It stays hidden until the first update.
+- Each view's first paint follows the store. Nothing captured shows only the
+  empty message. A restored filter that hides every row shows "no match",
+  not "nothing yet".
 
 ## Requirements
 
 | ID | Requirement | HLD |
 |---|---|---|
-| S09-01 | On the hostile host, with no mouse: `Ctrl+Alt+Shift+P` opens the panel and moves focus in. `Tab` reaches the resize handle, the section tabs, the Network sub-tabs, the request list, an open detail and the JSON tree. `←` `→` move both tab bars. `Alt+1` / `Alt+2` show Network / Console. `↑` `↓` `Home` `End` `PageUp` `PageDown` move the list selection. `Enter` on the list opens the detail. `←` `→` `Enter` `Space` collapse and expand the JSON tree. `Ctrl+F` focuses the filter box only when focus is already inside the panel. `Escape` closes the detail first, then the panel, and focus returns to the control that opened it. Keys pressed inside the panel do not reach the host, except the global toggle chord. | FR-COM-05, ISO-07, ISO-16, §4.12 |
+| S09-01 | On the hostile host, with no mouse: `Ctrl+Alt+Shift+P` opens the panel and moves focus in. `Tab` reaches the resize handle, the section tabs, the Network sub-tabs, the request list, an open detail and the JSON tree. `←` `→` move both tab bars. `Alt+1` / `Alt+2` show Network / Console. `↑` `↓` `Home` `End` `PageUp` `PageDown` move the list selection. `Enter` on the list opens the detail. `←` `→` `Enter` `Space` collapse and expand the JSON tree. `Ctrl+F` focuses the filter box only when focus is already inside the panel. `Escape` closes the detail, then an open Export menu or Settings (focus returns to the button), then the panel, and focus returns to the control that opened the panel. Keys pressed inside the panel do not reach the host, except the global toggle chord. | FR-COM-05, ISO-07, ISO-16, §4.12 |
 | S09-02 | Forced colours: the panel's text colour follows the system colours, a 4xx row still shows its status word and an icon, and the capture-off banner keeps a 2 px bar at the start (a border, not the shadow). | NFR-A11Y-01, §5.6, §5.7 |
-| S09-03 | Reduced motion: with `prefers-reduced-motion: reduce`, the panel computes no transition and no animation. There is no motion by default either. | NFR-A11Y-01, §5.7 |
+| S09-03 | Reduced motion: an inline transition and animation on a panel control still compute to none under `prefers-reduced-motion: reduce`, and stay visible when motion is allowed. | NFR-A11Y-01, §5.7 |
 | S09-04 | Keyboard focus draws the 2 px accent outline (`:focus-visible` only). In forced colours that outline is the system highlight. | NFR-A11Y-01, §5.7 |
-| S09-05 | Each view's "no match" block is hidden until the first update, so the first paint shows only the empty message. | NFR-A11Y-01, §4.11 |
+| S09-05 | The first paint already matches the store: nothing captured shows only the empty message; a restored filter that excludes every row shows only "no match". | NFR-A11Y-01, §4.11 |
 
 ## Out of scope
 
@@ -52,6 +53,6 @@ current view only. Raising the loader or UI size budgets.
 |---|---|
 | FR-COM-05 | `test/e2e/panel-a11y.spec.mjs` — keyboard walk |
 | NFR-A11Y-01 (keyboard, focus, forced colours, reduced motion) | `test/e2e/panel-a11y.spec.mjs`; `src/panel/app/frame.spec.ts` (banner border) |
-| NFR-A11Y-01 (first paint, §4.11) | `test/e2e/panel-ws.spec.mjs` sees only "No WebSocket connections yet." before any socket; the same initial hide is in the HTTP and Console views |
+| NFR-A11Y-01 (first paint, §4.11) | `http-filter.spec.ts`, `ws-filter.spec.ts`, `console-filter.spec.ts` (S09-05, before the first update); `test/e2e/panel-ws.spec.mjs` sees only "No WebSocket connections yet." before any socket |
 | NFR-A11Y-01 (contrast) | `npm run contrast` (S-04 script) |
 | ISO-07, ISO-16 (as they apply to this walk) | the same e2e: host listeners stay quiet; focus returns to `#host-input` |

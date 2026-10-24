@@ -28,13 +28,13 @@ test.afterEach(async ({ page }) => {
 });
 
 /** Tab until `locator` is the focused element inside its shadow root. */
-async function tabTo(page, locator, label) {
+async function tabTo(page, locator, label, key = 'Tab') {
   for (let i = 0; i < 40; i += 1) {
     const reached = await locator.evaluate((el) => el.getRootNode().activeElement === el).catch(() => false);
     if (reached) return;
-    await page.keyboard.press('Tab');
+    await page.keyboard.press(key);
   }
-  throw new Error(`Tab never reached ${label}`);
+  throw new Error(`${key} never reached ${label}`);
 }
 
 const selectedRow = (page) => page.locator(`${VIEW} .dcp-vlist__body [role="row"][aria-selected="true"]`);
@@ -154,10 +154,32 @@ test('FR-COM-05, ISO-07, ISO-16: the panel is fully usable from the keyboard, an
   await page.keyboard.press('Space');
   await expect(rootItem).toHaveAttribute('aria-expanded', 'true');
 
-  // Innermost first: the detail, then the panel (FR-WIN-05).
+  // Innermost first: the detail, then a menu or popover, then the panel (FR-WIN-05, §4.12).
   await page.keyboard.press('Escape');
   await expect(page.locator(`${VIEW} .dcp-http-detail`)).toBeHidden();
   await expect(page.locator(VIEW)).toBeVisible();
+
+  const exportButton = page.locator(`${PANEL} button[aria-label="Export"]`);
+  // Export sits in the toolbar, above the list that just took focus back.
+  await tabTo(page, exportButton, 'Export', 'Shift+Tab');
+  await page.keyboard.press('ArrowDown');
+  const exportMenu = page.locator(`${PANEL} [role="menu"][aria-label="Export"]`);
+  await expect(exportMenu).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(exportMenu).toBeHidden();
+  await expect(exportButton).toBeFocused();
+  await expect(page.locator(VIEW)).toBeVisible();
+
+  const settingsButton = page.locator(`${PANEL} button[aria-label="Settings"]`);
+  await tabTo(page, settingsButton, 'Settings');
+  await page.keyboard.press('Enter');
+  const settings = page.locator(`${PANEL} [role="dialog"][aria-label="Settings"]`);
+  await expect(settings).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(settings).toBeHidden();
+  await expect(settingsButton).toBeFocused();
+  await expect(page.locator(VIEW)).toBeVisible();
+
   await page.keyboard.press('Control+KeyF');
   await expect(page.locator(`${VIEW} input[aria-label="Filter requests"]`)).toBeFocused();
 
@@ -211,19 +233,28 @@ test('NFR-A11Y-01, §5.6, §5.7: forced colours keep the status word, the banner
 
   const capture = page.locator(`${PANEL} button[aria-label="Capture"]`);
   await expect(capture).toBeFocused();
-  const motion = await capture.evaluate((el) => {
-    const style = getComputedStyle(el);
-    return {
-      outlineWidth: style.outlineWidth,
-      outlineStyle: style.outlineStyle,
-      transition: style.transitionDuration,
-      animation: style.animationName,
-    };
+  // An inline motion the rule must kill. Without the media query these stay.
+  await capture.evaluate((el) => {
+    el.style.transition = 'opacity 1s linear';
+    el.style.animation = 'dcp-probe 1s linear infinite';
   });
-  expect(motion.outlineStyle).not.toBe('none');
-  expect(motion.outlineWidth).toBe('2px');
-  expect(motion.transition).toBe('0s');
-  expect(motion.animation).toBe('none');
+  const motionOf = (locator) =>
+    locator.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return { transition: style.transitionDuration, animation: style.animationName };
+    });
+  await expect.poll(() => motionOf(capture)).toEqual({ transition: '0s', animation: 'none' });
+  const ring = await capture.evaluate((el) => {
+    const style = getComputedStyle(el);
+    return { outlineWidth: style.outlineWidth, outlineStyle: style.outlineStyle };
+  });
+  expect(ring.outlineStyle).not.toBe('none');
+  expect(ring.outlineWidth).toBe('2px');
+
+  await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'no-preference' });
+  await expect.poll(() => motionOf(capture)).toEqual({ transition: '1s', animation: 'dcp-probe' });
+  await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
+  await expect.poll(() => motionOf(capture)).toEqual({ transition: '0s', animation: 'none' });
 
   const rootMotion = await root.evaluate((el) => {
     const style = getComputedStyle(el);

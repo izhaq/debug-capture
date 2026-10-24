@@ -31,7 +31,7 @@ If the walk finds a real keyboard or focus bug, the fix stays in the file that o
 
 Ready for review. Not merged.
 
-- Unit specs: 1119 ran, floor 1119. The new banner spec failed once before the CSS rule existed, then passed.
-- e2e: 33 ran, floor 33, including the new keyboard walk and the forced-colour / reduced-motion test.
-- Sizes, min+gzip, budgets unchanged: loader 4,084 / 4,096. UI chunk 38,882 / 40,960.
+- Unit specs: 1122 ran, floor 1122. The banner spec failed once before the CSS rule existed. The first-paint specs failed once while a restored filter still showed the empty message.
+- e2e: 33 ran, floor 33. The keyboard walk includes Export and Settings Escape. Reduced motion is checked against an inline transition the rule must turn off.
+- Sizes, min+gzip, budgets unchanged: loader 4,084 / 4,096. UI chunk 38,926 / 40,960.
 - Contrast, typecheck, lint, layer check and pack check passed.

@@ -149,9 +149,21 @@ export const createWsView: CreateView = (deps) => {
     },
     onError: report,
   });
-  // The no-match block is not true yet. Leave it hidden so the first paint
-  // does not read both messages (S09, NFR-A11Y-01). The first update sets it.
-  noMatch.element.hidden = true;
+  // First paint, before the frame's update: a restored filter must not say
+  // "no socket yet" while messages are only hidden (S09-05). `rows` and
+  // `conns` stay unset so the first update still fills the lists.
+  const paintLists = (
+    state: PanelState,
+    nextConns: readonly WsConnection[],
+    nextRows: readonly WebSocketEntry[],
+  ): void => {
+    const total = selectListCounts(state, 'ws').total;
+    connPane.hidden = nextConns.length === 0;
+    empty.element.hidden = nextConns.length > 0;
+    noMatch.element.hidden = total === 0 || nextRows.length > 0;
+    list.element.hidden = nextRows.length === 0;
+  };
+  paintLists(last, selectWsConnections(last), selectWsMessages(last));
   dom.append(pane, [empty.element, noMatch.element]);
 
   return {
@@ -163,9 +175,9 @@ export const createWsView: CreateView = (deps) => {
       if (nextConns !== conns) {
         conns = nextConns;
         items = [...nextConns, 'all'];
-        connPane.hidden = nextConns.length === 0;
         connList.setItems(items);
         shownConn = undefined;
+        paintLists(state, nextConns, rows);
       }
       // The chosen socket stays chosen while it has no row (after Clear): its new messages show again.
       if (state.wsConnection !== shownConn) {
@@ -178,10 +190,7 @@ export const createWsView: CreateView = (deps) => {
       if (changed) {
         rows = next;
         // States first: the list measures its height in `setItems`, so the blocks beside it must be settled.
-        const total = selectListCounts(state, 'ws').total;
-        empty.element.hidden = nextConns.length > 0;
-        noMatch.element.hidden = total === 0 || rows.length > 0;
-        list.element.hidden = rows.length === 0;
+        paintLists(state, nextConns, rows);
         list.setItems(rows);
         countNew();
       }

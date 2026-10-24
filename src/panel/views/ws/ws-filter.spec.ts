@@ -82,6 +82,17 @@ describe('S-06 WebSocket view: filter bar', () => {
     expect(s.reported).toEqual([]);
   });
 
+  it('S09-05: a restored filter that excludes every message shows no-match on the first paint', () => {
+    const s = stage({ skipInitialUpdate: true, entries: [ws(1, { data: 'hello' })], filters: { direction: ['sent'] } });
+    expect(
+      s
+        .all('.dcp-empty')
+        .filter((e) => !e.hidden)
+        .map((e) => e.textContent),
+    ).toEqual(['No entries match the filter.Clear filters']);
+    expect(s.q('.dcp-list-pane .dcp-vlist').hidden).toBeTrue();
+  });
+
   it('S06-05, FR-COM-04: Clear filters resets the search box (even a search still waiting), the chips and the store', () => {
     const s = stage({ entries: [ws(1, { data: 'abc' })] });
     s.click(chip(s, 'Direction', 'Sent'));

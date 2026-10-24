@@ -75,6 +75,12 @@ describe('S-07 Console view: filter bar and states', () => {
     expect(s.store.getState().filters.console).toEqual({ text: '', levels: ['warn', 'info', 'log'] });
   });
 
+  it('S09-05: a restored filter that excludes every message shows no-match on the first paint', () => {
+    const s = stage({ skipInitialUpdate: true, entries: [log(1, 'log', ['hello'])], filters: { levels: ['error'] } });
+    expect(shownEmpty(s)).toEqual(['No entries match the filter.Clear filters']);
+    expect(s.q('.dcp-vlist').hidden).toBeTrue();
+  });
+
   it('S07-06, FR-COM-04: "No console messages yet."; no match shows the message and Clear filters, which resets both', () => {
     const s = stage();
     expect(shownEmpty(s)).toEqual(['No console messages yet.']);

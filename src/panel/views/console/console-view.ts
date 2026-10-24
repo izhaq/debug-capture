@@ -181,9 +181,16 @@ export const createConsoleView: CreateView = (deps) => {
     },
     onError: report,
   });
-  // The no-match block is not true yet. Leave it hidden so the first paint
-  // does not read both messages (S09, NFR-A11Y-01). The first update sets it.
-  noMatch.element.hidden = true;
+  // First paint, before the frame's update: a restored filter must not say
+  // "nothing yet" while rows are only hidden (S09-05). `shown` stays `[]` so
+  // the first update still fills the list once it can be measured.
+  const paintLists = (state: PanelState, next: readonly ConsoleRow[]): void => {
+    const total = selectListCounts(state, 'console').total;
+    empty.element.hidden = total > 0;
+    noMatch.element.hidden = total === 0 || next.length > 0;
+    list.element.hidden = next.length === 0;
+  };
+  paintLists(last, selectConsoleRows(last));
   dom.append(pane, [empty.element, noMatch.element]);
 
   return {
@@ -198,10 +205,7 @@ export const createConsoleView: CreateView = (deps) => {
         const before = counts;
         ({ firsts: rows, counts } = runs(next));
         // States first: the list measures its height in `setItems`, so the blocks beside it must be settled.
-        const total = selectListCounts(state, 'console').total;
-        empty.element.hidden = total > 0;
-        noMatch.element.hidden = total === 0 || rows.length > 0;
-        list.element.hidden = rows.length === 0;
+        paintLists(state, rows);
         list.setItems(rows);
         // A run that grew or split keeps its first entry, so the list would not redraw its count by itself.
         if (stale(before, counts)) list.refresh();

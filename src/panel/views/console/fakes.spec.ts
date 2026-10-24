@@ -78,6 +78,8 @@ export interface StageOptions {
   readonly height?: number;
   /** The Console filter the store starts with (as restored from settings, `D-20`). */
   readonly filters?: Partial<ConsoleFilter>;
+  /** Skip the stage's first `update`, so a spec can see the view's first paint. */
+  readonly skipInitialUpdate?: boolean;
 }
 
 export interface Stage {
@@ -164,7 +166,7 @@ export function stage(options: StageOptions = {}): Stage {
   views.push(view);
   // The frame renders once per frame after a change; the stage renders at once.
   store.subscribe((state) => view.update(state));
-  view.update(store.getState());
+  if (options.skipInitialUpdate !== true) view.update(store.getState());
 
   const q = <T extends Element = HTMLElement>(selector: string): T => {
     const found = root.querySelector<T>(selector);

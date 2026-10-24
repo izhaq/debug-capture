@@ -97,6 +97,16 @@ describe('S-05 HTTP view: filter bar and states', () => {
     expect(shownEmpty(s)).toEqual([]);
   });
 
+  it('S09-05: a restored filter that excludes every row shows no-match on the first paint', () => {
+    const s = stage({
+      skipInitialUpdate: true,
+      entries: [http(1, { status: 200 })],
+      filters: { status: ['5xx'] },
+    });
+    expect(shownEmpty(s)).toEqual(['No entries match the filter.Clear filters']);
+    expect(s.q('.dcp-vlist').hidden).toBeTrue();
+  });
+
   it('§4.5, D-20: chips start from the stored filters and follow the store; focusFilter (Ctrl+F) focuses the search', () => {
     const s = stage({ entries: [http(1), http(2, { status: 503 })], filters: { status: ['5xx'] } });
     expect(chip(s, 'Status', '5xx')?.getAttribute('aria-pressed')).toBe('true');
