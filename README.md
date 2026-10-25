@@ -1,96 +1,231 @@
-# debug-capture v2
+# debug-capture
 
-A debug tool for web apps that run where browser DevTools are not available
-(air-gapped stations). It records console output, errors, REST calls and
-WebSocket traffic, and — new in v2 — shows them in an **on-screen panel**.
+An on-screen debug panel for web apps that run where browser DevTools are not
+available (air-gapped stations). It records HTTP requests, WebSocket traffic,
+console output and errors, and shows them live in a panel that floats over
+your app — like DevTools, inside the page.
 
-This folder is **v2**. It is meant to become its own package, and later its
-own repository: everything it needs lives inside this folder.
+- **Off by default.** Nothing is patched until a flag turns it on.
+- **Works in any app:** Angular (16 to 20), React 19, or a plain HTML page with no bundler.
+- **No runtime dependencies.** Everything ships in one tarball you can carry into
+  a closed network.
+- **Small:** the loader is about 4 kB (min + gzip). The panel UI (about 39 kB)
+  loads only the first time someone opens the panel.
+- **Chrome 146 or newer** only.
 
-## Where things are
+## Turn it on
 
-|                     |                                                                                                                                               |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Source of truth** | [`docs/design/HLD.md`](docs/design/HLD.md) — the high-level design. Every spec and plan for v2 is cut from it.                                |
-| Research behind it  | [`docs/research/`](docs/research/) — how a Web Component panel can still affect a host app (82 cases), and our practices baseline / v2 rules. |
-| v1 background       | [`docs/v1/`](docs/v1/) — v1's usage guide and decision record, as they were when v2 started.                                                  |
-| Code                | `src/` — see below.                                                                                                                           |
+Capture runs only when the station or page asks for it:
+
+| How                                                         | For                             |
+| ----------------------------------------------------------- | ------------------------------- |
+| `?debug=1` (or `?debug=true`) in the page URL               | one page load                   |
+| `localStorage.setItem('debug-capture', '1')` in the browser | every page load in that browser |
+
+Then press **`Ctrl+Alt+Shift+P`** or click the **DBG** button in the corner to
+open the panel. Remove the flag (and reload) to turn it off again.
+
+## Install
+
+The package ships as one file. Build it once on a machine with access to the
+source, carry the tarball in, and install it like any other package:
+
+```bash
+npm install ./debug-capture-2.0.0-alpha.0.tgz
+```
+
+ESM only, with type declarations. Entry points:
+
+| Import                  | What                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------- |
+| `debug-capture`         | the recorder: `createCaptureController`, `isDebugRequested`, policies, types |
+| `debug-capture/panel`   | the panel loader: `installDebugPanel`                                        |
+| `debug-capture/angular` | Angular providers (`@angular/core` 16–20 as a peer)                          |
+| `debug-capture/react`   | React root error options (no React import of its own)                        |
+
+Each entry is a prebuilt file in `dist/` (`index.mjs`, `panel.mjs`, `angular.mjs`,
+`react.mjs`). TypeScript resolves the types with `moduleResolution` `node`,
+`bundler`, `node16` or `nodenext`.
+
+## Add it to your app
+
+Start capture **before** your app starts, so its first requests are recorded.
+The same two lines work in every host:
+
+```ts
+import { createCaptureController, isDebugRequested } from 'debug-capture';
+import { installDebugPanel } from 'debug-capture/panel';
+
+const controller = isDebugRequested() ? createCaptureController() : null; // installs capture now
+installDebugPanel(controller); // launcher + shortcut; the UI loads on first open (null → does nothing)
+```
+
+With the flag off, `controller` is `null` and `installDebugPanel` does nothing.
+To skip even the 4 kB loader when the flag is off, `import()` it inside the `if`.
+
+The examples below are the test hosts in `test/hosts/`; an end-to-end test
+runs each of them (`test/e2e/hosts.spec.mjs`).
+
+### Angular (16 to 20; tested on 16.2)
+
+Add the two providers, so errors Angular catches itself are recorded too:
+
+```ts
+// main.ts
+import { bootstrapApplication } from '@angular/platform-browser';
+import { createCaptureController, isDebugRequested } from 'debug-capture';
+import { provideDebugCapture, provideDebugCaptureSession } from 'debug-capture/angular';
+import { installDebugPanel } from 'debug-capture/panel';
+import { AppComponent } from './app/app.component';
+
+const controller = isDebugRequested() ? createCaptureController() : null;
+installDebugPanel(controller);
+
+bootstrapApplication(AppComponent, {
+  providers: [provideDebugCapture(), provideDebugCaptureSession(controller?.session ?? null)],
+});
+```
+
+With an `NgModule` app, pass `provideDebugCaptureSession(…)` to
+`platformBrowserDynamic([…])` and put `provideDebugCapture()` in the root
+module's `providers`. The panel runs outside Angular's zone: it causes no change
+detection.
+
+### React (19)
+
+Give the root the error options, so errors React catches (error boundaries,
+uncaught render errors) are recorded:
+
+```ts
+// main.tsx
+import { createRoot } from 'react-dom/client';
+import { createCaptureController, isDebugRequested } from 'debug-capture';
+import { installDebugPanel } from 'debug-capture/panel';
+import { createReactRootErrorOptions } from 'debug-capture/react';
+import { App } from './App';
+
+const controller = isDebugRequested() ? createCaptureController() : null;
+installDebugPanel(controller);
+
+createRoot(document.getElementById('root')!, createReactRootErrorOptions(controller?.session ?? null)).render(<App />);
+```
+
+`createReactRootErrorOptions(session, next)` also takes your own
+`onCaughtError` / `onUncaughtError` / `onRecoverableError`; it calls them after
+recording.
+
+### Plain HTML page (no bundler)
+
+Copy the package's `dist/` folder next to your page (here as
+`vendor/debug-capture/`) and load it with a module script:
+
+```html
+<script type="module">
+  import { createCaptureController, isDebugRequested } from './vendor/debug-capture/index.mjs';
+  import { installDebugPanel } from './vendor/debug-capture/panel.mjs';
+  if (isDebugRequested()) installDebugPanel(createCaptureController());
+</script>
+```
+
+Put it before your own scripts, so capture is on before they run.
+
+## Options
+
+`installDebugPanel(controller, options)`:
+
+| Option        | Default                 | What                                                                                 |
+| ------------- | ----------------------- | ------------------------------------------------------------------------------------ |
+| `launcher`    | `true`                  | Show the DBG button in the corner. `false` hides it; the shortcut still works.       |
+| `shortcut`    | `'ctrl+alt+shift+p'`    | The open / close chord, matched on the physical key. `false` binds none.             |
+| `defaultDock` | `'bottom'`              | Where the panel opens the first time: `'bottom'` or `'right'`.                       |
+| `storageKey`  | `'debug-capture:panel'` | `localStorage` key for the panel's settings and filter chips. `false` keeps nothing. |
+
+It returns a handle: `open()` (for your own menu item or button — the panel
+never opens by itself), `close()`, `isOpen`, `loadError` (why the UI failed to
+load, if it did) and `dispose()`.
+
+`createCaptureController(options)`:
+
+| Option                  | What                                                                                                                             |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `policy.maxEntries`     | Entries kept (default 5,000); the oldest go first.                                                                               |
+| `policy.maxBodyLength`  | Longer bodies, messages and stacks are cut, with a marker (default 32,768 characters).                                           |
+| `policy.redactHeaders`  | Header names whose values are hidden (default: `authorization`, `cookie`, `set-cookie`, `x-api-key` and other auth headers).     |
+| `policy.redactJsonKeys` | Secret key names hidden in bodies, frames, logs and URL parameters (default: `password`, `token`, `secret`, `apikey`, and more). |
+| `policy.redactBodyUrls` | URLs (`RegExp`) whose bodies are hidden whole.                                                                                   |
+| `policy.ignoreUrls`     | URLs (`RegExp`) not recorded at all.                                                                                             |
+| `shortcuts`             | The capture shortcuts below; `false` binds none.                                                                                 |
+
+## Using the panel
+
+- **Network › HTTP:** every `fetch` and XHR in start order, pending ones too.
+  Sort by a column, filter by status or type, search. Open a row for headers,
+  body (as a JSON tree when it is JSON), timing and **Copy as cURL**.
+- **Network › WebSocket:** each connection and its messages, text or binary.
+- **Console:** logs at every level, uncaught errors, unhandled rejections and
+  the errors your framework catches, with their stacks.
+- **Toolbar:** pause the view, clear, export (**Download all (JSON)** or
+  **Copy all (JSON)**), and switch capture off and on.
+- Dock bottom or right, resize, maximize. Settings are remembered per browser.
+
+The exported file is plain JSON (`schemaVersion` 1, the same format as v1): you
+can read it without the panel.
+
+### Keyboard
+
+| Keys                                     | Where     | Action                                                              |
+| ---------------------------------------- | --------- | ------------------------------------------------------------------- |
+| `Ctrl+Alt+Shift+P`                       | anywhere  | Open / close the panel                                              |
+| `Ctrl+Alt+Shift+D` / `C` / `X`           | anywhere  | Download / copy / clear the capture (inactive while capture is off) |
+| `Escape`                                 | panel     | Close the innermost thing: a menu, else the detail, else the panel  |
+| `↑` `↓` `Home` `End` `PageUp` `PageDown` | list      | Move the selection                                                  |
+| `Enter`                                  | list      | Open the detail                                                     |
+| `Ctrl+F`                                 | panel     | Focus the filter box                                                |
+| `Alt+1` / `Alt+2`                        | panel     | Network / Console                                                   |
+| `←` `→`                                  | tab bar   | Move between tabs                                                   |
+| `←` `→` `Enter` `Space`                  | JSON tree | Collapse / expand                                                   |
+
+Keys pressed inside the panel never reach your app, except the chords above.
+
+## Safety
+
+- **Secrets are hidden before they are stored.** The panel shows, copies and
+  exports only what the recorder kept.
+- **Text only.** Captured data never becomes HTML or a link; a body full of HTML
+  shows as text. No `innerHTML`, no `eval`.
+- **No network.** The panel makes no requests. Copy and export happen only when
+  someone clicks.
+- **Strict CSP is fine:** works under `default-src 'self'` with no
+  `'unsafe-inline'`, and with Trusted Types (`require-trusted-types-for 'script'`).
+- **Stays out of your way:** the panel lives in its own shadow root in the top
+  layer. Your CSS does not reach it and its CSS does not reach your page. It
+  stores only its settings in `localStorage` — never captured data.
+
+## Known limits
+
+- In **fullscreen**, or while your app shows a **modal dialog**, the panel is
+  drawn on top and stays live, but it cannot be clicked (a browser rule). It says
+  so in a banner. Leave fullscreen or close the dialog to use it.
+- A modal dialog inside your app's own **shadow root** is not detected.
+- Docked **right** and narrow, the HTTP filter bar cuts off its last chips.
+- URL user-info redaction misses URLs with a leading space and protocol-relative
+  `//host` URLs.
 
 ## Develop
 
 Everything runs from this folder, with its own install (Node
-`^20.19.0 || ^22.13.0 || >=24`, the range ESLint 10 needs):
+`^20.19.0 || ^22.13.0 || >=24`):
 
 ```bash
-cd packages/debug-capture
 npm ci
-npm run check        # every check below, in order
+npm run check   # typecheck, lint, layers, format, contrast, unit tests, build, size, pack check, e2e
+npm pack        # → debug-capture-<version>.tgz, the file to carry in
 ```
 
-| Command                | What it checks                                                                              |
-| ---------------------- | ------------------------------------------------------------------------------------------- |
-| `npm run typecheck`    | TypeScript, strict, specs included                                                          |
-| `npm run lint`         | ESLint rules (no `any`, no `console`, no HTML strings…), after a self-test of the rules     |
-| `npm run lint:layers`  | each layer imports only the one above it (HLD §6.2), after its self-test                    |
-| `npm run format:check` | Prettier formatting (`npm run format` fixes it)                                             |
-| `npm run contrast`     | the HLD §5.4 colour tokens meet WCAG contrast, after its self-test                          |
-| `npm test`             | all unit specs, headless Chromium; fails if any spec is skipped or fewer run than the floor |
-| `npm run build`        | `.d.ts` per source file (`tsc`) and the `dist/*.mjs` bundles (esbuild)                      |
-| `npm run size`         | bundle size budgets, in bytes minified + gzip level 6                                       |
-| `npm run pack:check`   | `npm pack`, install the tarball in a scratch app, type-check and import every entry point   |
-| `npm run e2e`          | Playwright smoke test on a plain HTML page                                                  |
+`npm run e2e` uses the Chromium of the pinned `@playwright/test`; never run
+`playwright install` for another version. Rules for people and agents are in
+[`AGENTS.md`](AGENTS.md); the design is in [`docs/design/HLD.md`](docs/design/HLD.md);
+specs are in [`docs/specs/`](docs/specs/README.md).
 
-- **Chromium.** `npm test` (Karma) uses `CHROME_BIN` when it is set, and
-  otherwise the Chromium of the pinned `@playwright/test`. `npm run e2e`
-  (Playwright) always uses that Playwright Chromium and ignores `CHROME_BIN`;
-  it finds it through `PLAYWRIGHT_BROWSERS_PATH`. Never run
-  `playwright install`: the browser must match the pinned version (1.56.1).
-- `npm run pack:check` and `npm run e2e` read `dist/`; they stop with a clear
-  message if it is missing or older than `src/` (`npm run build` first;
-  `npm run check` does).
-- The spec floor is in `test/unit/spec-floor.json`: raise it when you add
-  specs.
-
-- **Rules** for people and agents: [`AGENTS.md`](AGENTS.md).
-- **Design** (source of truth): [`docs/design/HLD.md`](docs/design/HLD.md).
-- **Specs** (one folder per piece of work): [`docs/specs/`](docs/specs/README.md).
-
-### Using the package
-
-ESM only. Entry points: `debug-capture`, `debug-capture/angular`,
-`debug-capture/react`, `debug-capture/panel`; each resolves to a prebuilt
-bundle in `dist/` with its `.d.ts`. Types resolve with TypeScript
-`moduleResolution` `node` (as in the Angular 16 host), `bundler`, `node16` and
-`nodenext`. A plain page can load `dist/index.mjs` and `dist/panel.mjs`
-directly with `<script type="module">`.
-
-## Status
-
-**Seed.** `src/` is a copy of v1 as of host-app commit `8fb0a0d`
-(PRs #34–#50 on the `claude/air-gapped-debug-logging-zkn1nr` branch), so v2
-starts from working, reviewed code:
-
-| v2 path                                                       | Copied from (host app)                                                                        |
-| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `src/` (contract, core, adapters, install, react, `index.ts`) | `src/debug-capture/`                                                                          |
-| `src/angular/`                                                | `src/app/features/debug-capture/` (imports changed from `'../../../debug-capture'` to `'..'`) |
-
-**Foundation (S-00) done:** the package installs, tests, lints, builds and
-size-checks on its own (see Develop). The v2 contracts and the empty panel
-layers are in place; the Angular seam needs no decorators (C-4). Not set up
-yet: CI (waits for `OPEN-06`).
-
-## v1 and v2
-
-- **v1 stays where it is**, inside the host app (`src/debug-capture/`), and
-  keeps working there. It is not deleted or changed by v2 work.
-- **v2 grows here**: the panel, and any change to the capture layer it needs.
-- The host app keeps using v1 until v2 is ready and the switch is decided.
-
-## Copy note
-
-One spec line was changed in the copy: `src/core/recorder.spec.ts` casts a
-`CaptureEntry` to `unknown` before `expect()`, the workaround v1's specs
-already use elsewhere. Jasmine's `Expected<T>` on the recursive `JsonValue`
-type can hit TypeScript's depth limit (TS2589) depending on file check order;
-it compiles in the host app but not standalone.
+v2 was seeded from v1, which lives in the host app at the repository root
+(`src/debug-capture/`, as of commit `8fb0a0d`) and keeps working there unchanged.
