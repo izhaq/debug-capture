@@ -35,6 +35,8 @@ export const FRAME_CSS = [
     'border-bottom:1px solid var(--dcp-divider);background-color:var(--dcp-bg-elevated);' +
     'box-shadow:inset 2px 0 0 var(--dcp-warning)}',
   '.dcp-banner__text{flex:1 1 auto;min-width:0}',
+  // 2.1 warning banners carry two or three buttons: they wrap under the text on a narrow panel.
+  '.dcp-banner[data-warning]{flex-wrap:wrap}',
   // Tab panels; the Network sub-tabs open the view's filter bar (§5.2), or their own bar if it has none.
   '.dcp-body{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-width:0;min-height:0}',
   '.dcp-tabpanel{display:flex;flex-direction:column;flex:1 1 auto;min-width:0;min-height:0}',
@@ -43,10 +45,20 @@ export const FRAME_CSS = [
     'border-bottom:1px solid var(--dcp-divider);background-color:var(--dcp-bg-elevated)}',
   // Settings popover: one row per setting.
   '.dcp-settings{display:flex;flex-direction:column;gap:4px;padding:4px}',
-  '.dcp-setting{display:flex;align-items:center;gap:8px;min-width:0;margin:0;padding:0;border:0}',
+  '.dcp-setting{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;min-width:0;margin:0;padding:0;border:0}',
   '.dcp-setting>legend{float:left;width:72px;padding:0;color:var(--dcp-text-muted)}',
   '.dcp-setting>label{display:inline-flex;align-items:center;gap:4px;cursor:pointer}',
   '.dcp-setting input{margin:0;accent-color:var(--dcp-accent)}',
+  // The No limit warning (FR-BUF-03): under the Buffer choices, in the warning colour, never by colour alone (it is words).
+  '.dcp-setting-note{flex:1 0 100%;max-width:360px;margin:0 0 0 80px;color:var(--dcp-warning)}',
+  // Add note form (FR-NOTE-01): controls as §5.7.
+  '.dcp-note{display:flex;flex-direction:column;gap:8px;width:320px;max-width:calc(100vw - 32px);padding:4px}',
+  '.dcp-note__field{display:flex;flex-direction:column;gap:2px;color:var(--dcp-text-muted)}',
+  '.dcp-note>.dcp-btn{align-self:flex-end}',
+  '.dcp-input{box-sizing:border-box;width:100%;min-height:var(--dcp-control-h);margin:0;padding:2px 6px;' +
+    'border:1px solid var(--dcp-border-control);border-radius:4px;background-color:var(--dcp-bg);color:var(--dcp-text);' +
+    'font:inherit}',
+  '.dcp-note__text{height:72px;resize:vertical;font-family:var(--dcp-font-mono)}',
   // Status bar, 22 px, meta text (§5.3, §5.5).
   '.dcp-statusbar{display:flex;align-items:center;flex:none;height:var(--dcp-status-h);padding:0 8px;' +
     'border-top:1px solid var(--dcp-divider);background-color:var(--dcp-bg-elevated);font-family:var(--dcp-font-mono);' +

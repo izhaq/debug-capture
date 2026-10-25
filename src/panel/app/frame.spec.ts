@@ -167,12 +167,21 @@ describe('S-08 frame (mountFrame)', () => {
     expect(paneHeight('console')).toBe(http);
   });
 
-  it('S08-07: toolbar order — Pause, Capture next to it, Clear, Export, settings, maximize, close', () => {
+  it('S08-07, S11-14: toolbar order — Pause, Capture next to it, Clear, Export, Note, settings, maximize, close', () => {
     mount();
     const names = Array.from(q('.dcp-toolbar').querySelectorAll(':scope > button, :scope > .dcp-popwrap > button')).map(
       (b) => b.getAttribute('aria-label'),
     );
-    expect(names).toEqual(['Pause', 'Capture', 'Clear', 'Export', 'Settings', 'Maximize panel', 'Close debug panel']);
+    expect(names).toEqual([
+      'Pause',
+      'Capture',
+      'Clear',
+      'Export',
+      'Note',
+      'Settings',
+      'Maximize panel',
+      'Close debug panel',
+    ]);
   });
 
   it('S08-07, FR-BAR-01: Pause freezes the view and shows "Paused · N new"; Resume shows it all', () => {
@@ -390,7 +399,7 @@ describe('S-08 frame (mountFrame)', () => {
     http.closesOnEscape = false;
     named('Settings').click();
     press(stage.root.activeElement as Element, { key: 'Escape' });
-    expect(q('.dcp-pop[role="dialog"]').hidden).toBeTrue();
+    expect(q('.dcp-pop[role="dialog"][aria-label="Settings"]').hidden).toBeTrue();
     expect(onRequestClose).not.toHaveBeenCalled();
 
     press(stage.panelRoot, { key: 'Escape' });

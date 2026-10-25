@@ -41,8 +41,8 @@ error).
   in Angular, React and plain HTML apps. 22 isolation rules come from tested
   research (`docs/research/host-impact-edge-cases.md`).
 - **It costs almost nothing until used.** At start the page loads only a
-  small **loader** (≤ 4 kB: launcher, toggle shortcut, problems badge). The
-  panel UI (≤ 40 kB) loads on first open.
+  small **loader** (≤ 4 kB in 2.0, ≤ 5.5 kB in 2.1: launcher, toggle shortcut, problems
+  badge). The panel UI (≤ 40 kB in 2.0, ≤ 44 kB in 2.1) loads on first open.
 - **It is a package.** v2 lives in `packages/debug-capture/` with entry points
   `core`, `angular`, `react` and `panel`, ready to become its own repository.
 - **Delivery.** 11 specs (S-00 … S-10), built in waves by parallel agents,
@@ -120,7 +120,7 @@ error).
 | Panel effect on host change detection (Angular) | **0** extra cycles |
 | Host regressions in the "hostile host" test suite | **0** |
 | Panel open with 5,000 entries | first paint under 100 ms, warm (`NFR-PERF-02`) |
-| Bundle cost to a host that never opens the panel | ≤ 4 kB loader; **0 bytes** of panel UI code |
+| Bundle cost to a host that never opens the panel | ≤ 4 kB loader (5.5 kB in 2.1, `D-34`); **0 bytes** of panel UI code |
 | Security review | approved, with no third-party runtime code |
 
 ---
@@ -277,7 +277,7 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 | NFR-PERF-04 | **Scroll:** lists are virtualised — under 2,000 DOM nodes per tab **including the detail pane**, whatever the entry count, for a panel up to **1,080 px** tall; taller (a maximised panel on a 4K screen) adds at most ~23 nodes per extra visible row, because every visible row is drawn (`D-22`). No long task over 50 ms while scrolling. | MUST |
 | NFR-PERF-05 | **Angular host:** the panel causes **0** change-detection cycles (verified with an `NgZone` counter). | MUST |
 | NFR-PERF-06 | **Memory:** the panel adds under 10 MB on top of the capture buffer with 5,000 entries. | SHOULD |
-| NFR-SIZE-01 | **Loader** (`debug-capture/panel`, loaded at start): ≤ **4 kB** min+gzip. **UI chunk** (loaded on first open): ≤ **40 kB** min+gzip (raised from 25 kB, `D-25`); hosts that never open the panel load **0 bytes** of it. **Core:** within ± 2 kB of v1's size — the baseline is measured and recorded in S-00. **2.1** (`D-34`): S-11 raises the loader and UI chunk budgets from a measurement and writes the new numbers here. | MUST |
+| NFR-SIZE-01 | **Loader** (`debug-capture/panel`, loaded at start): ≤ **4 kB** min+gzip. **UI chunk** (loaded on first open): ≤ **40 kB** min+gzip (raised from 25 kB, `D-25`); hosts that never open the panel load **0 bytes** of it. **Core:** within ± 2 kB of v1's size — the baseline is measured and recorded in S-00. **2.1** (`D-34`, measured in S-11b): **loader ≤ 5.5 kB** (5,632 B; 4,084 → 4,717 B, +633 B), **UI chunk ≤ 44 kB** (45,056 B; 39,006 → 40,577 B, +1,571 B) — each raise is about 2.5 × the S-11 growth. | MUST |
 | NFR-SEC-01 | No `innerHTML` / `outerHTML` / `insertAdjacentHTML`, no `eval` / `new Function`, no inline handlers. Captured data enters the DOM only as text. No `href` / `src` built from captured data. | MUST |
 | NFR-SEC-02 | Works under a strict CSP (`default-src 'self'`, no `'unsafe-inline'`) and Trusted Types (`require-trusted-types-for 'script'`) with no violations. | MUST |
 | NFR-SEC-03 | The panel never makes network requests and never reads anything the recorder did not store (it sees only redacted data). | MUST |
@@ -765,9 +765,9 @@ packages/debug-capture/                (becomes its own repository later — D-0
 
 - Every entry point is ESM with type declarations. No runtime dependencies.
   `@angular/core` is a **peer** dependency of `debug-capture/angular` only.
-- `debug-capture/panel` is the **loader** (≤ 4 kB): `installDebugPanel`, the
+- `debug-capture/panel` is the **loader** (≤ 5.5 kB since 2.1): `installDebugPanel`, the
   custom element and its host lockdown, launcher, badge counter, toggle
-  shortcut. It loads the **UI chunk** (≤ 40 kB) with one dynamic `import()` on
+  shortcut. It loads the **UI chunk** (≤ 44 kB since 2.1) with one dynamic `import()` on
   first open (`FR-ACT-02`, `NFR-SIZE-01`).
 - `debug-capture` (core) never imports `debug-capture/panel`, so the core does
   not grow.
@@ -942,7 +942,7 @@ panel is closed; it hands the UI `launcher`, `setLauncher`, `warnings()` and
 ```ts
 // main.ts (Angular) or index.tsx (React) — same for both
 import { createCaptureController, isDebugRequested } from 'debug-capture';
-import { installDebugPanel } from 'debug-capture/panel';  // loader, ≤ 4 kB
+import { installDebugPanel } from 'debug-capture/panel';  // loader, ≤ 5.5 kB
 
 const controller = isDebugRequested() ? createCaptureController() : null;  // installs capture now
 installDebugPanel(controller);  // launcher + shortcut; the UI loads on first open (null → does nothing)
@@ -1200,7 +1200,7 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-31 | **Status observer** for the host app, optional: `handle.onStatus(listener)` → unsubscribe, with open / closed, capture on / off, entry count and capacity, problem count, and the `D-29` / `D-30` warnings. Listener errors are caught (`ISO-12`). | Decided (owner, 2026-10-25); shape set in S-11 (`DebugPanelStatus`, §6.4) |
 | D-32 | **Shortcut stays code only** (`shortcut` option). **Settings gets "Show DBG button"**, remembered per browser — this replaces `D-24` for 2.1. The code option `launcher` is the default; `launcher: false` in code also hides the switch, so the host's choice wins. The loader then reads storage at start, so it needs loader bytes (`D-34`). | Decided (owner, 2026-10-25; code-wins accepted with #99) |
 | D-33 | **User notes**: an **Add note** action (title + text) records a new entry kind `note` at that moment; it shows in Console and in the export. The file keeps entries as a list, so equal titles never clash (no `title_date` key needed). `schemaVersion` stays 1 (additive); a reader that does not know `note` skips it. A host can also add one from code. | Decided (owner, 2026-10-25); details in `FR-NOTE-01`…`04`, `C-10` |
-| D-34 | **Budgets for 2.1**: the owner allows raising the **UI chunk** budget (40 kB, `D-25`). The new value is set in S-11 from a measurement (several times above the measured size growth, as the margin rule). The **loader** (4 kB, 12 B left) also needs a raise for `D-31` / `D-32`; S-11 proposes the number. | Decided (owner, 2026-10-25; the loader raise accepted with #99); the numbers are measured in S-11 and written into `NFR-SIZE-01` |
+| D-34 | **Budgets for 2.1**: the owner allows raising the **UI chunk** budget (40 kB, `D-25`). The new value is set in S-11 from a measurement (several times above the measured size growth, as the margin rule). The **loader** (4 kB, 12 B left) also needs a raise for `D-31` / `D-32`; S-11 proposes the number. | Decided (owner, 2026-10-25; the loader raise accepted with #99). Set in S-11b: loader 5.5 kB, UI chunk 44 kB (`NFR-SIZE-01`) |
 | D-35 | **AI as a separate package** `debug-capture-ai`, in the same family as the panel. Without it nothing about AI is shown or shipped. With it, the host adds it in code and the panel shows an **AI** section. The user connects it to a **local or company on-prem model** by entering its **URL and a token** in the AI settings. Only this package makes network requests — only to that URL and only on a user action; the panel itself keeps `NFR-SEC-03`. It sends only what the recorder stored (redacted) plus a trimmed page snapshot. Phase 1: read-only insights. Phase 2: it **proposes** DOM / style changes; the user clicks **Apply**, with **Undo**; it never runs code (CSP and Trusted Types stay intact). The host's CSP must allow the model URL in `connect-src`. | Decided (owner, 2026-10-25); the API shape (`OPEN-08`) and token storage (`OPEN-07`) are open |
 
 ---

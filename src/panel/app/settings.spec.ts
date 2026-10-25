@@ -18,6 +18,8 @@ describe('S-08 settings storage (FR-ACT-08, D-20, §6.8)', () => {
     height: 300,
     width: 640,
     tab: 'console',
+    buffer: 10_000,
+    launcher: false,
     chips: {
       http: { status: ['4xx', '5xx'], type: ['xhr'] },
       ws: { direction: ['sent'], data: ['binary'] },
@@ -34,6 +36,8 @@ describe('S-08 settings storage (FR-ACT-08, D-20, §6.8)', () => {
       height: null,
       width: null,
       tab: 'http',
+      buffer: null,
+      launcher: true,
       chips: NO_CHIPS,
     });
     expect(defaultSettings('right').dock).toBe('right');
@@ -78,7 +82,7 @@ describe('S-08 settings storage (FR-ACT-08, D-20, §6.8)', () => {
     });
   });
 
-  it('§6.8: only settings, size, dock, tab and chips are ever written — never search text or capture', () => {
+  it('§6.8: only settings (2.1: buffer, launcher too), size, dock, tab and chips are ever written — never search text or capture', () => {
     const sneaky = {
       ...custom,
       capture: 'off',
@@ -88,7 +92,7 @@ describe('S-08 settings storage (FR-ACT-08, D-20, §6.8)', () => {
     expect(text).not.toContain('secret');
     expect(text).not.toContain('capture');
     expect(Object.keys(JSON.parse(text)).sort()).toEqual(
-      ['chips', 'dock', 'height', 'tab', 'textSize', 'theme', 'time', 'v', 'width'].sort(),
+      ['buffer', 'chips', 'dock', 'height', 'launcher', 'tab', 'textSize', 'theme', 'time', 'v', 'width'].sort(),
     );
   });
 
@@ -116,5 +120,30 @@ describe('S-08 settings storage (FR-ACT-08, D-20, §6.8)', () => {
     expect(store.load()).toBe(defaults);
     store.save(custom);
     expect(storage).not.toHaveBeenCalled();
+  });
+});
+
+describe('S-11 settings storage: buffer and DBG button (S11-08, S11-10, FR-BUF-01, FR-ACT-10)', () => {
+  const defaults = defaultSettings('bottom');
+
+  it('keeps a buffer size (an integer ≥ 1 or "none") and the DBG button choice', () => {
+    for (const buffer of [1_000, 50_000, 'none'] as const) {
+      const text = serializeSettings({ ...defaults, buffer, launcher: false });
+      expect(JSON.parse(text)).toEqual(jasmine.objectContaining({ buffer, launcher: false }));
+      expect(parseSettings(text, defaults)).toEqual({ ...defaults, buffer, launcher: false });
+    }
+  });
+
+  it('anything else falls back: buffer null (the policy default), launcher true', () => {
+    for (const buffer of [0, -5, 2.5, '1000', 'None', true, null, Number.MAX_SAFE_INTEGER + 2]) {
+      expect(parseSettings(JSON.stringify({ buffer }), defaults).buffer)
+        .withContext(String(buffer))
+        .toBeNull();
+    }
+    for (const launcher of ['false', 0, null, 'hide']) {
+      expect(parseSettings(JSON.stringify({ launcher }), defaults).launcher)
+        .withContext(String(launcher))
+        .toBeTrue();
+    }
   });
 });

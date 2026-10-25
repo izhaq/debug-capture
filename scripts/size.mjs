@@ -5,8 +5,8 @@
  * `scripts/size-budgets.json`. Sizes are bytes, min+gzip; 1 kB = 1024 B.
  *
  *   core          src/index.ts, everything it pulls in   ≤ baseline + 2 kB
- *   panel-loader  src/panel/index.ts + its static imports ≤ 4 kB
- *   panel-ui      what only its dynamic import() loads    ≤ 40 kB (D-25)
+ *   panel-loader  src/panel/index.ts + its static imports ≤ 5.5 kB (D-34)
+ *   panel-ui      what only its dynamic import() loads    ≤ 44 kB (D-25, D-34)
  *   angular       src/angular/index.ts                   recorded only
  *   react         src/react/index.ts                     recorded only
  *

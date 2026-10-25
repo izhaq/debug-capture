@@ -2,7 +2,7 @@
  * The loader's public types and its one constant (HLD §6.4). Kept apart from
  * `index.ts` so the loader's own files can import them without a cycle.
  */
-import type { CaptureController } from '..';
+import type { CaptureController, Unsubscribe } from '..';
 
 /** Options for `installDebugPanel()` (HLD §6.4). Every field is optional. */
 export interface DebugPanelOptions {
@@ -14,6 +14,29 @@ export interface DebugPanelOptions {
   readonly defaultDock?: 'bottom' | 'right';
   /** `localStorage` key for settings and filter chips. Default `'debug-capture:panel'`; `false` keeps nothing. */
   readonly storageKey?: string | false;
+  /** 2.1 (`FR-BUF-04`): the near-full banner shows from this share of the capacity, in (0, 1]. Default `0.9`. */
+  readonly nearFullAt?: number;
+  /** 2.1 (`FR-BUF-05`): the memory warning repeats at each multiple of this many bytes. Default 26,214,400 (25 MB). */
+  readonly memoryStep?: number;
+}
+
+/** 2.1 (`FR-STAT-01`, `D-31`): what `handle.onStatus` reports. A fresh object per call. */
+export interface DebugPanelStatus {
+  readonly open: boolean;
+  /** Capture on (`controller.on`). */
+  readonly capture: boolean;
+  /** Entries in the buffer now. */
+  readonly entries: number;
+  /** The buffer size; `Infinity` = No limit. */
+  readonly capacity: number;
+  /** Problems in the buffer (`FR-ACT-04` rule). */
+  readonly problems: number;
+  /** `entries ≥ nearFullAt × capacity` (`FR-BUF-04`). */
+  readonly nearFull: boolean;
+  /** The recorder's size estimate (`C-9`). */
+  readonly bytes: number;
+  /** `floor(bytes / memoryStep)`: 0 below the first step (`FR-BUF-05`). */
+  readonly memoryStep: number;
 }
 
 /** What `installDebugPanel()` returns (HLD §6.4). Inert when installed with `null`. */
@@ -32,6 +55,12 @@ export interface DebugPanelHandle {
   readonly loadError: unknown;
   /** Closes (focus returns), unsubscribes, removes the launcher, the shortcut listener and the element. */
   dispose(): void;
+  /**
+   * 2.1 (`FR-STAT-01`): calls `listener` now, then after a change — at most
+   * once per frame, only when a field changed, also while closed. A throwing
+   * listener is isolated. Returns the unsubscribe function.
+   */
+  onStatus(listener: (status: DebugPanelStatus) => void): Unsubscribe;
 }
 
 /**

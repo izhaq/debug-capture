@@ -2,7 +2,7 @@
  * The few HLD §5.4 colour tokens the loader's own sheet needs (launcher and
  * the empty panel shell), with the same names and values as the HLD table.
  * They live here, not in the P2 theme, because the loader may not import the
- * UI chunk (≤ 4 kB, NFR-SIZE-01). `scripts/theme-check.mjs` (track 04a)
+ * UI chunk (≤ 5.5 kB, NFR-SIZE-01). `scripts/theme-check.mjs` (track 04a)
  * compares every entry with the HLD table, so a token change cannot drift.
  */
 export const LAUNCHER_TOKENS = {

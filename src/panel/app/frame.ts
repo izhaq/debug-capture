@@ -36,6 +36,7 @@ import {
 import { createEventQueue } from './event-queue';
 import { FRAME_CSS } from './frame-css';
 import { createLayout } from './layout';
+import { createNoteForm } from './note-form';
 import type { MountPanelUiOptions, PanelUiHandle } from './mount-panel-ui';
 import { createScheduler, FrameScope } from './scheduler';
 import {
@@ -43,13 +44,14 @@ import {
   createSettingsStore,
   defaultSettings,
   Dock,
+  isBufferSize,
   PanelSettings,
   SettingsStorage,
   ThemeSetting,
   TimeSetting,
 } from './settings';
 import { createSettingsForm, SettingName, SettingsValues } from './settings-form';
-import { createStatusBar } from './status-bar';
+import { createStatusBar, groupDigits } from './status-bar';
 import { rootZone, Run } from './zone';
 
 /** Everything the frame takes from the outside world; specs pass fakes (AGENTS rule 8). */
@@ -319,8 +321,34 @@ function build(
     onError: report,
   });
   controls.push(exportMenu);
+  // Add note (FR-NOTE-01): the note is stamped when it is added.
+  const noteButton = button('Note', 'note', () => undefined);
+  const noteForm = createNoteForm(
+    dom,
+    (title, text) => {
+      source.addNote(title, text);
+      notePopover.close();
+    },
+    report,
+  );
+  controls.push(noteForm);
+  const notePopover = createPopover(dom, {
+    trigger: noteButton.element,
+    ariaLabel: 'Add note',
+    content: [noteForm.element],
+    onError: report,
+  });
+  controls.push(notePopover);
+
   const settingsButton = button('Settings', 'settings', () => undefined, { iconOnly: true });
-  const form = createSettingsForm(dom, (name, value) => safely(() => changeSetting(name, value)), report);
+  // The Buffer choices (FR-BUF-01): the fixed list, plus the policy default and the live size.
+  const buffers = [1_000, 5_000, 10_000, 50_000, source.defaultCapacity(), source.capacity()]
+    .filter((n, i, all) => isBufferSize(n) && all.indexOf(n) === i)
+    .sort((a, b) => a - b);
+  const form = createSettingsForm(dom, (name, value) => safely(() => changeSetting(name, value)), report, {
+    buffers,
+    launcher: options.launcher !== null,
+  });
   controls.push(form);
   const settingsPopover = createPopover(dom, {
     trigger: settingsButton.element,
@@ -374,15 +402,45 @@ function build(
 
   // Banners (§4.11).
   const turnOn = button('Turn on', 'opened', () => source.capture.start());
-  const banner = (text: string, action?: ButtonControl): HTMLElement =>
-    dom.el('div', { className: 'dcp-banner', attrs: { role: 'status', hidden: true } }, [
+  const banner = (text: string, actions: ButtonControl[] = [], warning?: string): HTMLElement =>
+    dom.el('div', { className: 'dcp-banner', attrs: { role: 'status', hidden: true, 'data-warning': warning } }, [
       dom.el('span', { className: 'dcp-banner__text' }, [text]),
-      action ? action.element : null,
+      ...actions.map((action) => action.element),
     ]);
-  const captureBanner = banner('Capture is off — nothing new is recorded.', turnOn);
+  const captureBanner = banner('Capture is off — nothing new is recorded.', [turnOn]);
   const dialogBanner = banner(
     'The page has a dialog open or is fullscreen. The panel can be seen but not used until it closes.',
   );
+  // 2.1 warnings (FR-BUF-04, FR-BUF-05): the loader says when; the text follows the numbers.
+  const downloadAll = (): void => source.download(root);
+  const dismiss = (kind: 'nearFull' | 'memory'): void => {
+    options.dismissWarning(kind);
+    invalidate();
+  };
+  const raiseLimit = (): void => {
+    settingsPopover.open();
+    form.focusBuffer();
+  };
+  const fullBanner = banner(
+    '',
+    [
+      button('Download all', 'export', downloadAll),
+      button('Raise the limit', 'settings', raiseLimit),
+      button('Dismiss', 'close', () => dismiss('nearFull')),
+    ],
+    'nearFull',
+  );
+  const memoryBanner = banner(
+    '',
+    [button('Download all', 'export', downloadAll), button('Dismiss', 'close', () => dismiss('memory'))],
+    'memory',
+  );
+  /** Writes a warning banner only when its text or visibility changed. */
+  const showWarning = (element: HTMLElement, text: string | null): void => {
+    const span = element.firstChild as HTMLElement;
+    if (text !== null && span.textContent !== text) span.textContent = text;
+    if (element.hidden !== (text === null)) element.hidden = text === null;
+  };
 
   const status = createStatusBar(dom);
   const frameElement = dom.el('div', { className: 'dcp-frame' }, [
@@ -396,6 +454,7 @@ function build(
         capture.element,
         clear.element,
         exportMenu.element,
+        notePopover.element,
         settingsPopover.element,
         maximize.element,
         close.element,
@@ -403,6 +462,8 @@ function build(
     ]),
     captureBanner,
     dialogBanner,
+    fullBanner,
+    memoryBanner,
     dom.el('div', { className: 'dcp-body' }, [network, panels.console]),
     status.element,
   ]);
@@ -488,17 +549,37 @@ function build(
     setAttr(maximize.element, 'aria-pressed', on ? 'true' : 'false');
   };
 
+  /** The "Show DBG button" switch as the loader has it (`null` → the group is not shown). */
+  let launcherShown = options.launcher !== false;
   const formValues = (captureOn: boolean): SettingsValues => ({
     theme: settings.theme,
     dock: settings.dock,
     textSize: settings.textSize,
     time: settings.time,
+    buffer: source.capacity() === Infinity ? 'none' : String(source.capacity()),
+    launcher: launcherShown ? 'show' : 'hide',
     capture: captureOn ? 'on' : 'off',
   });
   const changeSetting = (name: SettingName, value: string): void => {
     if (name === 'capture') {
       if (value === 'on') source.capture.start();
       else source.capture.stop();
+      return;
+    }
+    if (name === 'buffer') {
+      // Live (FR-BUF-02); the loader applies the stored value at the next install.
+      const size = value === 'none' ? 'none' : Number(value);
+      source.setCapacity(size === 'none' ? Infinity : size);
+      settings = { ...settings, buffer: size };
+      save();
+      form.set(formValues(store.getState().captureOn));
+      return;
+    }
+    if (name === 'launcher') {
+      launcherShown = value === 'show';
+      options.setLauncher(launcherShown);
+      settings = { ...settings, launcher: launcherShown };
+      save();
       return;
     }
     if (name === 'theme') settings = { ...settings, theme: value as ThemeSetting };
@@ -526,7 +607,8 @@ function build(
       // A failing view must not keep the panel from closing.
       if (view) safely(() => (handled = view.handleEscape() === true));
       if (handled) return;
-      if (settingsPopover.isOpen) settingsPopover.close();
+      if (notePopover.isOpen) notePopover.close();
+      else if (settingsPopover.isOpen) settingsPopover.close();
       else if (exportMenu.isOpen) exportMenu.close();
       else requestClose();
     } else if (event.code === 'KeyF' && (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey) {
@@ -598,6 +680,20 @@ function build(
       captureOn: state.captureOn,
       errors,
     });
+    const warnings = options.warnings();
+    const { used, capacity } = state.buffer;
+    showWarning(
+      fullBanner,
+      warnings.nearFull
+        ? `The buffer is almost full (${groupDigits(used)} / ${groupDigits(capacity)}). The oldest entries will soon be dropped.`
+        : null,
+    );
+    showWarning(
+      memoryBanner,
+      warnings.memoryBytes > 0
+        ? `Captured data uses about ${groupDigits(Math.round(warnings.memoryBytes / 1_048_576))} MB. The page may get slow.`
+        : null,
+    );
     const pausedText = state.paused ? `Paused · ${state.newSincePause} new` : '';
     if (pausedText !== shownPaused) {
       shownPaused = pausedText;

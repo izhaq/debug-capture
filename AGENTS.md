@@ -77,7 +77,7 @@ Each layer imports only the barrel of the layer directly above it (the
 
 - L6 seams never import each other. No packages anywhere in `src/panel/`.
 - The P5 rule keeps the UI chunk lazy: a static value import of P4 would pull
-  it into the loader (≤ 4 kB, `NFR-SIZE-01`).
+  it into the loader (≤ 5.5 kB, `NFR-SIZE-01`).
 - The core never imports the panel.
 
 ## Panel isolation (HLD §6.7)

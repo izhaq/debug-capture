@@ -2,14 +2,14 @@
  * P5 panel loader — entry point `debug-capture/panel` (L6, a sibling of the
  * Angular and React seams). May import the L5 barrel ('..') and P4 ('./app')
  * only by `import type` and the one dynamic `import()` below, so the UI chunk
- * stays lazy; never `export *` from P4. No packages. Kept tiny (≤ 4 kB,
+ * stays lazy; never `export *` from P4. No packages. Kept tiny (≤ 5.5 kB,
  * NFR-SIZE-01).
  */
 import { isProblemEntry } from '..';
 import type { DebugPanelHandle, DebugPanelOptions, InstallDebugPanel } from './api';
 import { createDebugPanel, inertHandle } from './loader';
 
-export type { DebugPanelHandle, DebugPanelOptions, InstallDebugPanel } from './api';
+export type { DebugPanelHandle, DebugPanelOptions, DebugPanelStatus, InstallDebugPanel } from './api';
 export { PANEL_ELEMENT_NAME } from './api';
 
 /**

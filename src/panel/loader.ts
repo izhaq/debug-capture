@@ -1,6 +1,6 @@
 import type { CaptureController, CaptureEntry, IsProblemEntry, RecorderChange, Unsubscribe } from '..';
 import type { MountPanelUi, PanelUiHandle } from './app';
-import { DebugPanelHandle, DebugPanelOptions, PANEL_ELEMENT_NAME } from './api';
+import { DebugPanelHandle, DebugPanelOptions, DebugPanelStatus, PANEL_ELEMENT_NAME } from './api';
 import { COUNT_CLASS, LAUNCHER_CLASS, LOADER_CSS, ROOT_CLASS } from './loader-styles';
 
 /** The page the loader runs in: `window` in a host, a fake in specs (AGENTS rule 8). */
@@ -14,6 +14,8 @@ export interface LoaderScope {
   getComputedStyle(element: Element): CSSStyleDeclaration;
   /** zone.js, when the host loaded it; read structurally, never imported. */
   readonly Zone?: unknown;
+  /** Read once at install for the 2.1 Buffer and DBG button settings (`D-32`); a getter that may throw. */
+  readonly localStorage?: Pick<Storage, 'getItem'>;
 }
 
 export interface LoaderDeps {
@@ -58,9 +60,11 @@ type Chord = (event: KeyboardEvent) => boolean;
 type Run = <T>(work: () => T) => T;
 type Popover = HTMLElement & { showPopover(): void; hidePopover(): void }; // not in TS 5.1's lib.dom yet
 type Chunk = { readonly mountPanelUi: MountPanelUi };
+type StatusListener = { readonly l: (status: DebugPanelStatus) => void; last: string };
 
 export function inertHandle(): DebugPanelHandle {
-  return { open: () => undefined, close: () => undefined, isOpen: false, loadError: null, dispose: () => undefined };
+  const none = (): void => undefined;
+  return { open: none, close: none, isOpen: false, loadError: null, dispose: none, onStatus: () => none };
 }
 
 /**
@@ -104,6 +108,31 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
   shadow.adoptedStyleSheets = [sheet];
 
   const toggleChord = options.shortcut === false ? null : parseChord(options.shortcut ?? 'ctrl+alt+shift+p');
+  const recorder = controller.session.recorder;
+  const storageKey = options.storageKey ?? 'debug-capture:panel';
+
+  // 2.1: the two settings that must hold before the first open (FR-BUF-01, FR-ACT-10, D-32).
+  // Best effort: blocked storage or a broken value gives the defaults.
+  let saved: { buffer?: unknown; launcher?: unknown } = {};
+  try {
+    if (storageKey !== false) saved = JSON.parse(scope.localStorage?.getItem(storageKey) ?? '{}') ?? {};
+  } catch {
+    // Defaults.
+  }
+  const buffer = saved.buffer;
+  if (buffer === 'none' || (Number.isSafeInteger(buffer) && (buffer as number) >= 1)) {
+    recorder.setCapacity(buffer === 'none' ? Infinity : (buffer as number));
+  }
+  let showLauncher = saved.launcher !== false;
+  const limit = (value: unknown, fallback: number, max: number): number =>
+    typeof value === 'number' && value > 0 && value <= max ? value : fallback;
+  const nearFullAt = limit(options.nearFullAt, 0.9, 1);
+  const memoryStep = limit(options.memoryStep, 26214400, Infinity);
+  /** The banners' dismissed state lives here: it must outlive a close and reopen (FR-BUF-04, 05). */
+  let fullDismissed = false;
+  let memoryDismissed = 0;
+  const statusListeners: StatusListener[] = [];
+  let statusFrame: number | null = null;
 
   let state = CLOSED;
   let loadError: unknown = null;
@@ -188,9 +217,10 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
       root.hidden = true;
       root.inert = true;
     }
-    if (launcher) launcher.hidden = false;
+    if (launcher) launcher.hidden = !showLauncher;
     count = 0;
     render();
+    statusChanged();
     // Return focus only if it is still ours or was lost with our nodes —
     // never pull it away from where the user has moved it since (ISO-16).
     const active = deepActiveElement(doc);
@@ -257,6 +287,24 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
       storageKey: options.storageKey ?? 'debug-capture:panel',
       defaultDock: options.defaultDock ?? 'bottom',
       onRequestClose: guard(close),
+      launcher: launcher ? showLauncher : null,
+      setLauncher: guard((show: boolean) => {
+        // Hidden while open anyway; close() applies it.
+        showLauncher = show;
+      }),
+      warnings: () => {
+        const now = status();
+        if (!now.nearFull) fullDismissed = false;
+        if (now.memoryStep < memoryDismissed) memoryDismissed = now.memoryStep;
+        return {
+          nearFull: now.nearFull && !fullDismissed,
+          memoryBytes: now.memoryStep > memoryDismissed ? now.bytes : 0,
+        };
+      },
+      dismissWarning: guard((kind: string) => {
+        if (kind === 'nearFull') fullDismissed = true;
+        else memoryDismissed = status().memoryStep;
+      }),
     });
     if (state !== OPENING) {
       // The UI asked to close while it mounted.
@@ -277,6 +325,7 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
     if (state !== CLOSED) return;
     state = OPENING;
     loadError = null;
+    statusChanged();
     mount();
     returnTo = deepActiveElement(doc);
     count = 0;
@@ -330,6 +379,74 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
   });
   doc.addEventListener('fullscreenchange', raise);
 
+  /** `DebugPanelStatus` now (FR-STAT-01). */
+  const status = (): DebugPanelStatus => {
+    const now = recorder.usage();
+    return {
+      open: state === OPENING || state === OPEN,
+      capture: controller.on,
+      entries: now.entries,
+      capacity: now.capacity,
+      problems: now.problems,
+      nearFull: now.entries >= now.capacity * nearFullAt,
+      bytes: now.bytes,
+      memoryStep: Math.floor(now.bytes / memoryStep),
+    };
+  };
+  /** Only what changed for this listener; its error is its own (ISO-12). */
+  const tell = (listener: StatusListener, now: DebugPanelStatus): void => {
+    const text = JSON.stringify(now) + now.capacity;
+    if (text === listener.last) return;
+    listener.last = text;
+    try {
+      listener.l(now);
+    } catch {
+      // The host's bug stays the host's.
+    }
+  };
+  const sendStatus = guard(() => {
+    statusFrame = null;
+    const now = status();
+    statusListeners.slice().forEach((listener) => tell(listener, now));
+  });
+  /** At most one frame, and none while nobody listens (NFR-PERF-01). */
+  function statusChanged(): void {
+    if (statusListeners.length > 0 && statusFrame === null) {
+      statusFrame = inRoot(() => scope.requestAnimationFrame(sendStatus));
+    }
+  }
+  let entriesHeard = false;
+  /** Per entry only for the badge or a status listener (`launcher: false` alone costs nothing per entry). */
+  const hearEntries = (): void => {
+    if (entriesHeard) return;
+    entriesHeard = true;
+    unsubscribe.push(
+      recorder.onEntry(
+        guard((entry: CaptureEntry) => {
+          if (launcher && state === CLOSED && deps.isProblemEntry(entry)) {
+            count++;
+            schedule();
+          }
+          statusChanged();
+        }),
+      ),
+    );
+  };
+  unsubscribe.push(
+    recorder.onChange(
+      guard((change: RecorderChange) => {
+        // A clear or a new size re-arms the near-full banner (FR-BUF-04).
+        if (change.type !== 'stats') fullDismissed = false;
+        if (change.type === 'cleared') {
+          count = 0;
+          schedule();
+        }
+        statusChanged();
+      }),
+    ),
+    controller.onChange(guard(statusChanged)),
+  );
+
   if (options.launcher !== false) {
     launcher = doc.createElement('button');
     launcher.type = 'button';
@@ -343,27 +460,10 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
       'click',
       guard(() => open(true)),
     );
+    launcher.hidden = !showLauncher;
     shadow.append(launcher);
     render();
-    const recorder = controller.session.recorder;
-    unsubscribe.push(
-      recorder.onEntry(
-        guard((entry: CaptureEntry) => {
-          if (state === CLOSED && deps.isProblemEntry(entry)) {
-            count++;
-            schedule();
-          }
-        }),
-      ),
-      recorder.onChange(
-        guard((change: RecorderChange) => {
-          if (change.type === 'cleared') {
-            count = 0;
-            schedule();
-          }
-        }),
-      ),
-    );
+    hearEntries();
   }
 
   const dispose = (): void => {
@@ -374,6 +474,8 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
     doc.removeEventListener('keydown', onKey);
     doc.removeEventListener('fullscreenchange', raise);
     if (frame !== null) scope.cancelAnimationFrame(frame);
+    if (statusFrame !== null) scope.cancelAnimationFrame(statusFrame);
+    statusListeners.length = 0;
     quiet = true;
     registered[LIVE] = false;
     host.remove();
@@ -397,6 +499,18 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
       return loadError;
     },
     dispose: guard(dispose),
+    onStatus(l) {
+      const listener: StatusListener = { l, last: '' };
+      if (state !== DISPOSED) {
+        statusListeners.push(listener);
+        hearEntries();
+        guard(() => tell(listener, status()))();
+      }
+      return () => {
+        const at = statusListeners.indexOf(listener);
+        if (at >= 0) statusListeners.splice(at, 1);
+      };
+    },
   };
   return handle;
 }
@@ -430,7 +544,7 @@ function define(scope: LoaderScope, name: string): boolean {
 
 /**
  * A deliberate copy of `install/shortcuts.ts` `parseShortcut`: P5 cannot import
- * L4 code within its 4 kB budget, and this one also rejects a repeated modifier.
+ * L4 code within its loader budget, and this one also rejects a repeated modifier.
  * `'ctrl+alt+shift+p'` → an exact matcher on `KeyboardEvent.code` (layout-free,
  * like v1's shortcuts), or `null` for a chord it cannot read, so a typo binds
  * nothing instead of throwing. All four modifiers must match exactly (ISO-08).

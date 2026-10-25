@@ -16,6 +16,28 @@ export interface MountPanelUiOptions {
   readonly defaultDock: 'bottom' | 'right';
   /** The UI asks the loader to close it (close button, `Escape`); the loader owns open/closed. */
   onRequestClose(): void;
+  /**
+   * "Show DBG button" (`FR-ACT-10`) as the loader has it now; `null` when the
+   * host passed `launcher: false` — then Settings hides the switch (the host wins, `D-32`).
+   */
+  readonly launcher: boolean | null;
+  /** The switch changed: the loader shows or hides the launcher (it is hidden anyway while open). */
+  setLauncher(show: boolean): void;
+  /**
+   * Which warning banners to show now (`FR-BUF-04`, `FR-BUF-05`). The loader
+   * keeps what was dismissed, because that must outlive a close and reopen.
+   */
+  warnings(): PanelWarnings;
+  /** The user dismissed a banner; it comes back only at the next crossing or step. */
+  dismissWarning(kind: 'nearFull' | 'memory'): void;
+}
+
+/** The banners the loader says to show. */
+export interface PanelWarnings {
+  /** The near-full banner (`FR-BUF-04`). */
+  readonly nearFull: boolean;
+  /** The memory banner's estimate in bytes (`FR-BUF-05`); `0` = no banner. */
+  readonly memoryBytes: number;
 }
 
 /** The mounted UI. */

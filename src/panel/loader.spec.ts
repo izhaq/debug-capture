@@ -1,4 +1,5 @@
 import {
+  BufferUsage,
   CaptureController,
   CaptureEntry,
   ControlledCaptureSession,
@@ -10,7 +11,7 @@ import {
   Unsubscribe,
 } from '..';
 import type { MountPanelUi, MountPanelUiOptions, PanelUiHandle } from './app';
-import { DebugPanelHandle, DebugPanelOptions } from './api';
+import { DebugPanelHandle, DebugPanelOptions, DebugPanelStatus } from './api';
 import { createDebugPanel, LoaderDeps, LoaderScope } from './loader';
 
 // ---------------------------------------------------------------------------
@@ -48,11 +49,15 @@ class FakeRecorder implements LiveRecorder {
   onPending(): Unsubscribe {
     return () => undefined;
   }
-  usage() {
-    return { entries: 0, capacity: 5000, bytes: 0, problems: 0 };
+  usageValue: BufferUsage = { entries: 0, capacity: 5000, bytes: 0, problems: 0 };
+  readonly capacityCalls: number[] = [];
+  usage(): BufferUsage {
+    return { ...this.usageValue };
   }
-  setCapacity(): void {
-    // 2.1 (C-9); the S-11b loader specs drive it.
+  setCapacity(capacity: number): void {
+    this.capacityCalls.push(capacity);
+    this.usageValue = { ...this.usageValue, capacity };
+    this.changeListeners.forEach((l) => l({ type: 'capacity' }));
   }
   emit(entry: CaptureEntry): void {
     this.entryListeners.forEach((l) => l(entry));
@@ -62,7 +67,7 @@ class FakeRecorder implements LiveRecorder {
   }
 }
 
-function fakeController(recorder: FakeRecorder): CaptureController {
+function fakeController(recorder: FakeRecorder): CaptureController & { setOn(next: boolean): void } {
   const session: ControlledCaptureSession = {
     recorder,
     policy: DEFAULT_CAPTURE_POLICY,
@@ -75,7 +80,25 @@ function fakeController(recorder: FakeRecorder): CaptureController {
     addNote: () => undefined,
     dispose: () => undefined,
   };
-  return { session, on: true, start: () => undefined, stop: () => undefined, onChange: () => () => undefined };
+  const listeners = new Set<(on: boolean) => void>();
+  let on = true;
+  const controller: CaptureController & { setOn(next: boolean): void } = {
+    session,
+    get on() {
+      return on;
+    },
+    start: () => undefined,
+    stop: () => undefined,
+    onChange: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    setOn(next) {
+      on = next;
+      listeners.forEach((l) => l(next));
+    },
+  };
+  return controller;
 }
 
 let seq = 0;
@@ -140,7 +163,7 @@ function fakeUi(): FakeUi {
 interface Harness {
   readonly handle: DebugPanelHandle;
   readonly recorder: FakeRecorder;
-  readonly controller: CaptureController;
+  readonly controller: CaptureController & { setOn(next: boolean): void };
   readonly ui: FakeUi;
   readonly loadUi: jasmine.Spy<LoaderDeps['loadUi']>;
   readonly frames: FrameRequestCallback[];
@@ -667,7 +690,8 @@ describe('panel loader (S-02)', () => {
 
       expect(h.launcher()).toBeNull();
       expect(h.recorder.entryListeners.size).toBe(0);
-      expect(h.recorder.changeListeners.size).toBe(0);
+      // 2.1: one change listener (clear / size change re-arm the near-full banner, FR-BUF-04) — never per entry.
+      expect(h.recorder.changeListeners.size).toBe(1);
     });
 
     it('opens from a launcher click and moves focus into the panel', async () => {
@@ -1202,6 +1226,293 @@ describe('panel loader (S-02)', () => {
 
       expect(h.ui.mount).toHaveBeenCalled();
       expect(scheduled).toEqual([]);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2.1 (S-11b): settings the loader reads at install, the DBG button switch,
+// the warning state and the host's status observer.
+// ---------------------------------------------------------------------------
+
+/** A `localStorage` stand-in holding `items`; `getItem` is a spy. */
+function storage(items: Record<string, string> = {}): Pick<Storage, 'getItem'> & { getItem: jasmine.Spy } {
+  return { getItem: jasmine.createSpy('getItem').and.callFake((key: string) => items[key] ?? null) };
+}
+const stored = (value: object): Record<string, string> => ({ 'debug-capture:panel': JSON.stringify(value) });
+const MB = 1_048_576;
+
+describe('panel loader — 2.1 (S-11b)', () => {
+  describe('stored settings at install (S11-09, FR-BUF-01, FR-ACT-10)', () => {
+    it('applies a stored buffer size before the first open; "none" is No limit', () => {
+      expect(
+        install({}, { scope: { localStorage: storage(stored({ buffer: 1000 })) } }).recorder.capacityCalls,
+      ).toEqual([1000]);
+      expect(
+        install({}, { scope: { localStorage: storage(stored({ buffer: 'none' })) } }).recorder.capacityCalls,
+      ).toEqual([Infinity]);
+    });
+
+    it('ignores what is not a size, broken JSON and a missing value', () => {
+      for (const text of [JSON.stringify({ buffer: 0 }), JSON.stringify({ buffer: '1000' }), '{not json', '{}']) {
+        const h = install({}, { scope: { localStorage: storage({ 'debug-capture:panel': text }) } });
+        expect(h.recorder.capacityCalls).withContext(text).toEqual([]);
+        expect(h.launcher()).withContext(text).not.toBeNull();
+      }
+    });
+
+    it('reads the storageKey given; storageKey false reads nothing; a throwing storage is ignored', () => {
+      const custom = storage({ mine: JSON.stringify({ buffer: 2000 }) });
+      expect(install({ storageKey: 'mine' }, { scope: { localStorage: custom } }).recorder.capacityCalls).toEqual([
+        2000,
+      ]);
+      const none = storage(stored({ buffer: 2000 }));
+      expect(install({ storageKey: false }, { scope: { localStorage: none } }).recorder.capacityCalls).toEqual([]);
+      expect(none.getItem).not.toHaveBeenCalled();
+      const broken = {
+        getItem: (): never => {
+          throw new Error('blocked');
+        },
+      };
+      const h = install({}, { scope: { localStorage: broken } });
+      expect(h.launcher()).not.toBeNull();
+      expect(h.handle.isOpen).toBeFalse();
+    });
+
+    it('a stored launcher false hides the DBG button at install and after a close', async () => {
+      const h = install({}, { scope: { localStorage: storage(stored({ launcher: false })) } });
+      expect(h.launcher()?.hidden).toBeTrue();
+      pressToggle();
+      await settle();
+      expect(h.ui.lastOptions().launcher).toBeFalse();
+      h.handle.close();
+      expect(h.launcher()?.hidden).toBeTrue();
+    });
+  });
+
+  describe('DBG button switch (S11-10, FR-ACT-10, D-32)', () => {
+    it('setLauncher from the UI: hidden after close when Hide, shown again when Show', async () => {
+      const h = install();
+      pressToggle();
+      await settle();
+      expect(h.ui.lastOptions().launcher).toBeTrue();
+      h.ui.lastOptions().setLauncher(false);
+      h.handle.close();
+      expect(h.launcher()?.hidden).toBeTrue();
+      h.handle.open();
+      await settle();
+      expect(h.ui.lastOptions().launcher).toBeFalse();
+      h.ui.lastOptions().setLauncher(true);
+      expect(h.launcher()?.hidden).withContext('still hidden while open').toBeTrue();
+      h.handle.close();
+      expect(h.launcher()?.hidden).toBeFalse();
+    });
+
+    it('code launcher: false wins: no launcher, the switch gets null, a stored Show changes nothing', async () => {
+      const h = install({ launcher: false }, { scope: { localStorage: storage(stored({ launcher: true })) } });
+      expect(h.launcher()).toBeNull();
+      pressToggle();
+      await settle();
+      expect(h.ui.lastOptions().launcher).toBeNull();
+      h.ui.lastOptions().setLauncher(true);
+      h.handle.close();
+      expect(h.launcher()).toBeNull();
+    });
+  });
+
+  describe('warnings (S11-11, S11-12, FR-BUF-04, FR-BUF-05)', () => {
+    const opened = async (options: DebugPanelOptions = {}): Promise<Harness> => {
+      const h = install(options);
+      pressToggle();
+      await settle();
+      return h;
+    };
+    const warnings = (h: Harness) => h.ui.lastOptions().warnings();
+
+    it('near full from 90 % of the capacity by default; never with No limit', async () => {
+      const h = await opened();
+      h.recorder.usageValue = { entries: 4499, capacity: 5000, bytes: 0, problems: 0 };
+      expect(warnings(h).nearFull).toBeFalse();
+      h.recorder.usageValue = { entries: 4500, capacity: 5000, bytes: 0, problems: 0 };
+      expect(warnings(h).nearFull).toBeTrue();
+      h.recorder.usageValue = { entries: 1e7, capacity: Infinity, bytes: 0, problems: 0 };
+      expect(warnings(h).nearFull).toBeFalse();
+    });
+
+    it('once per crossing: dismissed stays hidden while full, back after Clear or a size change', async () => {
+      const h = await opened();
+      h.recorder.usageValue = { entries: 5000, capacity: 5000, bytes: 0, problems: 0 };
+      h.ui.lastOptions().dismissWarning('nearFull');
+      expect(warnings(h).nearFull).toBeFalse();
+      h.handle.close();
+      h.handle.open();
+      await settle();
+      expect(warnings(h).nearFull).withContext('kept across close and open').toBeFalse();
+
+      h.recorder.clear();
+      expect(warnings(h).nearFull).withContext('cleared, then full again').toBeTrue();
+      h.ui.lastOptions().dismissWarning('nearFull');
+      h.recorder.setCapacity(4000);
+      h.recorder.usageValue = { entries: 4000, capacity: 4000, bytes: 0, problems: 0 };
+      expect(warnings(h).nearFull).toBeTrue();
+    });
+
+    it('nearFullAt from the options; one outside (0, 1] gives 0.9', async () => {
+      const half = await opened({ nearFullAt: 0.5 });
+      half.recorder.usageValue = { entries: 50, capacity: 100, bytes: 0, problems: 0 };
+      expect(warnings(half).nearFull).toBeTrue();
+      half.handle.dispose();
+      for (const bad of [0, 1.5, -1, Number.NaN, '0.5' as unknown as number]) {
+        const h = await opened({ nearFullAt: bad });
+        h.recorder.usageValue = { entries: 89, capacity: 100, bytes: 0, problems: 0 };
+        expect(warnings(h).nearFull).withContext(String(bad)).toBeFalse();
+        h.recorder.usageValue = { entries: 90, capacity: 100, bytes: 0, problems: 0 };
+        expect(warnings(h).nearFull).withContext(String(bad)).toBeTrue();
+        h.handle.dispose();
+      }
+    });
+
+    it('memory: each 25 MB step once; dismissed comes back at the next step, or after falling below', async () => {
+      const h = await opened();
+      const at = (bytes: number): number => {
+        h.recorder.usageValue = { entries: 1, capacity: 5000, bytes, problems: 0 };
+        return warnings(h).memoryBytes;
+      };
+      expect(at(25 * MB - 1)).toBe(0);
+      expect(at(30 * MB)).toBe(30 * MB);
+      h.ui.lastOptions().dismissWarning('memory');
+      expect(at(49 * MB)).toBe(0);
+      expect(at(51 * MB)).toBe(51 * MB);
+      h.ui.lastOptions().dismissWarning('memory');
+      expect(at(10 * MB)).toBe(0);
+      expect(at(26 * MB))
+        .withContext('fell below, so the first step warns again')
+        .toBe(26 * MB);
+    });
+
+    it('memoryStep from the options; a bad one gives 25 MB', async () => {
+      const small = await opened({ memoryStep: 1000 });
+      small.recorder.usageValue = { entries: 1, capacity: 5000, bytes: 1500, problems: 0 };
+      expect(warnings(small).memoryBytes).toBe(1500);
+      small.handle.dispose();
+      const bad = await opened({ memoryStep: -5 });
+      bad.recorder.usageValue = { entries: 1, capacity: 5000, bytes: 1500, problems: 0 };
+      expect(warnings(bad).memoryBytes).toBe(0);
+    });
+  });
+
+  describe('onStatus (S11-13, FR-STAT-01, D-31)', () => {
+    const quiet = (): CaptureEntry => entries.log('log');
+
+    it('calls the listener once at subscribe with the whole status', () => {
+      const h = install();
+      h.recorder.usageValue = { entries: 12, capacity: 5000, bytes: 3000, problems: 2 };
+      const seen: DebugPanelStatus[] = [];
+      h.handle.onStatus((s) => seen.push(s));
+      expect(seen).toEqual([
+        {
+          open: false,
+          capture: true,
+          entries: 12,
+          capacity: 5000,
+          problems: 2,
+          nearFull: false,
+          bytes: 3000,
+          memoryStep: 0,
+        },
+      ]);
+    });
+
+    it('then at most once per frame, and only when a field changed', () => {
+      const h = install();
+      const seen: DebugPanelStatus[] = [];
+      h.handle.onStatus((s) => seen.push(s));
+      h.recorder.usageValue = { entries: 1, capacity: 5000, bytes: 200, problems: 0 };
+      h.recorder.emit(quiet());
+      h.recorder.usageValue = { entries: 2, capacity: 5000, bytes: 400, problems: 0 };
+      h.recorder.emit(quiet());
+      expect(seen.length).withContext('not before the frame').toBe(1);
+      expect(h.frames.length).toBe(1);
+      h.flushFrames();
+      expect(seen.length).toBe(2);
+      expect(seen[1]).toEqual(jasmine.objectContaining({ entries: 2, bytes: 400 }));
+      h.recorder.statsChanged();
+      h.flushFrames();
+      expect(seen.length).withContext('nothing changed').toBe(2);
+    });
+
+    it('follows capture on/off, open/close, a size change and the memory step', async () => {
+      const h = install({ memoryStep: 100 });
+      const seen: DebugPanelStatus[] = [];
+      h.handle.onStatus((s) => seen.push(s));
+      h.controller.setOn(false);
+      h.flushFrames();
+      expect(seen[seen.length - 1]?.capture).toBeFalse();
+      pressToggle();
+      await settle();
+      h.flushFrames();
+      expect(seen[seen.length - 1]?.open).toBeTrue();
+      h.recorder.setCapacity(Infinity);
+      h.recorder.usageValue = { ...h.recorder.usageValue, bytes: 250, entries: 9 };
+      h.flushFrames();
+      expect(seen[seen.length - 1]).toEqual(
+        jasmine.objectContaining({ capacity: Infinity, memoryStep: 2, nearFull: false }),
+      );
+      h.handle.close();
+      h.flushFrames();
+      expect(seen[seen.length - 1]?.open).toBeFalse();
+    });
+
+    it('asks for no frame while nobody listens; unsubscribe stops it', () => {
+      const h = install();
+      h.recorder.emit(quiet());
+      expect(h.frames.length).toBe(0);
+      const listener = jasmine.createSpy('listener');
+      const off = h.handle.onStatus(listener);
+      off();
+      off();
+      h.recorder.usageValue = { entries: 5, capacity: 5000, bytes: 1, problems: 0 };
+      h.recorder.emit(quiet());
+      expect(h.frames.length).toBe(0);
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+
+    it('a throwing listener is isolated: the others still hear, nothing reaches the host', () => {
+      const h = install();
+      const good = jasmine.createSpy('good');
+      expect(() =>
+        h.handle.onStatus(() => {
+          throw new Error('host bug');
+        }),
+      ).not.toThrow();
+      h.handle.onStatus(good);
+      h.recorder.usageValue = { entries: 3, capacity: 5000, bytes: 1, problems: 0 };
+      h.recorder.emit(quiet());
+      expect(() => h.flushFrames()).not.toThrow();
+      expect(good).toHaveBeenCalledTimes(2);
+    });
+
+    it('dispose stops it and cancels a waiting frame; the inert handle never calls', () => {
+      const h = install();
+      const listener = jasmine.createSpy('listener');
+      h.handle.onStatus(listener);
+      h.recorder.usageValue = { entries: 3, capacity: 5000, bytes: 1, problems: 0 };
+      h.recorder.emit(quiet());
+      h.handle.dispose();
+      expect(h.cancelled.length).toBeGreaterThan(0);
+      h.flushFrames();
+      expect(listener).toHaveBeenCalledTimes(1);
+
+      const inert = createDebugPanel(
+        null,
+        {},
+        { scope: {} as LoaderScope, isProblemEntry, loadUi: async () => ({ mountPanelUi: fakeUi().mount }) },
+      );
+      const never = jasmine.createSpy('never');
+      const off = inert.onStatus(never);
+      expect(typeof off).toBe('function');
+      off();
+      expect(never).not.toHaveBeenCalled();
     });
   });
 });

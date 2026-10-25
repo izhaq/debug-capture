@@ -18,7 +18,7 @@ function assertType<T extends true>(): T | undefined {
 
 describe('debug-capture/panel public API (P5 loader)', () => {
   it('exports only installDebugPanel and PANEL_ELEMENT_NAME at runtime (types erase)', () => {
-    // The loader must stay tiny (≤ 4 kB, NFR-SIZE-01) and must never pull the
+    // The loader must stay tiny (≤ 5.5 kB, NFR-SIZE-01) and must never pull the
     // UI chunk in eagerly: no `export *` from P4, no value import of it.
     expect(Object.keys(panel).sort()).toEqual(['PANEL_ELEMENT_NAME', 'installDebugPanel']);
     assertType<Equals<typeof installDebugPanel, InstallDebugPanel>>();

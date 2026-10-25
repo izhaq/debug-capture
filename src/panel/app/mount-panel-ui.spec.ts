@@ -64,7 +64,17 @@ describe('mountPanelUi (P4 entry, real window)', () => {
   afterEach(() => host.remove());
 
   const mount = (controller: CaptureController) =>
-    mountPanelUi(shadow, controller, { document, panelRoot, storageKey: false, defaultDock: 'bottom', onRequestClose });
+    mountPanelUi(shadow, controller, {
+      document,
+      panelRoot,
+      storageKey: false,
+      defaultDock: 'bottom',
+      onRequestClose,
+      launcher: true,
+      setLauncher: () => undefined,
+      warnings: () => ({ nearFull: false, memoryBytes: 0 }),
+      dismissWarning: () => undefined,
+    });
 
   it('builds the frame in the panelRoot it is given, never in one found by class (C3-2), and renders on a real frame', async () => {
     const decoy = document.createElement('div');

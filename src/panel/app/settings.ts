@@ -26,6 +26,14 @@ export interface PanelSettings {
   readonly width: number | null;
   /** The last tab shown. */
   readonly tab: ListId;
+  /**
+   * The Buffer setting (`FR-BUF-01`): a size, `'none'` for No limit, or
+   * `null` — never chosen, so the policy's `maxEntries`. The loader applies
+   * it at install; the panel only writes it.
+   */
+  readonly buffer: number | 'none' | null;
+  /** "Show DBG button" (`FR-ACT-10`). The loader reads it at install. */
+  readonly launcher: boolean;
   readonly chips: StoredChips;
 }
 
@@ -55,6 +63,8 @@ export function defaultSettings(dock: Dock): PanelSettings {
     height: null,
     width: null,
     tab: 'http',
+    buffer: null,
+    launcher: true,
     chips: NO_CHIPS,
   };
 }
@@ -81,10 +91,14 @@ const someOf = <T extends string>(value: unknown, allowed: readonly T[]): T[] =>
 const px = (value: unknown): number | null =>
   typeof value === 'number' && isFinite(value) && value >= 1 && value <= 100000 ? Math.round(value) : null;
 
+/** A buffer size the recorder takes (C-9), short of No limit. */
+export const isBufferSize = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value >= 1;
+
 /** Reads a stored value; anything unknown, missing or of the wrong type falls back to `defaults`. */
 export function parseSettings(text: string | null, defaults: PanelSettings): PanelSettings {
   if (text === null) return defaults;
-  let raw: Raw<'theme' | 'dock' | 'textSize' | 'time' | 'height' | 'width' | 'tab' | 'chips'>;
+  let raw: Raw<'theme' | 'dock' | 'textSize' | 'time' | 'height' | 'width' | 'tab' | 'chips' | 'buffer' | 'launcher'>;
   try {
     raw = record(JSON.parse(text));
   } catch {
@@ -102,6 +116,8 @@ export function parseSettings(text: string | null, defaults: PanelSettings): Pan
     height: px(raw.height),
     width: px(raw.width),
     tab: oneOf(raw.tab, TABS, defaults.tab),
+    buffer: raw.buffer === 'none' || isBufferSize(raw.buffer) ? raw.buffer : null,
+    launcher: typeof raw.launcher === 'boolean' ? raw.launcher : defaults.launcher,
     chips: {
       http: { status: someOf(http.status, STATUS), type: someOf(http.type, TYPES) },
       ws: { direction: someOf(ws.direction, DIRECTIONS), data: someOf(ws.data, DATA) },
@@ -121,6 +137,8 @@ export function serializeSettings(s: PanelSettings): string {
     height: s.height,
     width: s.width,
     tab: s.tab,
+    buffer: s.buffer,
+    launcher: s.launcher,
     chips: chipsOf({
       http: { text: '', ...s.chips.http },
       ws: { text: '', ...s.chips.ws },

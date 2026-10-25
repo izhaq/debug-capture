@@ -294,6 +294,10 @@ export function frameOptions(stage: Stage, extra: Partial<MountPanelUiOptions> =
     storageKey: 'dcp-spec',
     defaultDock: 'bottom',
     onRequestClose: () => undefined,
+    launcher: true,
+    setLauncher: () => undefined,
+    warnings: () => ({ nearFull: false, memoryBytes: 0 }),
+    dismissWarning: () => undefined,
     ...extra,
   };
 }

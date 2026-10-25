@@ -75,7 +75,8 @@ export function createStatusBar(dom: Dom): StatusBar {
         icon(problemIcon, 'error', tone);
       }
       write(problems, ` ${groupDigits(v.problems)} problem${v.problems === 1 ? '' : 's'}`);
-      write(buffer, `buffer ${groupDigits(v.used)} / ${groupDigits(v.capacity)}`);
+      const capacity = v.capacity === Infinity ? 'no limit' : groupDigits(v.capacity);
+      write(buffer, `buffer ${groupDigits(v.used)} / ${capacity}`);
       if (v.captureOn !== captureState) {
         captureState = v.captureOn;
         icon(captureIcon, v.captureOn ? 'opened' : 'off', v.captureOn ? 'dcp-tone-success' : 'dcp-tone-warning');
