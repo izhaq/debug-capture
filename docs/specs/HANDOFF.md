@@ -18,7 +18,7 @@ merge into the integration branch yourself — only the owner merges.
 |---|---|---|
 | docs | `claude/dc-v2-s11-docs` | open, #102 |
 | S-11a core | `claude/dc-v2-s11a-core` | open (stacked on docs) |
-| S-11b panel | `claude/dc-v2-s11b-panel` | not started |
+| S-11b panel | `claude/dc-v2-s11b-panel` | open (stacked on S-11a) |
 | S-11c app | `claude/dc-v2-s11c-app` | not started |
 
 - Numbers at the start of S-11: 1126 unit specs, 48 e2e + perf; loader 4,084 / 4,096 B,

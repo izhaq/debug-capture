@@ -9,7 +9,7 @@ your app — like DevTools, inside the page.
 - **Works in any app:** Angular (16 to 20), React 19, or a plain HTML page with no bundler.
 - **No runtime dependencies.** Everything ships in one tarball you can carry into
   a closed network.
-- **Small:** the loader is about 4 kB (min + gzip). The panel UI (about 39 kB)
+- **Small:** the loader is about 4.7 kB (min + gzip). The panel UI (about 40 kB)
   loads only the first time someone opens the panel.
 - **Chrome 146 or newer** only.
 
@@ -31,7 +31,7 @@ The package ships as one file. Build it once on a machine with access to the
 source, carry the tarball in, and install it like any other package:
 
 ```bash
-npm install ./debug-capture-2.0.0-alpha.1.tgz
+npm install ./debug-capture-2.1.0-alpha.0.tgz
 ```
 
 ESM only, with type declarations. Entry points:
@@ -133,16 +133,35 @@ Put it before your own scripts, so capture is on before they run.
 
 `installDebugPanel(controller, options)`:
 
-| Option        | Default                 | What                                                                                 |
-| ------------- | ----------------------- | ------------------------------------------------------------------------------------ |
-| `launcher`    | `true`                  | Show the DBG button in the corner. `false` hides it; the shortcut still works.       |
-| `shortcut`    | `'ctrl+alt+shift+p'`    | The open / close chord, matched on the physical key. `false` binds none.             |
-| `defaultDock` | `'bottom'`              | Where the panel opens the first time: `'bottom'` or `'right'`.                       |
-| `storageKey`  | `'debug-capture:panel'` | `localStorage` key for the panel's settings and filter chips. `false` keeps nothing. |
+| Option        | Default                 | What                                                                                                   |
+| ------------- | ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| `launcher`    | `true`                  | Show the DBG button in the corner. `false` hides it and the Settings switch; the shortcut still works. |
+| `shortcut`    | `'ctrl+alt+shift+p'`    | The open / close chord, matched on the physical key. `false` binds none.                               |
+| `defaultDock` | `'bottom'`              | Where the panel opens the first time: `'bottom'` or `'right'`.                                         |
+| `storageKey`  | `'debug-capture:panel'` | `localStorage` key for the panel's settings and filter chips. `false` keeps nothing.                   |
+| `nearFullAt`  | `0.9`                   | Show the "buffer almost full" banner from this share of the buffer size (above 0, up to 1).            |
+| `memoryStep`  | `26214400` (25 MB)      | Show the memory banner each time the size estimate passes another multiple of this many bytes.         |
 
 It returns a handle: `open()` (for your own menu item or button — the panel
 never opens by itself), `close()`, `isOpen`, `loadError` (why the UI failed to
-load, if it did) and `dispose()`.
+load, if it did), `dispose()` and `onStatus(listener)`.
+
+`onStatus(listener)` lets your app watch the panel and the buffer, also while
+the panel is closed. It calls `listener` once at once, then after a change (at
+most once per frame), and returns a function that stops it:
+
+```ts
+const stop = handle.onStatus((s) => {
+  // s.open, s.capture, s.entries, s.capacity (Infinity = no limit), s.problems,
+  // s.nearFull, s.bytes (an estimate), s.memoryStep (0 below the first step)
+});
+```
+
+The listener runs outside Angular's zone: wrap UI updates in `NgZone.run`. An
+error it throws is caught and ignored.
+
+To add a note from code (it shows in Console and in the export, also while
+capture is off): `controller.session.addNote('Login', 'clicked Sign in')`.
 
 `createCaptureController(options)`:
 
@@ -165,11 +184,21 @@ load, if it did) and `dispose()`.
 - **Console:** logs at every level, uncaught errors, unhandled rejections and
   the errors your framework catches, with their stacks.
 - **Toolbar:** pause the view, clear, export (**Download all (JSON)** or
-  **Copy all (JSON)**), and switch capture off and on.
-- Dock bottom or right, resize, maximize. Settings are remembered per browser.
+  **Copy all (JSON)**), switch capture off and on, and **Note** — write a note
+  (a title and some text) that lands in Console and in the export at that moment.
+- **Settings:** theme, dock, text size, time, **Buffer** (1,000 · 5,000 · 10,000 ·
+  50,000 · No limit; a smaller size drops the oldest entries at once; No limit
+  may make the page slow and use a lot of memory), **DBG button** (show or hide
+  the corner button) and capture on / off. Settings are remembered per browser
+  (capture always starts on).
+- **Warnings:** a banner when the buffer is almost full (it offers **Download
+  all** and **Raise the limit**) and one each time the captured data passes
+  another 25 MB (an estimate). Dismiss either; it comes back at the next step.
+- Dock bottom or right, resize, maximize.
 
 The exported file is plain JSON (`schemaVersion` 1, the same format as v1): you
-can read it without the panel.
+can read it without the panel. Notes are entries with `kind: "note"`, `title`
+and `text`; a reader that does not know them can skip them.
 
 ### Keyboard
 

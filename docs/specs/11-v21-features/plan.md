@@ -60,3 +60,29 @@ Deviations:
   (`D-28`) needs it. `-Infinity` still throws.
 - `RingBuffer` is now an array with a moving head (amortised O(1)) instead of fixed slots, so it
   can grow to No limit.
+
+S-11b — done, in review. Numbers:
+
+- Unit specs: 1197 ran, floor 1197 (was 1148): +49 — `model/v21.spec.ts` 13 (new),
+  `console-note.spec.ts` 3 (new), `settings.spec.ts` +2, `frame-v21.spec.ts` 17 (new), `loader.spec.ts`
+  +17; S-11a's "a note shows in no list yet" spec removed (S-11b gives notes their row).
+- e2e: 54 ran, floor 54 (was 48): `panel-v21.spec.mjs` +6.
+- Every new spec failed once: unit in seven mutation rounds (model, console, settings, frame, form,
+  note form, loader storage / launcher / warnings, onStatus), e2e in one round (6 of 6 red).
+- Sizes, min+gzip: loader 4,084 → **4,717** (budget 4,096 → **5,632**, 5.5 kB); UI chunk 39,006 →
+  **40,577** (budget 40,960 → **45,056**, 44 kB); core 12,071 / 12,368 (unchanged). Each budget raise is
+  about 2.5 × the S-11 growth (`D-34`, HLD `NFR-SIZE-01`).
+- Perf, 3 runs (Chromium 153): warm open 52–67 ms (limit 100), cold 62–72 ms; 100 entries/s: no long
+  task; nodes at 1,080 px — HTTP 831, WebSocket 1,012, Console 1,299 (limit 2,000); memory added
+  1.58–1.60 MB (limit 10 MB).
+- Version 2.1.0-alpha.0; `npm run pack:check`: `debug-capture-2.1.0-alpha.0.tgz`, 127 files, 345,470 B.
+
+Deviations and notes:
+
+- Changed existing specs, on purpose: the toolbar order now has **Note**; the stored-keys list has
+  `buffer` and `launcher`; with `launcher: false` the loader keeps one change listener (a clear or
+  size change re-arms the near-full banner) and still nothing per entry; the Escape spec names the
+  Settings popover (there are two dialogs now).
+- The HLD budget numbers (`NFR-SIZE-01`, `D-34`, §0, §1.6, §6.1, §6.6) are written in this PR, as
+  the docs PR said they would be.
+- Notes are stamped when **Add note** is clicked (`FR-NOTE-01`).
