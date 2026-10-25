@@ -239,7 +239,7 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 |---|---|---|
 | FR-BAR-01 | **Pause / Resume** the view. Pause freezes **rendering only**: capture continues, and Clear and buffer evictions still apply at once (rows that left the buffer disappear even while paused). The toolbar shows `Paused · N new`, N = min(arrived since pause, capacity). | MUST |
 | FR-BAR-02 | **Follow**: when scrolled to the bottom, the list follows new entries. Scrolling up stops following; a "↓ N new" button jumps back. | MUST |
-| FR-BAR-03 | **Clear** empties the capture buffer (same as v1 `Ctrl+Alt+Shift+X`, all tabs). | MUST |
+| FR-BAR-03 | **Clear** empties the capture buffer (same as v1 `Ctrl+Alt+Shift+X`, all tabs) and closes every open detail; focus inside a detail moves to its list (or, when the list is empty, its search box). | MUST |
 | FR-BAR-04 | **Export** menu: Download all (JSON file, v1 format), Copy all. Export always takes the **whole buffer** — paused or not, whatever the filters. | MUST |
 | FR-BAR-05 | Export the current view only. | COULD (2.x) |
 | FR-BAR-06 | **Status bar:** entries shown / total, problems in the buffer (rule in `FR-ACT-04`), buffer use (`4,812 / 5,000`), dropped and evicted counts, capture on/off. Counts update on every entry, clear and stats change (`C-6`). | MUST |
@@ -360,6 +360,8 @@ createCaptureController()  ──►  installDebugPanel(controller)   (loader)
   When it is full, the oldest entries drop out of the lists too; the status
   bar shows the evicted count. A selected entry that drops out keeps its
   detail open with the note "This entry was removed from the buffer".
+  **Clear** is different: the user asked for it, so every open detail
+  closes (`FR-BAR-03`; owner, 2026-10-25).
 - **Export** always takes the whole buffer — paused or not, whatever the
   filters (`FR-BAR-04`).
 

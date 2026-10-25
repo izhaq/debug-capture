@@ -237,10 +237,24 @@ describe('S-06 WebSocket view: detail', () => {
     expect(s.reported).toEqual([]);
   });
 
-  it('S06-08, §4.4: a selected message that leaves the buffer keeps its detail with the note', () => {
-    const s = open(ws(1, { data: 'kept' }));
-    expect(s.q('.dcp-ws-removed').hidden).toBeTrue();
+  it('FR-BAR-03: Clear closes an open message detail (the user cleared it; no "removed" note)', () => {
+    const s = open(ws(1));
+    expect(detail(s).hidden).toBeFalse();
+    detail(s).querySelector('button')?.focus();
+    expect(detail(s).matches(':focus-within')).toBeTrue();
     s.apply({ type: 'cleared' });
+    expect(detail(s).hidden).toBeTrue();
+    expect(s.store.getState().selection.ws).toBeNull();
+    // Focus stays in the panel: the list is empty (hidden), so the search box takes it.
+    expect(s.root.activeElement).toBe(s.q('.dcp-filter-bar input'));
+    expect(s.reported).toEqual([]);
+  });
+
+  it('S06-08, §4.4: a selected message that leaves the buffer keeps its detail with the note', () => {
+    const s = open(ws(1, { data: 'kept' }), 'Message', { capacity: 1 });
+    expect(s.q('.dcp-ws-removed').hidden).toBeTrue();
+    // Evicted: a newer entry pushes it out of the full buffer.
+    s.apply({ type: 'entry', entry: ws(2, { socketId: 9 }) });
     expect(detail(s).hidden).toBeFalse();
     expect(s.q('.dcp-ws-removed').hidden).toBeFalse();
     expect(s.q('.dcp-ws-removed').textContent).toBe('This entry was removed from the buffer.');

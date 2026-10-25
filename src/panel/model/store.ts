@@ -264,10 +264,10 @@ export function createPanelStore(options: PanelStoreOptions): PanelStore {
             pausedPending = Object.freeze([]);
             shownAfterPause = [];
           }
+          // Clear is the user's own act: every open detail closes (only an
+          // evicted entry keeps its detail, with the "removed" note).
           for (const list of ['http', 'ws', 'console'] as const) {
-            const sel = selection[list];
-            if (sel !== null && !sel.removed)
-              selection = withSelection(selection, list, { row: sel.row, removed: true });
+            if (selection[list] !== null) selection = withSelection(selection, list, null);
           }
           break;
         case 'stats':

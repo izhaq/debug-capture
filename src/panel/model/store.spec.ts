@@ -149,15 +149,25 @@ describe('buffer mirror (S03-03)', () => {
     expect(store.getState().selection.http).toEqual({ row: first, removed: true });
   });
 
-  it('cleared marks every selection removed', () => {
+  it('cleared closes every selection (the detail closes; only eviction keeps a removed entry selected)', () => {
+    const http = httpEntry(1);
     const log = logEntry(2);
     const msg = wsEntry(3);
-    const store = storeWith({ entries: [httpEntry(1), log, msg] });
+    const store = storeWith({ entries: [http, log, msg] });
+    store.select('http', http);
     store.select('console', log);
     store.select('ws', msg);
     store.apply([{ type: 'cleared' }]);
-    expect(store.getState().selection.console).toEqual({ row: log, removed: true });
-    expect(store.getState().selection.ws).toEqual({ row: msg, removed: true });
+    expect(store.getState().selection).toEqual(jasmine.objectContaining({ http: null, ws: null, console: null }));
+  });
+
+  it('cleared also closes a selection that eviction had already marked removed', () => {
+    const first = httpEntry(1);
+    const store = storeWith({ entries: [first, httpEntry(2)], capacity: 2 });
+    store.select('http', first);
+    store.apply([entry(httpEntry(3))]);
+    store.apply([{ type: 'cleared' }]);
+    expect(store.getState().selection.http).toBeNull();
   });
 });
 

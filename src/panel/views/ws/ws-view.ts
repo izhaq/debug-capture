@@ -209,7 +209,13 @@ export const createWsView: CreateView = (deps) => {
         const at = selected === null ? -1 : rows.indexOf(selected.row);
         list.select(at < 0 ? null : at);
       }
-      // The store keeps a removed entry selected (`removed: true`), so the detail needs no `onSelectionLost`.
+      // Clear closed the detail under the user's focus: give it to the list, as ✕ does, not to the page.
+      if (selected === null && detail.element.matches(':focus-within')) {
+        // An empty list is hidden: then the search box, which is always there.
+        if (list.element.hidden) search.focus();
+        else list.element.focus({ preventScroll: true });
+      }
+      // The store keeps an evicted entry selected (`removed: true`), so the detail needs no `onSelectionLost`.
       detail.show(selected, state);
       split.handle.hidden = selected === null;
     },

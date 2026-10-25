@@ -152,3 +152,37 @@ test('FR-HTTP-06, OPEN-04: Copy as cURL by a real click inside the shadow root r
   expect(host.copies).toBe(0);
   expect(host.bubbled).toEqual([]);
 });
+
+test('FR-BAR-03: Clear closes an open detail — by the toolbar button and by the v1 chord with focus inside it', async ({
+  page,
+}) => {
+  await page.route('**/api/items*', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+  );
+  await page.goto(ORIGIN + '/');
+  await page.waitForFunction(() => window.__ready === true);
+  await page.locator('#host-input').focus();
+  await page.keyboard.press(TOGGLE);
+  await expect(page.locator(VIEW)).toBeVisible();
+  const detail = page.locator(`${VIEW} .dcp-http-detail`);
+  const request = () => page.evaluate(() => fetch('/api/items?n=1').then((r) => r.text()));
+
+  // The toolbar button.
+  await request();
+  await row(page, 0).click();
+  await expect(detail).toBeVisible();
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  await expect(detail).toBeHidden();
+  await expect(page.locator(`${VIEW} .dcp-empty`).first()).toHaveText('No requests yet.');
+  await expect(page.locator(`${VIEW} .dcp-http-removed`)).toBeHidden();
+
+  // The v1 chord, pressed while focus is on a detail tab.
+  await request();
+  await row(page, 0).click();
+  await detail.locator('[role="tab"]', { hasText: 'Response' }).click();
+  await page.keyboard.press('Control+Alt+Shift+KeyX');
+  await expect(detail).toBeHidden();
+  // Focus was inside the detail: it stays in the panel, not the page. The list is empty
+  // (hidden), so it goes to the search box.
+  await expect(page.locator(`${VIEW} input[aria-label="Filter requests"]`)).toBeFocused();
+});

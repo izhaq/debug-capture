@@ -73,6 +73,8 @@ const LAYOUT =
   '.dcp-detail-body{flex:1 1 auto;min-height:0;overflow:auto}';
 
 export interface StageOptions {
+  /** Buffer capacity the store sees; default 5,000. A small one lets a spec evict. */
+  readonly capacity?: number;
   readonly entries?: readonly CaptureEntry[];
   readonly pending?: readonly PendingRequest[];
   readonly settings?: ViewSettings;
@@ -145,7 +147,7 @@ export function stage(options: StageOptions = {}): Stage {
     snapshot: () => options.entries ?? [],
     pending: () => options.pending ?? [],
     stats: () => ({ recorded: 0, dropped: 0, evicted: 0, failed: 0 }),
-    capacity: () => 5_000,
+    capacity: () => options.capacity ?? 5_000,
     redactedValue: () => '[redacted]',
     subscribe: () => () => undefined,
     clear: () => undefined,

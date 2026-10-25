@@ -142,10 +142,24 @@ describe('S-07 Console view: detail', () => {
     );
   });
 
-  it('S07-07, 4.4: a selected entry that leaves the buffer keeps its detail with the note', () => {
-    const s = open(log(1, 'log', ['kept']));
-    expect(s.q('.dcp-console-removed').hidden).toBeTrue();
+  it('FR-BAR-03: Clear closes an open detail (the user cleared it; no "removed" note)', () => {
+    const s = open(log(1));
+    expect(detail(s).hidden).toBeFalse();
+    detail(s).querySelector('button')?.focus();
+    expect(detail(s).matches(':focus-within')).toBeTrue();
     s.apply({ type: 'cleared' });
+    expect(detail(s).hidden).toBeTrue();
+    expect(s.store.getState().selection.console).toBeNull();
+    // Focus stays in the panel: the list is empty (hidden), so the search box takes it.
+    expect(s.root.activeElement).toBe(s.q('.dcp-filter-bar input'));
+    expect(s.reported).toEqual([]);
+  });
+
+  it('S07-07, 4.4: a selected entry that leaves the buffer keeps its detail with the note', () => {
+    const s = open(log(1, 'log', ['kept']), { capacity: 1 });
+    expect(s.q('.dcp-console-removed').hidden).toBeTrue();
+    // Evicted: a newer entry pushes it out of the full buffer.
+    s.apply({ type: 'entry', entry: log(2) });
     expect(detail(s).hidden).toBeFalse();
     expect(s.q('.dcp-console-removed').hidden).toBeFalse();
     expect(s.q('.dcp-console-removed').textContent).toBe('This entry was removed from the buffer.');

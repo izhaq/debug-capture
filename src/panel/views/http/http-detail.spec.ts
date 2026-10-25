@@ -262,10 +262,24 @@ describe('S-05 HTTP view: detail', () => {
     expect(detail(s).hidden).toBeTrue();
   });
 
-  it('S05-12, §4.4: a selected entry that leaves the buffer keeps its detail with the note', () => {
-    const s = open(http(1, { url: 'https://h/kept' }));
-    expect(s.q('.dcp-http-removed').hidden).toBeTrue();
+  it('FR-BAR-03: Clear closes an open detail (the user cleared it; no "removed" note)', () => {
+    const s = open(http(1));
+    expect(detail(s).hidden).toBeFalse();
+    detail(s).querySelector('button')?.focus();
+    expect(detail(s).matches(':focus-within')).toBeTrue();
     s.apply({ type: 'cleared' });
+    expect(detail(s).hidden).toBeTrue();
+    expect(s.store.getState().selection.http).toBeNull();
+    // Focus stays in the panel: the list is empty (hidden), so the search box takes it.
+    expect(s.root.activeElement).toBe(s.q('.dcp-filter-bar input'));
+    expect(s.reported).toEqual([]);
+  });
+
+  it('S05-12, §4.4: a selected entry that leaves the buffer keeps its detail with the note', () => {
+    const s = open(http(1, { url: 'https://h/kept' }), 'Headers', { capacity: 1 });
+    expect(s.q('.dcp-http-removed').hidden).toBeTrue();
+    // Evicted: a newer entry pushes it out of the full buffer.
+    s.apply({ type: 'entry', entry: http(2) });
     expect(detail(s).hidden).toBeFalse();
     expect(s.q('.dcp-http-removed').hidden).toBeFalse();
     expect(s.q('.dcp-http-removed').textContent).toBe('This entry was removed from the buffer.');
