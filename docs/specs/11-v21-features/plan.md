@@ -41,4 +41,22 @@ All paths are under `packages/debug-capture/` unless they start with `/`.
 
 ## Status
 
-Docs PR open. S-11a, S-11b, S-11c not started.
+Docs PR open (#102).
+
+S-11a — done, in review. Numbers:
+
+- Unit specs: 1148 ran, floor 1148 (was 1126): +22 — `ring-buffer.spec.ts` +5, `recorder-v21.spec.ts`
+  +13 (new), `problem-rule.spec.ts` +1, `install-debug-capture.spec.ts` +3, `selectors.spec.ts` +1.
+  e2e: 48, floor 48 (no e2e change).
+- Every new spec failed once under a mutation (three rounds: no shrink / no eviction count / no
+  bytes or problems / no note policing / no note kind / addNote skipped / note as a problem /
+  compaction off by one / no validation / a cached usage object).
+- Sizes, min+gzip: core 11,743 → **12,071** / 12,368 (+328 B; still within v1 + 2 kB);
+  loader 4,084 / 4,096 and UI chunk 39,006 / 40,960 (the selectors' note line), budgets unchanged.
+
+Deviations:
+
+- `ring-buffer.spec.ts` "rejects a capacity…" no longer expects `Infinity` to throw: No limit
+  (`D-28`) needs it. `-Infinity` still throws.
+- `RingBuffer` is now an array with a moving head (amortised O(1)) instead of fixed slots, so it
+  can grow to No limit.

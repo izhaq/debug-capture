@@ -16,8 +16,8 @@ merge into the integration branch yourself — only the owner merges.
 
 | PR | Branch | State |
 |---|---|---|
-| docs | `claude/dc-v2-s11-docs` | open |
-| S-11a core | `claude/dc-v2-s11a-core` | not started |
+| docs | `claude/dc-v2-s11-docs` | open, #102 |
+| S-11a core | `claude/dc-v2-s11a-core` | open (stacked on docs) |
 | S-11b panel | `claude/dc-v2-s11b-panel` | not started |
 | S-11c app | `claude/dc-v2-s11c-app` | not started |
 
