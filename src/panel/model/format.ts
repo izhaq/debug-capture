@@ -1,4 +1,4 @@
-import { LogLevel, WebSocketEntry } from '../..';
+import { WebSocketEntry } from '../..';
 import { ConsoleLevel, ConsoleRow, HttpRow, HttpStatusGroup, isPendingRow } from './state';
 
 /**
