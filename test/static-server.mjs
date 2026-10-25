@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /**
  * Tiny static server for the end-to-end tests (Node `http`, no packages).
- *   /             → test/hosts/plain/index.html
- *   /dist/*       → the prebuilt bundles (`npm run build` first)
- *   /api/ping     → a small JSON reply, for the page to fetch
+ *   /<host>/                       → test/hosts/<host>/index.html (angular, react, plain)
+ *   /plain/vendor/debug-capture/*  → dist/*: the plain page's vendored copy (HLD §6.6)
+ *   /hosts-out/*                   → .test-out/hosts/*, the host bundles (test/hosts/build.mjs)
+ *   /dist/*                        → the prebuilt bundles (`npm run build` first)
+ *   /api/ping                      → a small JSON reply, for the page to fetch
  * Usage: node test/static-server.mjs [port]   (default 4319)
  */
 import { createServer } from 'node:http';
@@ -21,9 +23,12 @@ createServer(async (req, res) => {
     res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ pong: true }));
     return;
   }
-  const rel = pathname === '/' ? 'test/hosts/plain/index.html' : pathname.slice(1);
-  const file = path.resolve(root, rel);
-  const allowed = [path.join(root, 'dist') + path.sep, path.join(root, 'test', 'hosts') + path.sep];
+  const file = path.resolve(root, toFile(pathname));
+  const allowed = [
+    path.join(root, 'dist') + path.sep,
+    path.join(root, 'test', 'hosts') + path.sep,
+    path.join(root, '.test-out', 'hosts') + path.sep,
+  ];
   if (!allowed.some((dir) => file.startsWith(dir))) {
     res.writeHead(404).end('not found');
     return;
@@ -35,3 +40,13 @@ createServer(async (req, res) => {
     res.writeHead(404).end('not found');
   }
 }).listen(port, '127.0.0.1', () => console.log(`e2e static server on http://127.0.0.1:${port}`));
+
+/** The repo-relative file a URL path names (checked against `allowed` by the caller). */
+function toFile(pathname) {
+  const vendor = '/plain/vendor/debug-capture/';
+  if (pathname.startsWith(vendor)) return `dist/${pathname.slice(vendor.length)}`;
+  if (pathname.startsWith('/hosts-out/')) return `.test-out/hosts/${pathname.slice('/hosts-out/'.length)}`;
+  const host = /^\/(angular|react|plain)\/$/.exec(pathname);
+  if (host) return `test/hosts/${host[1]}/index.html`;
+  return pathname.slice(1);
+}

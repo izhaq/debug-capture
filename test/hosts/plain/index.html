@@ -5,17 +5,40 @@
     <title>debug-capture — plain HTML host</title>
   </head>
   <body>
-    <p>
-      Plain page: no framework, no bundler. Loads the prebuilt <code>dist/index.mjs</code> and
-      <code>dist/panel.mjs</code>.
+    <h1>Plain host</h1>
+    <p id="framework">
+      Plain page: no framework, no bundler. Loads the prebuilt <code>index.mjs</code> and <code>panel.mjs</code> from a
+      copy of <code>dist/</code> in <code>vendor/debug-capture/</code>.
     </p>
+    <input id="host-input" aria-label="Host input" />
+    <button id="host-request" type="button">Request</button>
+    <button id="host-fail" type="button">Fail</button>
+    <p id="host-reply">none</p>
+    <!-- HLD §6.6, word for word (S10-03). -->
     <script type="module">
-      import { installDebugCapture } from '/dist/index.mjs';
-      import { PANEL_ELEMENT_NAME } from '/dist/panel.mjs';
+      import { createCaptureController, isDebugRequested } from './vendor/debug-capture/index.mjs';
+      import { installDebugPanel } from './vendor/debug-capture/panel.mjs';
+      if (isDebugRequested()) installDebugPanel(createCaptureController());
+    </script>
+    <!-- The page's own code. Module scripts run in order, so capture is on before this fetch. -->
+    <script type="module">
+      import { getActiveCaptureSession } from './vendor/debug-capture/index.mjs';
+      import { PANEL_ELEMENT_NAME } from './vendor/debug-capture/panel.mjs';
 
+      const reply = document.getElementById('host-reply');
+      const load = () =>
+        fetch('/api/ping')
+          .then((response) => response.json())
+          .then((body) => (reply.textContent = JSON.stringify(body)));
+      document.getElementById('host-request').addEventListener('click', load);
+      document.getElementById('host-fail').addEventListener('click', () => {
+        throw new Error('plain host failure');
+      });
+      // For the e2e tests only: null when the flag is off.
+      window.__hostSession = getActiveCaptureSession();
       window.panelElementName = PANEL_ELEMENT_NAME;
-      installDebugCapture();
       window.hostDone = fetch('/api/ping').then((response) => response.json());
+      window.__hostReady = true;
     </script>
   </body>
 </html>

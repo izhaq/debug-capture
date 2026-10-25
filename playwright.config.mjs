@@ -28,7 +28,8 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {
-      command: `node test/static-server.mjs ${port}`,
+      // The Angular and React hosts are bundled from dist/ first (S-10a).
+      command: `node test/hosts/build.mjs && node test/static-server.mjs ${port}`,
       url: `http://127.0.0.1:${port}/dist/index.mjs`,
       reuseExistingServer: false,
       timeout: 30000,
