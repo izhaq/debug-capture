@@ -1,12 +1,11 @@
 # Handoff — debug-capture v2, S-10 (updated 2026-10-25)
 
 You are the new **orchestrator** for debug-capture v2 (GitHub Copilot in agent
-mode, on the owner's **Windows laptop** — see §10 for setup). Waves 1–3 and S-09 are
+mode, on the owner's **Windows laptop** — see §6 for setup). Waves 1–3 and S-09 are
 done and merged. Your job is **S-10, integration and verification — the last spec**
-(§0). Sections §3–§7 describe how wave 3 was built and are background now. This file
-is everything you need to start.
+(§0). This file is everything you need to start.
 Read it first; open other files only when a step needs them, by line range or grep
-(§9).
+(§5).
 
 **Talking to the owner** (root `CLAUDE.md` — written for Claude, but it applies to
 you too; read it): short, simple words, as if to a junior
@@ -26,7 +25,7 @@ to undo. Never merge into the integration branch yourself.
   (~2 kB left)**, core 11,743 / 12,368 B. S-10 should add **no panel code**; ask the owner
   before raising any budget.
 - **Next: S-10 Integration and verification — the last spec** (HLD §9.1 row S-10, §9.3).
-  §5 below is the finished wave-3 plan; for S-10 follow the S-09 pattern instead:
+  Follow the S-09 pattern (a spec folder, one branch per PR).
   **S-10 is split into two PRs (owner, 2026-10-25)**, one after the other, each from the
   integration branch and each merged by the owner:
   - **S-10a — hosts, packaging, README** (branch `claude/dc-v2-s10a-hosts`):
@@ -49,9 +48,10 @@ to undo. Never merge into the integration branch yourself.
 - **Known limits (name them in the S-10 PRs):** fullscreen and a host modal dialog — panel drawn
   on top and live but not clickable (Chrome rule, `D-15`); a modal dialog inside a host's shadow
   root is not seen (ISO-21); in a narrow right dock the HTTP filter bar clips its last chips;
-  `redactUserinfo` misses leading-space and `//host` URLs (§7).
+  `redactUserinfo` (`src/core/redact.ts`) misses leading-space and `//host` URLs.
 - **Process:** every change goes through a PR — never push straight to the integration branch
   (or a wave branch). Commit and push after each step; `npm run format` before each commit.
+- Keep the loader's `parseChord` as a copy of `install/shortcuts.ts` `parseShortcut` (size budget).
 - The hostile host uses the real `createCaptureController` (`test/hostile-host/controller.mjs`).
   A view's e2e makes real traffic with `page.evaluate` (fetch / XHR / WebSocket / console)
   and finds rows inside the shadow root. Spec stages' `cleanup()` must destroy their views.
@@ -59,12 +59,12 @@ to undo. Never merge into the integration branch yourself.
   `CHROME_BIN`; Karma then tries the blocked `chrome.exe` (`spawn EPERM`). Set
   it in the command: `$env:CHROME_BIN = [Environment]::GetEnvironmentVariable('CHROME_BIN','User')`.
 
-**Setup (Windows, PowerShell; details in §10):**
+**Setup (Windows, PowerShell; details in §6):**
 
 ```powershell
 git config core.autocrlf false
 git fetch origin
-git switch claude/dc-v2-wave3
+git switch claude/air-gapped-debug-logging-zkn1nr
 git pull
 cd packages/debug-capture
 npm ci
@@ -78,27 +78,27 @@ npm run check
   laptop's Chrome 155. Stations run Chrome 146.0.7680.72+: never use web features
   newer than Chrome 146.
 - **PRs:** use `gh` (`gh pr create`, `gh pr merge <n> --merge`), merge commits only.
-  You merge track PRs into `claude/dc-v2-wave3` after `npm run check` passes and you
-  read the diff. Only the owner merges into `claude/air-gapped-debug-logging-zkn1nr`.
+  S-10a and S-10b each open one PR into `claude/air-gapped-debug-logging-zkn1nr`;
+  **only the owner merges it**.
 - **Commits:** conventional commits, scope `debug-capture v2`
-  (`feat(debug-capture v2): view interface and stub views`). No trailer lines. Never
+  (`test(debug-capture v2): Angular host e2e`). No trailer lines. Never
   an AI model name in commits or PRs.
 - **Budgets:** UI chunk 40 kB (`D-25`). The **loader has 12 B left** (4,084 /
-  4,096 B since S-08) — ask the owner before raising its 4 kB budget (R2).
+  4,096 B) — ask the owner before raising its 4 kB budget.
 
 **Your first reply to the owner:**
 
-1. Did `npm run check` pass on `claude/dc-v2-wave3`? Test counts and the size table,
+1. Did `npm run check` pass on `claude/air-gapped-debug-logging-zkn1nr`? Test counts and the size table,
    or the exact error.
 2. Your plan for the next step in the status above, in a few lines.
 3. Anything in the docs that looks unclear or contradictory.
 
 Then **wait for the owner's "go"** before writing code, and ask for a "go" before
-each later step. Order after the contract: S-08 frame → S-05 HTTP → S-06 WebSocket →
-S-07 Console (at most two at a time).
+each later step. Order: S-10a (spec first, then hosts, packaging, README) → S-10b.
 
 **Before you stop** (budget, end of day, or done): push your work, update this §0
-and the `wave-3.md` status table, so the next agent can start from here.
+and the status in `docs/specs/10-integration/plan.md`, so the next agent can start
+from here. **In the PR that finishes S-10b, delete this file** (rule 11 in §5).
 
 ---
 
@@ -127,216 +127,47 @@ and the `wave-3.md` status table, so the next agent can start from here.
 | File | What it holds | Read when |
 |---|---|---|
 | `AGENTS.md` (164 lines) | All coding, layer, isolation, test, git and review rules | Before the first brief; agents read it too |
-| `docs/specs/README.md` | Spec list S-00…S-10, waves, spec folder layout, spec rules | Before writing wave-3 specs |
-| `docs/specs/wave-2.md` | How wave 2 was planned: tracks, owned paths, contracts, status table | The **template** for `wave-3.md` |
-| `docs/specs/0N-*/spec.md`, `prs/*.md` | Wave 1–2 specs and PR briefs | Examples of the spec / brief format |
-| `docs/design/mockup.html` | Visual mockup of the panel | S-05…S-08 UI work |
-| `docs/research/host-impact-edge-cases.md` | Tested isolation cases (S1…, L1…, E1…, F…) | S-08 (frame inside a hostile host) |
+| `docs/specs/README.md` | Spec list S-00…S-10, waves, spec folder layout, spec rules | Before writing the S-10 spec |
+| `docs/specs/09-accessibility/` | The latest spec folder (spec, plan, one brief) | The **template** for `10-integration/` |
+| `docs/specs/0N-*/spec.md` | Every spec with its traceability table | The every-MUST walk (S-10b) |
+| `README.md` (package root) | The package README (S-10a rewrites it) | S-10a |
+| `test/hostile-host/`, `test/e2e/` | The hostile host (real controller) and every e2e | Pattern for the S-10a host e2e |
 
 **HLD sections you will need** (line numbers on the integration branch, ±5):
 
 | § | Line | Topic | For |
 |---|---|---|---|
-| 3.3 | 190 | FR-WIN: dock, resize, maximize, fullscreen | S-08 |
-| 3.4 | 202 | FR-HTTP-01…07 | S-05 |
-| 3.5 | 214 | FR-WS | S-06 |
-| 3.6 | 224 | FR-CON | S-07 |
-| 3.7 | 234 | FR-BAR: pause, clear, export, status bar | S-08 |
-| 3.8 | 246 | FR-COM: shared JSON viewer, copy… | all views |
-| 3.9 | 256 | NFR: ISO, PERF, SIZE, SEC, REL, A11Y, COMP | all |
-| 4.1–4.12 | 281–499 | Behaviour: lifecycle, open/close/resize, pause/follow, filters, HTTP detail (Headers / Payload / Response / Timing), WS view, console view, toolbar, settings, states, keyboard | all |
-| 5.1–5.8 | 500–699 | Visual design: layout, sizes, colour tokens, type, **columns and status mapping (5.6)**, interaction states | all |
-| 6.2 / 6.4 | 728 / 778 | Layers / key interfaces | contract PR |
-| 6.7 | 892 | Isolation rules ISO-01…22 | S-08 |
-| 8 | 983 | Test strategy, hostile host, proof rules | all |
-| 9.1–9.3 | 1015–1082 | Spec rows, waves, **traceability** (which spec owns each requirement) | planning |
-| 10 / 11 | 1083 / 1116 | Decisions D-01…D-23 / open questions | — |
+| 1.4 / 1.6 | ~91 / ~113 | Goals; how we know it worked (BR rows) | S-10b |
+| 3.1 | ~164 | Business requirements BR-01…07 | S-10b |
+| 3.9 | ~256 | NFR: PERF, SIZE, SEC, COMP, PORT | S-10a / S-10b |
+| 6.1 / 6.6 | ~702 / ~864 | Package entry points; using it in a host | S-10a |
+| 8 | ~983 | Test strategy, hostile host, proof rules | both |
+| 9.1–9.3 | ~1015–1085 | Spec rows, waves, **traceability** (which spec owns each requirement) | S-10b |
+| 10 / 11 | ~1086 / ~1120 | Decisions D-01…D-26 / open questions | — |
 
-## 3. Where things stand
-
-**Integration branch:** `claude/air-gapped-debug-logging-zkn1nr` (never `main`).
-Everything below is merged into it (as of `4ebda8a`).
-
-| Wave | Specs | PRs | State |
-|---|---|---|---|
-| 1 | S-00 Foundation | #59 | Merged |
-| 2 | S-01 core changes, S-02 loader, S-03 model, S-04 UI blocks | #60–#68, wave PR #70 | Merged |
-| after | Review notes, D-23, Chrome 146+, wave-3 decisions, handoff, Copilot / Windows setup | #69, #71–#76 | Merged |
-| 3 (in progress) | Wave branch `claude/dc-v2-wave3`: plan + specs, D-24, D-25; contract, S-08, S-05 | #77–#79, #81, #83, #84 | Merged into the wave branch; current step in §0 |
-
-**Numbers** (`npm run check`, green): **935** unit specs (floor 935), **19** e2e
-(floor 19).
-
-| Size budget (min+gzip) | Now | Max | Left |
-|---|---|---|---|
-| core | 11,743 B | 12,368 B | 625 B |
-| panel-loader | 4,041 B | 4,096 B | **55 B** |
-| panel-ui (lazy chunk) | 22,695 B | 40,960 B (`D-25`) | ~18 kB for wave 3 (estimate needs 13–15 kB) |
-
-**Reviews done:** S-00 ×2, S-01 + confirmation, S-02 isolation + fixes, S-04 +
-confirmation, one whole-wave review (no blockers).
-
-### What is built, by layer (`AGENTS.md` layer table)
-
-| Layer | Path | What is there (names from each barrel) |
-|---|---|---|
-| L1–L5 capture | `src/contract`, `core`, `adapters`, `install`, `src/index.ts` | Recorder with **pending requests** (`requestId`); `createCaptureController(options)` — one recorder for the page's life, stable session; probes; sinks `copyText` / `download` taking `{ root }`; `isProblemEntry` (D-21) |
-| P1 model | `src/panel/model/` | `createLocalDataSource`, `createPanelStore` (batching, pause, selection), selectors (HTTP rows, WS connections, console rows, counts), filters (`foldCase`, `matchRanges`, `toggleChip`, `EMPTY_FILTERS`), `format`, `describeBody` / redaction ranges, `toCurl` |
-| P2 ui | `src/panel/ui/` | `createDom` (safe builder, no `innerHTML`), badge, button, chip group, empty state, highlight, icons, menu / popover, search box, split pane, tabs, theme (`TOKENS`, theme sheet), **virtual list**, **JSON viewer** |
-| P3 views | `src/panel/views/` | **Empty** apart from the barrel and a composition spec. Wave 3 fills it (S-05…S-07). |
-| P4 app | `src/panel/app/` | **Placeholder** `mountPanelUi` (title + close button). S-08 replaces it with the frame. |
-| P5 loader | `src/panel/index.ts`, `loader.ts`, `loader-styles.ts` | `installDebugPanel(controller, options)`: locked-down host element in the top layer, event wall, toggle `Ctrl+Alt+Shift+P`, launcher + problems badge, lazy `import('./app')`, focus move / return, remount after removal |
-
-**P4 contract today** (`src/panel/app/mount-panel-ui.ts`):
-`mountPanelUi(root: ShadowRoot, controller, { document, storageKey, defaultDock,
-onRequestClose }) → { unmount() }`.
-
-**Test hosts:** `test/hostile-host/` (strict CSP + Trusted Types, hostile CSS,
-real-app listeners, a zone.js page; it drives a **fake controller**,
-`fake-controller.mjs`) and `test/e2e/panel-*.spec.mjs` (Playwright, ISO rules).
-
-## 4. Decisions (HLD §10)
+## 3. Decisions (HLD §10)
 
 | State | Decisions |
 |---|---|
 | **Decided** (all of them, owner 2026-10-19 / 2026-10-22) | D-01 … D-26. D-15 and D-18 were changed by the owner; D-05…D-11, D-16, D-17, D-21, D-22 were already built and accepted as built; D-24 (no Launcher setting in 2.0) and D-25 (UI chunk 40 kB) were added during wave-3 planning; D-26 (WebSocket detail Copy ▾) during S-06. |
 
-**Owner changes that wave 3 must implement:**
-- **D-18 / FR-HTTP-01:** the HTTP list is in **start order** like DevTools; a pending
-  row keeps its place and updates in place when it finishes. **Column sorting:**
-  click a header → ascending → descending → back to start order, with `aria-sort`.
-  Filters and search apply on top. The model does **not** do this yet (R3).
-- **D-15 / FR-WIN-07:** when the page goes **fullscreen**, the launcher and panel are
-  raised back on top (shown again in the top layer) and stay **live**, but Chrome
-  blocks clicks and focus outside the fullscreen element (like a modal dialog), so a
-  banner says the panel cannot be used until fullscreen ends; the shortcut still
-  opens and closes it. A host **modal dialog** gets the same banner (§4.11). Built
-  in S-08.
-- **D-19:** Pause freezes the view only. **Capture on/off** (FR-ACT-09) is the "stop
-  recording" switch, like DevTools' record button, and sits **next to Pause** in the
-  toolbar.
-- **D-23:** a host registering a `--dcp-*` name with `@property` is out of scope. The
-  theme keeps CSS variables; only the loader uses literal colours.
+**Decisions that shape behaviour (all built):** D-15 fullscreen / host modal — panel drawn on top
+and live but not clickable, banner; D-18 HTTP list in start order with column sorting; D-19
+Pause freezes the view, Capture on/off stops recording; D-23 a host `@property --dcp-*` is out of
+scope; D-24 no Launcher setting in 2.0; D-25 UI chunk budget 40 kB; D-26 WebSocket detail Copy ▾.
 
-## 5. Wave 3 — the plan
-
-```
-Step 0: wave-3.md + specs S-05…S-08 (docs)           → owner glance
-Step 1: contract PR (small, you do it)               → wave branch
-Step 2: S-05 ║ S-06 ║ S-07 ║ S-08 tracks              → each merged into the wave branch
-Step 3: S-08 fresh-context review + confirmation; whole-wave review
-Step 4: one PR wave branch → integration, for the owner
-```
-
-**Branches** (same as wave 2): wave branch `claude/dc-v2-wave3` from the integration
-branch; tracks `claude/dc-v2-w3-05-http`, `-06-ws`, `-07-console`, `-08-frame`. One
-agent, one branch and one PR per track into the wave branch, merged with a **merge
-commit** after you re-run the checks and read the diff.
-
-### Step 0 — plan and specs
-
-- `docs/specs/wave-3.md`, shaped like `wave-2.md`: tracks, briefs, **owned paths**
-  (no two tracks own the same file), the contracts each codes against, the shared
-  CSS class table, a status table.
-- `docs/specs/05-http-view/`, `06-ws-view/`, `07-console-view/`, `08-frame/`: each a
-  `spec.md` (requirement rows citing HLD IDs + traceability table) and
-  `prs/<nn>-*.md` briefs (Goal · Owned paths · Public API · Behaviour · Required
-  specs · Verification · Out of scope).
-- HLD §9.3 says which spec owns each FR/NFR — use it so nothing is missed.
-- Docs only → no reviewer (§9).
-
-### Step 1 — the contract PR (small; do it yourself)
-
-Fix these **before** the tracks start, so they can work in parallel:
-
-1. **View interface** — what the frame mounts per tab: a factory
-   `(deps) → { element, destroy(), … }`, where `deps` holds the store / data source,
-   `document`, the shadow root for sinks, a scheduler and the settings it needs. Put
-   the type in P3 `views/` (P4 may import P3).
-2. **`panelRoot: HTMLElement` in `MountPanelUiOptions`** — P4 finds the loader's
-   `.dcp-root` by a hard-coded class string today. The loader passes `root`; update
-   S-02's spec. Touches the loader (55 B left, R2).
-3. **Stylesheet contract** — the loader's sheet holds the `:host` lockdown. The UI
-   **appends** its sheet (`adoptedStyleSheets = [...existing, ui]`) and never
-   replaces the list. Write down who owns the panel root's size and dock: today
-   `loader-styles.ts` `.dcp-root` sets `height:40%`, bottom-docked, a background;
-   S-08 will own size and dock, so decide which rules move.
-4. **HTTP order (D-18)** — decide where start order and sorting live. Recommended:
-   change `selectors.ts` `httpRows` to start order and add a sort key to the P1
-   filter / store state, so S-05 only renders. Raise the spec floor.
-
-### Step 2 — track notes
-
-| Track | HLD | Must-knows |
-|---|---|---|
-| **S-05 HTTP** | FR-HTTP-01…07, §4.6, §5.6 | Start order + column sorting (D-18). Pending rows via `requestId`. Detail sub-tabs Headers / Payload / Response / Timing; JSON tree + **Raw** toggle (FR-HTTP-05); copy as cURL (`toCurl`). Sinks get `{ root }` so copy / download never touch `<body>`. A failed download is silent today (`download()` swallows errors) — show it if S-08 adds a toast. |
-| **S-06 WebSocket** | FR-WS, §4.7 | Connections list + messages; message detail **Message** (JSON tree / Raw; binary as base64 + hex, a cut base64 tail shown as `…` *cut*) and **Info**. |
-| **S-07 Console** | FR-CON, §4.8 | List in `seq` order, args in the shared JSON viewer (D-04), stacks. |
-| **S-08 Frame** (security / hot path) | FR-WIN, FR-BAR, FR-ACT-09, §4.3–4.4, §4.9–4.12, ISO-* | Replaces the `src/panel/app/` placeholder. Title bar; tabs (Network › HTTP / WS sub-tabs, Console); resize, dock (bottom default, right option — D-03), maximize; rAF scheduler; settings storage (D-20: remember settings, size, dock, last tab, filter chips — **not** capture on/off or search text); banners (§4.11); toolbar: Pause, **Capture on/off next to Pause**, Clear, Export ▾, settings, maximize, close; status bar (FR-BAR-06); theme Auto (D-13); **fullscreen re-raise** (D-15, R2). Needs a fresh-context review. |
-
-**For every track:**
-- Views pass the panel's shadow root to the sinks (`{ root }`).
-- UI APIs added in wave-2 reviews: tabs ids / `aria-controls`; list
-  `onSelectionLost` (fires **before** the list re-renders — handlers must not
-  re-enter `select` / `setItems`); JSON viewer `onError` / `badgeIcon`.
-- `launcher-tokens.ts` keeps literal `dark: {…}` / `light: {…}` hex objects
-  (`npm run contrast` parses it).
-- Switch the e2e from the fake controller to the real `createCaptureController`
-  once views exist.
-- Add hostile-host e2e tests for each view (AGENTS rule 29) and raise both floors.
-
-### Steps 3–4 — reviews and the wave PR
-
-- S-08: a fresh-context adversarial review (a new chat / session that has not seen
-  the code being written, given only the diff, the spec and the ISO rules) → fix
-  round → a narrow confirmation review of the fix commits only.
-- S-05…S-07: your own diff read + checks; add a review only if something looks risky.
-- One whole-wave review focused on the **seams** between tracks, not each file again.
-  Fix, then open `claude/dc-v2-wave3` → integration. **Do not merge it.**
-
-## 6. Risks — raise them early
-
-- **R1 — UI chunk budget: decided.** Measured at 22.3 kB with only the model and the
-  UI blocks (all real panel code; the capture layer is in the shared chunk). The owner
-  raised the budget to **40 kB** (`D-25`); wave 3 is estimated at +13–15 kB. Each
-  track reports its growth in its PR.
-- **R2 — the loader has 55 B left.** The fullscreen re-raise (a `fullscreenchange`
-  listener, also while closed — update S02-07) and `panelRoot` both touch it. Expect
-  to trim or ask the owner to raise the 4 kB budget.
-- **R3 — HTTP order.** `selectors.ts` `httpRows` still lists finished rows by `seq`
-  with pending rows last. D-18 needs start order + sorting (step 1, item 4).
-- **R4 — prove fullscreen: done in S-08.** A Playwright test on the hostile host: after
-  `element.requestFullscreen()` the launcher and panel are drawn on top and the banner
-  shows; after fullscreen the panel is clickable again; a modal `<dialog>` shows the
-  banner too.
-
-## 7. Small leftovers from wave 2 (fix when you touch the file)
-
-- `redactUserinfo` (`src/core/redact.ts`) misses URLs with a leading space and
-  protocol-relative `//user@host`.
-- The 04b virtual-list spec uses a hand-copied focus-ring CSS that can drift from the
-  theme (the composition spec covers it).
-- The e2e wall listener (`test/hostile-host/hostile.mjs` TYPES) does not watch
-  pointermove, mouseover, touch, composition or drag events (unit specs do).
-- A committed real-gesture copy test from inside the shadow root is still owed
-  (proved once by hand in Chromium 141).
-- The loader's `parseChord` is a deliberate copy of `install/shortcuts.ts`
-  `parseShortcut` (size budget) — keep it.
-
-## 8. Open items for the owner (do not decide for them)
+## 4. Open items for the owner (do not decide for them)
 
 - OPEN-02 (stations' CSP strictness), OPEN-03 (`bdi_W` practices — repo not
   reachable), OPEN-04 (copy / download from the shadow root on stations), OPEN-05
   (should opening need more than "flag on"), OPEN-06 (where the v2 repo will live).
-- Budgets: R1 and R2.
+- Budgets: the loader has 12 B left — ask the owner before raising it.
 
-## 9. How to work — token-saving rules (the owner's budget is tight)
+## 5. How to work — token-saving rules (the owner's budget is tight)
 
 1. **Don't read big files whole.** Search and read line ranges; open only the HLD
    section a step needs (§2).
-2. **Work in small units.** One track at a time per chat / session, or at most two in
-   parallel if your tool runs background agents. Four tracks → S-08 first (it fixes
-   the frame the views mount in), then the views.
+2. **Work in small units.** One PR at a time: S-10a, then S-10b.
 3. **Small fixes: do them yourself.** Start a **fresh** chat only for a review (it must
    not have seen the code being written). Don't drag a long chat history into small
    fixes — start a new one with a short brief instead.
@@ -354,8 +185,11 @@ Fix these **before** the tracks start, so they can work in parallel:
 9. **Owner updates:** a few lines or a small table; ask for a "go" before each step.
 10. **Prove new tests:** for each fix, show the new spec failing on the old code once
     (revert the fix, run the tests, restore).
+11. **A handoff lives only while its step is open.** Keep one file (this one), rewrite it for
+    the next step, and **delete it in the PR that finishes the last step** (S-10b). Never keep
+    old waves' plans or status in it — git history has them.
 
-## 10. Environment — Windows laptop
+## 6. Environment — Windows laptop
 
 **Browsers:** the laptop has **Chrome 155**; the stations run **Chrome 146.0.7680.72+**
 (NFR-COMP-01). Do **not** use web APIs or CSS added after Chrome 146, even though they
@@ -410,7 +244,7 @@ change something outside, run from the repo root `npm ci`, then
 `npx tsc -p tsconfig.app.json --noEmit` and `npm run lint:layers`.
 
 **Git and GitHub:**
-- Branches as in §5. A second folder per branch is handy
+- Branches as in §0. A second folder per branch is handy
   (`git worktree add ..\wt-08 claude/dc-v2-w3-08-frame`); each needs its own `npm ci`
   in `packages/debug-capture`.
 - Open and merge PRs on github.com or with the GitHub CLI
