@@ -1,5 +1,5 @@
 import { LogLevel, WebSocketEntry } from '../..';
-import { ConsoleRow, HttpRow, HttpStatusGroup, isPendingRow } from './state';
+import { ConsoleLevel, ConsoleRow, HttpRow, HttpStatusGroup, isPendingRow } from './state';
 
 /**
  * Pure formatting for cells and the detail (FR-COM-03, §5.6). Deterministic:
@@ -242,12 +242,13 @@ export function wsEventLabel(entry: WebSocketEntry): Label {
   }
 }
 
-/** Error entries are level `error` (FR-CON-01). */
-export function consoleLevel(row: ConsoleRow): LogLevel {
-  return row.kind === 'error' ? 'error' : row.level;
+/** Error entries are level `error` (FR-CON-01); notes are `note` (FR-NOTE-02). */
+export function consoleLevel(row: ConsoleRow): ConsoleLevel {
+  return row.kind === 'error' ? 'error' : row.kind === 'note' ? 'note' : row.level;
 }
 
-const LEVEL_LABELS: Readonly<Record<LogLevel, Label>> = {
+const LEVEL_LABELS: Readonly<Record<ConsoleLevel, Label>> = {
+  note: { icon: '✎', text: 'note', tone: 'info' },
   error: { icon: '✕', text: 'error', tone: 'error' },
   warn: { icon: '⚠', text: 'warn', tone: 'warning' },
   info: { icon: 'ℹ', text: 'info', tone: 'info' },
@@ -255,7 +256,7 @@ const LEVEL_LABELS: Readonly<Record<LogLevel, Label>> = {
   debug: { icon: '⋯', text: 'debug', tone: 'muted' },
 };
 
-export function consoleLevelLabel(level: LogLevel): Label {
+export function consoleLevelLabel(level: ConsoleLevel): Label {
   return LEVEL_LABELS[level];
 }
 
@@ -266,6 +267,7 @@ export function consoleLevelLabel(level: LogLevel): Label {
  */
 export function consoleText(row: ConsoleRow): string {
   if (row.kind === 'error') return row.message;
+  if (row.kind === 'note') return row.title && row.text ? `${row.title} — ${row.text}` : row.title || row.text;
   return row.args.map((arg) => (typeof arg === 'string' ? arg : JSON.stringify(arg))).join(' ');
 }
 

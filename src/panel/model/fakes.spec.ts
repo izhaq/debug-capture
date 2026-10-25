@@ -18,6 +18,7 @@ import {
   HttpEntry,
   LiveRecorder,
   LogEntry,
+  NoteEntry,
   PendingListener,
   PendingRequest,
   RecorderChangeListener,
@@ -222,6 +223,7 @@ export function fakeCapture(policy: Partial<CapturePolicy> = {}): FakeCapture {
     },
     dispose: (): void => setOn(false),
   };
+  recorder.capacityValue = session.policy.maxEntries;
   const controller: CaptureController = {
     session,
     get on(): boolean {
@@ -249,6 +251,9 @@ export function fakeSource(
     pending: () => init.pending ?? [],
     stats: () => ({ recorded: (init.entries ?? []).length, dropped: 0, evicted: 0, failed: 0 }),
     capacity: () => init.capacity ?? 5000,
+    defaultCapacity: () => 5000,
+    setCapacity: () => undefined,
+    addNote: () => undefined,
     redactedValue: () => '[redacted]',
     subscribe: () => () => undefined,
     clear: () => undefined,
@@ -275,3 +280,8 @@ describe('P1 spec fakes', () => {
     expect(problemRule(logEntry(4, { level: 'error' }))).toBe(false);
   });
 });
+
+/** 2.1 (C-10): a note entry, as the recorder stores it. */
+export function noteEntry(seq: number, title = 'Step', text = ''): NoteEntry {
+  return Object.freeze({ kind: 'note', seq, t: 1_000 + seq, title, text });
+}

@@ -1,4 +1,13 @@
-import { CaptureEntry, ErrorEntry, HttpEntry, LogEntry, LogLevel, PendingRequest, WebSocketEntry } from '../..';
+import {
+  CaptureEntry,
+  ErrorEntry,
+  HttpEntry,
+  LogEntry,
+  LogLevel,
+  NoteEntry,
+  PendingRequest,
+  WebSocketEntry,
+} from '../..';
 
 /** The three lists of the panel: Network › HTTP, Network › WebSocket messages, Console. */
 export type ListId = 'http' | 'ws' | 'console';
@@ -9,8 +18,11 @@ export type ListId = 'http' | 'ws' | 'console';
  */
 export type HttpRow = HttpEntry | PendingRequest;
 
-/** One row of the Console list: a console call or an error (`FR-CON-01`). */
-export type ConsoleRow = LogEntry | ErrorEntry;
+/** One row of the Console list: a console call, an error (`FR-CON-01`) or a note (`FR-NOTE-02`). */
+export type ConsoleRow = LogEntry | ErrorEntry | NoteEntry;
+
+/** What the Console's level column shows: a log level, or `note` (never filtered by the level chips). */
+export type ConsoleLevel = LogLevel | 'note';
 
 /** The row type of each list, so `select('ws', row)` only takes a WebSocket entry. */
 export interface RowOf {
@@ -107,7 +119,7 @@ export type PanelSelection = { readonly [L in ListId]: Selected<RowOf[L]> | null
 export interface BufferState {
   /** Entries in the buffer now. */
   readonly used: number;
-  /** `policy.maxEntries`. */
+  /** The buffer size now (C-9); `Infinity` = No limit. */
   readonly capacity: number;
   /** Entries in the buffer that are problems (`IsProblemEntry`, `D-21`). */
   readonly problems: number;

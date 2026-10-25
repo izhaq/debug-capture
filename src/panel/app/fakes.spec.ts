@@ -94,7 +94,17 @@ export class FakeSource implements PanelDataSource {
   snapshot = (): readonly CaptureEntry[] => this.entries.slice();
   pending = (): readonly [] => [];
   stats = (): CaptureStats => ({ ...this.statsValue });
-  capacity = (): number => 5000;
+  capacityValue = 5000;
+  capacity = (): number => this.capacityValue;
+  defaultCapacity = (): number => 5000;
+  setCapacity(capacity: number): void {
+    this.calls.push(`capacity ${capacity}`);
+    this.capacityValue = capacity;
+    this.emit({ type: 'capacity', capacity });
+  }
+  addNote(title: string, text: string): void {
+    this.calls.push(`note ${title}|${text}`);
+  }
   redactedValue = (): string => '[redacted]';
   subscribe(listener: (event: PanelDataEvent) => void): () => void {
     this.listeners.add(listener);

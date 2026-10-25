@@ -60,7 +60,9 @@ export type IconName =
   | 'chevron-down'
   | 'chevron-up'
   | 'chevron-left'
-  | 'chevron-right';
+  | 'chevron-right'
+  /** ✎ a note (2.1, FR-NOTE-01/02) */
+  | 'note';
 
 type Shape = readonly ['path' | 'circle' | 'rect', Attrs];
 
@@ -135,6 +137,7 @@ const SHAPES: Readonly<Record<IconName, readonly Shape[]>> = {
   'chevron-up': [['path', { d: 'M4 10l4-4 4 4', 'stroke-width': 1.6 }]],
   'chevron-left': [['path', { d: 'M10 4l-4 4 4 4', 'stroke-width': 1.6 }]],
   'chevron-right': [['path', { d: 'M6 4l4 4-4 4', 'stroke-width': 1.6 }]],
+  note: [['path', { d: 'M3 13l.8-3.2 7-7 2.4 2.4-7 7zM9.4 4.2l2.4 2.4' }]],
 };
 
 /** Every icon name, in a stable order (for tests and pickers). */

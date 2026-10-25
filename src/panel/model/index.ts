@@ -56,6 +56,7 @@ export { EMPTY_FILTERS, isPendingRow, rowKey } from './state';
 export type {
   BufferState,
   ConsoleFilter,
+  ConsoleLevel,
   ConsoleRow,
   HttpFilter,
   HttpRow,

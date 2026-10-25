@@ -32,7 +32,24 @@ export function createLocalDataSource(controller: CaptureController, deps: Local
     snapshot: () => recorder.snapshot(),
     pending: () => recorder.pending(),
     stats: () => recorder.stats(),
-    capacity: () => session.policy.maxEntries,
+    capacity: () => recorder.usage().capacity,
+    defaultCapacity: () => session.policy.maxEntries,
+
+    setCapacity(capacity) {
+      try {
+        recorder.setCapacity(capacity);
+      } catch {
+        // The recorder never throws; a broken one must not reach the host either (NFR-REL-01).
+      }
+    },
+
+    addNote(title, text) {
+      try {
+        session.addNote(title, text);
+      } catch {
+        // As above.
+      }
+    },
     redactedValue: () => session.policy.redactedValue,
 
     subscribe(listener) {
@@ -55,7 +72,13 @@ export function createLocalDataSource(controller: CaptureController, deps: Local
           ),
         ),
         recorder.onChange((change) =>
-          emit(change.type === 'cleared' ? { type: 'cleared' } : { type: 'stats', stats: recorder.stats() }),
+          emit(
+            change.type === 'cleared'
+              ? { type: 'cleared' }
+              : change.type === 'capacity'
+                ? { type: 'capacity', capacity: recorder.usage().capacity }
+                : { type: 'stats', stats: recorder.stats() },
+          ),
         ),
         controller.onChange((on) => emit({ type: 'capture', on })),
       ];

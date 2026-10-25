@@ -92,16 +92,23 @@ export function createConsoleDetail(dom: Dom, deps: ViewDeps, onClose: () => voi
   const heading = (text: string): HTMLElement => dom.el('h3', { className: 'dcp-console-h' }, [text]);
 
   const content = (r: ConsoleRow): Child[] => {
-    const text = consoleText(r);
+    const text = r.kind === 'note' ? r.text : consoleText(r);
     const cut = !full && text.length > MESSAGE_PREVIEW_CHARS;
     if (cut) showAll.setLabel(`Show all (${text.length} chars)`);
-    const out: Child[] = [
-      heading('Message'),
-      dom.el('pre', { className: 'dcp-console-pre dcp-data', attrs: { dir: 'auto' } }, [
-        cut ? text.slice(0, MESSAGE_PREVIEW_CHARS) : text,
-      ]),
-      cut && showAll.element,
-    ];
+    const pre = (value: string): HTMLElement =>
+      dom.el('pre', { className: 'dcp-console-pre dcp-data', attrs: { dir: 'auto' } }, [value]);
+    const shown = cut ? text.slice(0, MESSAGE_PREVIEW_CHARS) : text;
+    // A note (FR-NOTE-02): its title, then its whole text.
+    if (r.kind === 'note') {
+      return [
+        heading('Note'),
+        pre(r.title),
+        text !== '' && heading('Text'),
+        text !== '' && pre(shown),
+        cut && showAll.element,
+      ];
+    }
+    const out: Child[] = [heading('Message'), pre(shown), cut && showAll.element];
     if (r.kind === 'error') {
       if (r.stack !== null) {
         stack.textContent = r.stack;

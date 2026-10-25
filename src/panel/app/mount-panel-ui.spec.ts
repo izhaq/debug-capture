@@ -16,6 +16,8 @@ function emptyController(): { controller: CaptureController; listeners: () => nu
     clear: () => undefined,
     stats: () => ({ recorded: 0, dropped: 0, evicted: 0, failed: 0 }),
     pending: () => [],
+    usage: () => ({ entries: 0, capacity: 5000, bytes: 0, problems: 0 }),
+    setCapacity: () => undefined,
     onEntry: add(sets[0] as Set<unknown>),
     onPending: add(sets[1] as Set<unknown>),
     onChange: add(sets[2] as Set<unknown>),

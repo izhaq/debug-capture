@@ -1,4 +1,4 @@
-import { CaptureEntry, HttpEntry, PendingRequest, WebSocketEntry } from '../..';
+import { CaptureEntry, HttpEntry, LogLevel, PendingRequest, WebSocketEntry } from '../..';
 import { foldCase } from './filters';
 import { consoleLevel, consoleText, httpName, httpStatusGroup, httpStatusLabel } from './format';
 import {
@@ -63,8 +63,7 @@ function byKind(entries: readonly CaptureEntry[]): ByKind {
     for (const entry of entries) {
       if (entry.kind === 'http') http.push(entry);
       else if (entry.kind === 'ws') ws.push(entry);
-      // Notes (C-10) get their Console row in S-11b; until then no list shows them.
-      else if (entry.kind !== 'note') consoleRows.push(entry);
+      else consoleRows.push(entry);
     }
     split = Object.freeze({
       http: Object.freeze(http),
@@ -312,7 +311,14 @@ const visibleConsoleRows = memo2((rows: readonly ConsoleRow[], filter: ConsoleFi
   const query = foldCase(filter.text);
   const active = query !== '' || filter.levels.length > 0;
   return filterRows(rows, active, (row) => {
-    if (filter.levels.length > 0 && filter.levels.indexOf(consoleLevel(row)) === -1) return false;
+    // Notes mark the user's own steps: no level chip hides them (FR-NOTE-02).
+    if (
+      filter.levels.length > 0 &&
+      row.kind !== 'note' &&
+      filter.levels.indexOf(consoleLevel(row) as LogLevel) === -1
+    ) {
+      return false;
+    }
     if (query === '') return true;
     const text = haystack(row, () => (row.kind === 'error' ? `${row.message}\n${row.source}` : consoleText(row)));
     return text.indexOf(query) !== -1;

@@ -12,8 +12,14 @@ export interface PanelDataSource {
   /** C-1: requests in flight, oldest first. Read on open, before `subscribe`. */
   pending(): readonly PendingRequest[];
   stats(): CaptureStats;
-  /** C-3: `policy.maxEntries` — the buffer size shown as `1,284 / 5,000`. */
+  /** C-9: the buffer size now, shown as `1,284 / 5,000`; `Infinity` = No limit. */
   capacity(): number;
+  /** C-3: `policy.maxEntries` — the Buffer setting's default (`FR-BUF-01`). */
+  defaultCapacity(): number;
+  /** C-9: a new buffer size (an integer ≥ 1 or `Infinity`); a `capacity` event follows. Never throws. */
+  setCapacity(capacity: number): void;
+  /** C-10: records a note now (`FR-NOTE-01`). Never throws. */
+  addNote(title: string, text: string): void;
   /** C-3: `policy.redactedValue` — values equal to it are shown as redacted. */
   redactedValue(): string;
   subscribe(listener: (event: PanelDataEvent) => void): Unsubscribe;
@@ -40,4 +46,6 @@ export type PanelDataEvent =
   /** C-6: `dropped` / `failed` changed. */
   | { readonly type: 'stats'; readonly stats: CaptureStats }
   /** C-2 */
-  | { readonly type: 'capture'; readonly on: boolean };
+  | { readonly type: 'capture'; readonly on: boolean }
+  /** C-9: the buffer size changed; the store drops its oldest beyond it. */
+  | { readonly type: 'capacity'; readonly capacity: number };

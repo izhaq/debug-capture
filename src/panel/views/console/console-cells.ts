@@ -40,7 +40,9 @@ export function levelLabel(dom: Dom, row: ConsoleRow): HTMLElement {
 /** The detail shows more than the row (4.8): an object or array argument, a stack, or a message the row cuts. */
 function hasMore(row: ConsoleRow, text: string): boolean {
   const extra =
-    row.kind === 'error' ? row.stack !== null : row.args.some((arg) => arg !== null && typeof arg === 'object');
+    row.kind === 'error'
+      ? row.stack !== null
+      : row.kind === 'log' && row.args.some((arg) => arg !== null && typeof arg === 'object');
   return extra || preview(text) !== text;
 }
 

@@ -72,7 +72,8 @@ const COMPACT_AT = 1024;
 
 export function createPanelStore(options: PanelStoreOptions): PanelStore {
   const { source } = options;
-  const capacity = Math.max(1, Math.floor(source.capacity()));
+  /** C-9: changes with a `capacity` event. `Infinity` = No limit. */
+  let capacity = Math.max(1, Math.floor(source.capacity()));
 
   // The buffer mirror: `buf[head…]`, oldest first. Evicting moves `head`
   // (O(1)); the dead prefix is cut off now and then (amortised O(1)).
@@ -182,6 +183,30 @@ export function createPanelStore(options: PanelStoreOptions): PanelStore {
     let pendingChanged = false;
     let pausedPending = state.pending;
 
+    /** Drops the oldest entries the buffer no longer holds, like the recorder (§4.4). */
+    const evictBeyondCapacity = (): void => {
+      while (buf.length - head > capacity) {
+        const old = buf[head] as CaptureEntry;
+        head++;
+        stats.evicted++;
+        liveChanged = true;
+        if (problemEntries.has(old)) problems--;
+        if (paused && old.seq <= pauseSeq) {
+          viewCount--;
+          viewChanged = true;
+        }
+        if (shownAfterPause.includes(old)) {
+          shownAfterPause = shownAfterPause.filter((item) => item !== old);
+          viewChanged = true;
+        }
+        markRemoved(old);
+        if (head >= COMPACT_AT && head * 2 >= buf.length) {
+          buf = buf.slice(head);
+          head = 0;
+        }
+      }
+    };
+
     const markRemoved = (row: unknown): void => {
       for (const list of ['http', 'ws', 'console'] as const) {
         const sel = selection[list];
@@ -211,25 +236,7 @@ export function createPanelStore(options: PanelStoreOptions): PanelStore {
               arrived++;
             }
           }
-          if (buf.length - head > capacity) {
-            const old = buf[head] as CaptureEntry;
-            head++;
-            stats.evicted++;
-            if (problemEntries.has(old)) problems--;
-            if (paused && old.seq <= pauseSeq) {
-              viewCount--;
-              viewChanged = true;
-            }
-            if (shownAfterPause.includes(old)) {
-              shownAfterPause = shownAfterPause.filter((item) => item !== old);
-              viewChanged = true;
-            }
-            markRemoved(old);
-            if (head >= COMPACT_AT && head * 2 >= buf.length) {
-              buf = buf.slice(head);
-              head = 0;
-            }
-          }
+          evictBeyondCapacity();
           const sel = selection.http;
           if (entry.kind === 'http' && sel !== null && isPendingRow(sel.row) && sel.row.id === entry.requestId) {
             // The selected request finished: the detail follows it to its entry.
@@ -280,6 +287,10 @@ export function createPanelStore(options: PanelStoreOptions): PanelStore {
           break;
         case 'capture':
           captureOn = event.on;
+          break;
+        case 'capacity':
+          capacity = Math.max(1, Math.floor(event.capacity));
+          evictBeyondCapacity();
           break;
       }
     }

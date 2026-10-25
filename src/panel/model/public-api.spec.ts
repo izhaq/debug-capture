@@ -73,7 +73,10 @@ describe('panel model barrel (P1)', () => {
     assertType<Equals<Parameters<PanelDataSource['copyText']>, [text: string, root: ShadowRoot]>>();
     assertType<Equals<ReturnType<PanelDataSource['copyText']>, Promise<boolean>>>();
     assertType<
-      Equals<PanelDataEvent['type'], 'entry' | 'pending-start' | 'pending-end' | 'cleared' | 'stats' | 'capture'>
+      Equals<
+        PanelDataEvent['type'],
+        'entry' | 'pending-start' | 'pending-end' | 'cleared' | 'stats' | 'capture' | 'capacity'
+      >
     >();
 
     const listeners: Array<(event: PanelDataEvent) => void> = [];
@@ -83,6 +86,9 @@ describe('panel model barrel (P1)', () => {
       pending: () => [],
       stats: () => NO_STATS,
       capacity: () => 5000,
+      defaultCapacity: () => 5000,
+      setCapacity: (): void => undefined,
+      addNote: (): void => undefined,
       redactedValue: () => '[redacted]',
       subscribe(listener): Unsubscribe {
         listeners.push(listener);
@@ -116,6 +122,8 @@ describe('panel model barrel (P1)', () => {
           return `dropped ${event.stats.dropped}`;
         case 'capture':
           return `capture ${event.on}`;
+        case 'capacity':
+          return `capacity ${event.capacity}`;
         default: {
           const unreachable: never = event;
           return unreachable;

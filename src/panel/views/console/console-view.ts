@@ -22,9 +22,15 @@ import { createConsoleDetail } from './console-detail';
 /** Docked bottom the detail sits beside the list; docked right, below it (4.6). */
 const direction = (settings: ViewSettings): SplitDirection => (settings.dock === 'bottom' ? 'row' : 'column');
 
-/** What makes two entries identical (S07-05): the same level and arguments, or the same source, message and stack. */
+/** What makes two entries identical (S07-05): the same level and arguments, source, message and stack, or note. */
 const identity = (row: ConsoleRow): string =>
-  JSON.stringify(row.kind === 'error' ? [row.source, row.message, row.stack] : [row.level, row.args]);
+  JSON.stringify(
+    row.kind === 'error'
+      ? [row.source, row.message, row.stack]
+      : row.kind === 'note'
+        ? [row.title, row.text]
+        : [row.level, row.args],
+  );
 
 /** Each entry's last comparison with the first entry of its run: entries never change, so a pair is compared once. */
 const sameAs = new WeakMap<ConsoleRow, { readonly first: ConsoleRow; readonly same: boolean }>();
