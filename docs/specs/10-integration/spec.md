@@ -45,6 +45,7 @@ raising one needs the owner.
 | S10-13 | Final security pass: the panel on a strict CSP + Trusted Types page with no violation; HTML and `javascript:` in captured data render as text; copy / export only on a user action; no `innerHTML`-family and no network request from the panel. | NFR-SEC-01…04 |
 | S10-14 | A run on Chrome 146 if one is available; otherwise say so and why. | NFR-COMP-01 |
 | S10-15 | The every-MUST walk: each HLD `MUST` row against the specs' traceability tables; gaps listed and either covered or raised with the owner. `docs/specs/HANDOFF.md` is deleted (HANDOFF §5 rule 11). | §8.3, §9.3 |
+| S10-16 | Found by the walk (S10-15): on the smallest supported screen, 1280 × 720, every frame control and each view's filter bar is on screen, docked bottom and right (the HTTP chips in a narrow right dock are a known limit). | NFR-COMP-02 |
 
 ## Out of scope
 
@@ -64,7 +65,7 @@ bar clips its last chips; `redactUserinfo` (`src/core/redact.ts`) misses leading
 - S-10a: `test/e2e/hosts.spec.mjs` runs the S10-05 scenario and the S10-06 flag-off check on
   the Angular, React and plain hosts; `npm run pack:check` passes; the README is the user
   README; `git diff --stat` outside the package is empty; the spec and e2e floors rise.
-- S-10b: the PR lists every BR and every measured number, and the every-MUST walk table.
+- S-10b: the PR lists every BR and every measured number; [`must-walk.md`](must-walk.md) maps every HLD `MUST` to its spec and tests.
 
 ## Traceability
 
@@ -77,9 +78,10 @@ bar clips its last chips; `redactUserinfo` (`src/core/redact.ts`) misses leading
 | BR-01, BR-06 (on a real host) | `test/e2e/hosts.spec.mjs` — live rows and the export file | S-10a (S-10b re-checks) |
 | BR-04 | `npm run pack:check` (no runtime dependencies in the tarball); React and Angular only as dev dependencies | S-10a (S-10b re-checks) |
 | FR-ACT-01, 02, 05, 07 (on real hosts) | `test/e2e/hosts.spec.mjs` | S-10a |
-| BR-01…07 | S10-10 checklist | S-10b |
-| NFR-PERF-02, 03, 04, 06 | S10-11 measurements | S-10b |
-| NFR-SIZE-01 | `npm run size` (S-00 script), S10-12 | S-10b |
-| NFR-SEC-01…04 | S10-13 | S-10b |
-| NFR-COMP-01 | S10-14 | S-10b |
-| every MUST | S10-15 walk | S-10b |
+| BR-01…07 | the BR table in [`must-walk.md`](must-walk.md) (S10-10) | S-10b |
+| NFR-PERF-02, 03, 04, 06 | `test/perf/panel-perf.spec.mjs` (the `perf` project, after e2e); the virtual-list frame-budget spec measured alone (its comment) | S-10b |
+| NFR-SIZE-01 | `npm run size` (S-00 script), final table in the S-10b PR (S10-12) | S-10b |
+| NFR-SEC-01…04 | `test/e2e/panel-security.spec.mjs` (S10-13), on top of each view's specs | S-10b |
+| NFR-COMP-01 | `npm run check` run on Chrome for Testing 146.0.7680.72 (Karma and Playwright), S10-14 | S-10b |
+| NFR-COMP-02 | `test/e2e/panel-screen.spec.mjs` (S10-16) | S-10b |
+| every MUST | [`must-walk.md`](must-walk.md) (S10-15) | S-10b |

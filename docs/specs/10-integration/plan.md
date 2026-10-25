@@ -43,14 +43,32 @@ All paths are under `packages/debug-capture/`.
 | `package.json`, `package-lock.json` | S-10a | React 19 (`react`, `react-dom`) as dev dependencies |
 | `README.md` | S-10a | the user README |
 | `test/unit/spec-floor.json`, `test/e2e-floor.json` | both | the new counts |
-| `test/perf/**`, `test/e2e/*` (new files) | S-10b | measurements and the final security page |
+| `test/perf/**`, `test/e2e/panel-security.spec.mjs`, `test/e2e/panel-screen.spec.mjs`, `playwright.config.mjs` | S-10b | measurements (a `perf` project after e2e), the final security pass, the 1280 × 720 check |
+| `docs/specs/10-integration/must-walk.md`, `scripts/pack-check.mjs` (comment), `src/panel/ui/virtual-list/virtual-list.spec.ts` (comment) | S-10b | the walk; BR-05 named; the isolated timing |
 
 Nothing in `src/`. Nothing outside the package.
 
 ## Status
 
-S-10a — done, in review (one PR into the integration branch; the owner merges it).
-S-10b — not started (after S-10a is merged).
+S-10a — merged in #96. S-10b — done, in review (one PR into the integration branch; the owner
+merges it). With S-10b, v2.0 is complete; next is S-11 (HLD `D-27`).
+
+S-10b numbers:
+
+- Performance (`test/perf/panel-perf.spec.mjs`, Chromium 153, 3 runs; and once on Chrome 146):
+  open warm 49–60 ms (limit 100), cold 77–102 ms (reported); 100 entries/s: no long task;
+  nodes with the detail open at 1,080 px — HTTP 795, WebSocket 972, Console 1,263 (limit 2,000);
+  scrolling 5,000 entries: no long task; memory added 1.46–1.66 MB (limit 10 MB). The
+  virtual-list frame-budget spec alone: median 1.0–1.4 ms (5,000), 1.9–2.7 ms (100,000).
+- Security (`test/e2e/panel-security.spec.mjs`): HTML and `javascript:` in captured data stay
+  text in every view and detail; no request while the panel is open and used; copy / download
+  only on a click. Each test was shown red once.
+- Chrome 146 (NFR-COMP-01): `npm run check` passed on Chrome for Testing 146.0.7680.72, both
+  Karma (1126 specs) and Playwright (e2e + perf).
+- Every-MUST walk: [`must-walk.md`](must-walk.md) — 82 MUST rows, 0 gaps after S10-16 closed the
+  one it found (`NFR-COMP-02`, `test/e2e/panel-screen.spec.mjs`).
+- Sizes unchanged from #98: loader 4,084 / 4,096; UI chunk 39,001 / 40,960; core 11,743 / 12,368.
+- `docs/specs/HANDOFF.md` deleted (its rule 11).
 
 S-10a numbers:
 

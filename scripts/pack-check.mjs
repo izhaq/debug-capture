@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * `npm run pack:check` — does the package work for someone who installs it?
+ * The tarball is what is carried into an air-gapped network (BR-05).
  * The other checks run against src/; this one runs against what `npm pack`
  * ships (needs a fresh `npm run build`):
  *
