@@ -11,7 +11,8 @@ import { CaptureEntry, IsProblemEntry } from '../contract';
  *
  * Deliberately not a problem: 4xx (often expected, e.g. a 404 lookup or a 401
  * before login), a WebSocket `close` of any code (the `error` event already
- * marks a broken socket), and log entries of any level — Angular and React
+ * marks a broken socket), notes (C-10: the user's own words), and log entries
+ * of any level — Angular and React
  * errors already make an `ErrorEntry`, so counting `console.error` too would
  * count them twice.
  */
@@ -24,6 +25,7 @@ export const isProblemEntry: IsProblemEntry = (entry: CaptureEntry): boolean => 
     case 'ws':
       return entry.event === 'error';
     case 'log':
+    case 'note':
       return false;
     default:
       return unknownKind(entry);

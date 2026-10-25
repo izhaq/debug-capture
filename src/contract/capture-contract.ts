@@ -106,8 +106,20 @@ export interface ErrorEntry extends CaptureEntryBase {
   readonly stack: string | null;
 }
 
+/**
+ * 2.1 (HLD C-10, `D-33`): a note the user (Add note) or the host
+ * (`session.addNote`) wrote at that moment. Policed like an error message:
+ * redacted and truncated. Never a problem. A reader that does not know the
+ * kind skips it, so `schemaVersion` stays 1.
+ */
+export interface NoteEntry extends CaptureEntryBase {
+  readonly kind: 'note';
+  readonly title: string;
+  readonly text: string;
+}
+
 /** Discriminated on `kind`. Switch over it with a `never` default to stay exhaustive. */
-export type CaptureEntry = LogEntry | HttpEntry | WebSocketEntry | ErrorEntry;
+export type CaptureEntry = LogEntry | HttpEntry | WebSocketEntry | ErrorEntry | NoteEntry;
 
 export type CaptureKind = CaptureEntry['kind'];
 
@@ -120,7 +132,8 @@ export type EntryDraft =
   | (Omit<LogEntry, 'seq' | 'args'> & { readonly args: readonly unknown[] })
   | Omit<HttpEntry, 'seq'>
   | Omit<WebSocketEntry, 'seq'>
-  | Omit<ErrorEntry, 'seq'>;
+  | Omit<ErrorEntry, 'seq'>
+  | Omit<NoteEntry, 'seq'>;
 
 /**
  * Every rule about what gets kept and how, in one reviewable place. Applied
@@ -128,7 +141,10 @@ export type EntryDraft =
  * hold anything the policy removed.
  */
 export interface CapturePolicy {
-  /** Ring-buffer size; the oldest entry is evicted beyond it. Integer ≥ 1. */
+  /**
+   * Ring-buffer size; the oldest entry is evicted beyond it. Integer ≥ 1.
+   * The start size only: `LiveRecorder.setCapacity` changes it live (C-9).
+   */
   readonly maxEntries: number;
   /**
    * Bodies, frame data, URLs, header values, messages and stacks longer than
@@ -338,7 +354,34 @@ export type PendingListener = (event: PendingEvent) => void;
  * v1's clear shortcut), `stats` when only `dropped` / `failed` changed
  * (`FR-BAR-03`, `FR-BAR-06`). Read the new numbers with `stats()`.
  */
-export type RecorderChange = { readonly type: 'cleared' } | { readonly type: 'stats' };
+export type RecorderChange =
+  | { readonly type: 'cleared' }
+  | { readonly type: 'stats' }
+  /** C-9 (2.1): `setCapacity` changed the size; read it with `usage()`. */
+  | { readonly type: 'capacity' };
+
+/**
+ * C-9 (2.1) — what the buffer holds now, kept up to date in O(1) per entry,
+ * for the Buffer setting, the near-full and memory warnings and the host's
+ * status observer (`FR-BUF-01…05`, `FR-STAT-01`).
+ */
+export interface BufferUsage {
+  readonly entries: number;
+  /** `Infinity` = No limit. */
+  readonly capacity: number;
+  /**
+   * An estimate, not a measurement (the browser cannot measure given
+   * objects, `D-30`): per entry `ENTRY_COST_BYTES` plus 2 B per character of
+   * every string and object key in it, at any depth. Strings shared between
+   * entries count each time, so it errs high.
+   */
+  readonly bytes: number;
+  /** Entries that are problems (`IsProblemEntry`, C-8). */
+  readonly problems: number;
+}
+
+/** C-9: the fixed part of the per-entry size estimate (`BufferUsage.bytes`). */
+export const ENTRY_COST_BYTES = 160;
 
 /** C-6. A throwing listener is isolated, like `EntryListener`. */
 export type RecorderChangeListener = (change: RecorderChange) => void;
@@ -358,6 +401,15 @@ export interface LiveRecorder extends Recorder {
   pending(): readonly PendingRequest[];
   /** C-1: `start` / `end` of each pending request. */
   onPending(listener: PendingListener): Unsubscribe;
+  /** C-9: the buffer's numbers now. A fresh object each call. */
+  usage(): BufferUsage;
+  /**
+   * C-9: a new buffer size — an integer ≥ 1, or `Infinity` for No limit.
+   * Anything else, or the current size, is ignored. A smaller size evicts
+   * the oldest entries at once (counted in `evicted`); then `onChange` fires
+   * `capacity`. Ids keep counting. Never throws.
+   */
+  setCapacity(capacity: number): void;
 }
 
 /** C-1: the most requests `LiveRecorder.pending()` holds; the oldest is dropped beyond it. */
@@ -418,6 +470,12 @@ export interface ControlledCaptureSession extends CaptureSession {
    * (`FR-HTTP-07`).
    */
   readonly policy: Readonly<CapturePolicy>;
+  /**
+   * C-10 (2.1): records a note now, with the session clock's time — also
+   * while capture is off: a note is the user's own act, not a probe's.
+   * Never throws.
+   */
+  addNote(title: string, text?: string): void;
 }
 
 /**

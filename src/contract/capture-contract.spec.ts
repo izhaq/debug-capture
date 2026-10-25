@@ -129,6 +129,7 @@ describe('capture contract', () => {
         case 'http':
         case 'ws':
         case 'error':
+        case 'note':
           return draft.kind;
         default: {
           const unreachable: never = draft;

@@ -1,56 +1,69 @@
 /**
- * Fixed-size circular buffer that keeps the newest `capacity` items.
+ * A buffer that keeps the newest `capacity` items; `Infinity` keeps all
+ * (No limit, HLD C-9). The capacity can change in place.
  *
- * Push is O(1): a full buffer overwrites its oldest slot instead of
- * `shift()`-ing a growing array, which would be O(n) per push — too slow at
- * 5000 entries with a WebSocket streaming many frames per second.
+ * Push is amortised O(1): eviction only moves `head`, and the dead prefix is
+ * cut off once it is long and at least half the array — never a `shift()`
+ * per push, which is O(n) and too slow at 5000 entries with a WebSocket
+ * streaming many frames per second.
  */
 export class RingBuffer<T> {
-  readonly capacity: number;
-
-  private readonly slots: Array<T | undefined>;
-  /** Index of the oldest item. */
+  /** `items[head…]`, oldest first. */
+  private items: Array<T | undefined> = [];
   private head = 0;
-  private count = 0;
+  private max: number;
 
   constructor(capacity: number) {
-    if (!Number.isInteger(capacity) || capacity < 1) {
-      throw new RangeError(`RingBuffer capacity must be an integer >= 1, got ${capacity}`);
-    }
-    this.capacity = capacity;
-    this.slots = new Array<T | undefined>(capacity);
+    this.max = checked(capacity);
+  }
+
+  get capacity(): number {
+    return this.max;
   }
 
   get size(): number {
-    return this.count;
+    return this.items.length - this.head;
   }
 
-  /** Appends `item`; once full, overwrites the oldest item and returns it. */
+  /** Appends `item`; once full, drops the oldest item and returns it. */
   push(item: T): T | undefined {
-    if (this.count < this.capacity) {
-      this.slots[(this.head + this.count) % this.capacity] = item;
-      this.count++;
-      return undefined;
-    }
-    const evicted = this.slots[this.head];
-    this.slots[this.head] = item;
-    this.head = (this.head + 1) % this.capacity;
-    return evicted;
+    this.items.push(item);
+    return this.size > this.max ? this.dropOldest() : undefined;
+  }
+
+  /** A new size; returns the items that left (oldest first) when it shrinks. */
+  setCapacity(capacity: number): T[] {
+    this.max = checked(capacity);
+    const left: T[] = [];
+    while (this.size > this.max) left.push(this.dropOldest());
+    return left;
   }
 
   /** Oldest first, as a new array the caller may keep or mutate. */
   toArray(): T[] {
-    const out = new Array<T>(this.count);
-    for (let i = 0; i < this.count; i++) {
-      out[i] = this.slots[(this.head + i) % this.capacity] as T;
-    }
-    return out;
+    return this.items.slice(this.head) as T[];
   }
 
   clear(): void {
-    // Drop the references too, so cleared entries can be garbage-collected.
-    this.slots.fill(undefined);
+    // A new array drops the references too, so cleared entries can be garbage-collected.
+    this.items = [];
     this.head = 0;
-    this.count = 0;
   }
+
+  private dropOldest(): T {
+    const old = this.items[this.head] as T;
+    this.items[this.head++] = undefined;
+    if (this.head >= 1024 && this.head * 2 >= this.items.length) {
+      this.items = this.items.slice(this.head);
+      this.head = 0;
+    }
+    return old;
+  }
+}
+
+function checked(capacity: number): number {
+  if (capacity !== Infinity && (!Number.isInteger(capacity) || capacity < 1)) {
+    throw new RangeError(`RingBuffer capacity must be an integer >= 1 or Infinity, got ${capacity}`);
+  }
+  return capacity;
 }

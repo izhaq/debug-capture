@@ -76,6 +76,8 @@ function fakeLiveRecorder(): LiveRecorder & {
       pendingListeners.push(listener);
       return () => pendingListeners.splice(pendingListeners.indexOf(listener), 1);
     },
+    usage: () => ({ entries: 0, capacity: 5000, bytes: 0, problems: 0 }),
+    setCapacity: (): void => undefined,
     emitChange: (change) => changes.forEach((listener) => listener(change)),
     emitPending: (event) => pendingListeners.forEach((listener) => listener(event)),
   };
@@ -93,6 +95,7 @@ function fakeSession(recorder: LiveRecorder, isActive: () => boolean): Controlle
     download: (): void => undefined,
     copy: async () => false,
     clear: (): void => undefined,
+    addNote: (): void => undefined,
     dispose: (): void => undefined,
   };
 }
@@ -248,7 +251,7 @@ describe('capture contract v2 (HLD §6.4, §6.5)', () => {
   });
 
   it('C-6: RecorderChange and LiveRecorder.onChange', () => {
-    assertType<Equals<RecorderChange['type'], 'cleared' | 'stats'>>();
+    assertType<Equals<RecorderChange['type'], 'cleared' | 'stats' | 'capacity'>>();
     assertType<Equals<RecorderChangeListener, (change: RecorderChange) => void>>();
 
     const recorder = fakeLiveRecorder();

@@ -48,6 +48,12 @@ class FakeRecorder implements LiveRecorder {
   onPending(): Unsubscribe {
     return () => undefined;
   }
+  usage() {
+    return { entries: 0, capacity: 5000, bytes: 0, problems: 0 };
+  }
+  setCapacity(): void {
+    // 2.1 (C-9); the S-11b loader specs drive it.
+  }
   emit(entry: CaptureEntry): void {
     this.entryListeners.forEach((l) => l(entry));
   }
@@ -66,6 +72,7 @@ function fakeController(recorder: FakeRecorder): CaptureController {
     download: () => undefined,
     copy: async () => true,
     clear: () => recorder.clear(),
+    addNote: () => undefined,
     dispose: () => undefined,
   };
   return { session, on: true, start: () => undefined, stop: () => undefined, onChange: () => () => undefined };

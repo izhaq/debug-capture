@@ -5,6 +5,7 @@
  * so the build never ships it.
  */
 import {
+  BufferUsage,
   CaptureController,
   CaptureEntry,
   CapturePolicy,
@@ -140,6 +141,16 @@ export class FakeRecorder implements LiveRecorder {
   onChange(listener: RecorderChangeListener): Unsubscribe {
     return subscribe(this.changeListeners, listener);
   }
+  capacityValue = DEFAULT_CAPTURE_POLICY.maxEntries;
+  usage(): BufferUsage {
+    return { entries: this.entries.length, capacity: this.capacityValue, bytes: 0, problems: 0 };
+  }
+  /** C-9: trims like the real recorder and announces `capacity`. */
+  setCapacity(capacity: number): void {
+    this.capacityValue = capacity;
+    if (this.entries.length > capacity) this.entries = this.entries.slice(this.entries.length - capacity);
+    this.changeListeners.forEach((l) => l({ type: 'capacity' }));
+  }
 
   /** Stores `entry` and tells the entry listeners. */
   push(entry: CaptureEntry): void {
@@ -205,6 +216,9 @@ export function fakeCapture(policy: Partial<CapturePolicy> = {}): FakeCapture {
     clear: (): void => {
       calls.push('session.clear');
       recorder.clear();
+    },
+    addNote: (title: string, text = ''): void => {
+      calls.push(`session.addNote ${title} ${text}`);
     },
     dispose: (): void => setOn(false),
   };

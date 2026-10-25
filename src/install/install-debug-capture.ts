@@ -119,6 +119,10 @@ export function createCaptureController(
     clear(): void {
       recorder.clear();
     },
+    addNote(title: string, text = ''): void {
+      // record() never throws; String() keeps a careless caller's value from becoming a `failed` count.
+      recorder.record({ kind: 'note', t: clock.now(), title: String(title), text: String(text) });
+    },
     dispose(): void {
       controller.stop();
     },

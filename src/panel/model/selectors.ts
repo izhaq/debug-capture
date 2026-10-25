@@ -63,7 +63,8 @@ function byKind(entries: readonly CaptureEntry[]): ByKind {
     for (const entry of entries) {
       if (entry.kind === 'http') http.push(entry);
       else if (entry.kind === 'ws') ws.push(entry);
-      else consoleRows.push(entry);
+      // Notes (C-10) get their Console row in S-11b; until then no list shows them.
+      else if (entry.kind !== 'note') consoleRows.push(entry);
     }
     split = Object.freeze({
       http: Object.freeze(http),

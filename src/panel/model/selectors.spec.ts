@@ -93,6 +93,13 @@ describe('Console rows (S03-06)', () => {
     const store = storeWith([logEntry(1), httpEntry(2), errorEntry(3), wsEntry(4), logEntry(5, { level: 'warn' })]);
     expect(seqs(selectConsoleRows(store.getState()))).toEqual([1, 3, 5]);
   });
+
+  it('S11-06: a note (C-10) shows in no list until S-11b gives Console its row', () => {
+    const note: CaptureEntry = { kind: 'note', seq: 2, t: 0, title: 'n', text: '' };
+    const store = storeWith([logEntry(1), note, httpEntry(3)]);
+    expect(seqs(selectConsoleRows(store.getState()))).toEqual([1]);
+    expect(selectListCounts(store.getState(), 'console')).toEqual({ shown: 1, total: 1 });
+  });
 });
 
 describe('filters (S03-07)', () => {

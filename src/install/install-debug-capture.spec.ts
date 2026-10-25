@@ -717,3 +717,40 @@ describe('createCaptureController', () => {
     expect(fake.consoleHost.log).toBe(fake.originalLog);
   });
 });
+
+describe('session.addNote — 2.1 (C-10, FR-NOTE-03, FR-NOTE-04)', () => {
+  let fake: Fake;
+
+  beforeEach(() => {
+    fake = fakeEnvironment();
+  });
+
+  afterEach(() => {
+    getActiveCaptureSession()?.dispose();
+  });
+
+  it('records a note with the session clock time; the file keeps it in entries, schemaVersion 1', () => {
+    const controller = createCaptureController({}, fake.env);
+    controller.session.addNote('Login', 'clicked Sign in');
+    controller.session.addNote('Login');
+
+    const file = JSON.parse(controller.session.toJson()) as CaptureFile;
+    expect(file.schemaVersion).toBe(1);
+    expect(file.entries as unknown[]).toEqual([
+      { kind: 'note', seq: 1, t: controller.session.clock.now(), title: 'Login', text: 'clicked Sign in' },
+      { kind: 'note', seq: 2, t: controller.session.clock.now(), title: 'Login', text: '' },
+    ]);
+  });
+
+  it('records while capture is off: a note is the user’s own act', () => {
+    const controller = createCaptureController({}, fake.env);
+    controller.stop();
+    controller.session.addNote('Off', 'still kept');
+    expect(kinds(controller.session)).toEqual(['note']);
+  });
+
+  it('never throws, whatever it is given', () => {
+    const controller = createCaptureController({}, fake.env);
+    expect(() => controller.session.addNote(null as unknown as string, 5 as unknown as string)).not.toThrow();
+  });
+});

@@ -1,8 +1,10 @@
 import {
+  BufferUsage,
   CaptureEntry,
   CapturePolicy,
   CaptureStats,
   EntryDraft,
+  ENTRY_COST_BYTES,
   EntryListener,
   HeaderMap,
   LiveRecorder,
@@ -17,6 +19,7 @@ import {
   Unsubscribe,
 } from '../contract';
 import { toJsonSafe } from './json-safe';
+import { isProblemEntry } from './problem-rule';
 import {
   matchesAny,
   redactFreeText,
@@ -64,6 +67,9 @@ export function createRecorder(policy: CapturePolicy): LiveRecorder & ProbeRecor
   let dropped = 0;
   let evicted = 0;
   let failed = 0;
+  // C-9: kept as entries come and go, so usage() is O(1).
+  let bytes = 0;
+  let problems = 0;
 
   const secrets = secretNames(policy.redactJsonKeys);
   const max = policy.maxBodyLength;
@@ -202,6 +208,15 @@ export function createRecorder(policy: CapturePolicy): LiveRecorder & ProbeRecor
         const { message, stack } = policedError(draft.message, draft.stack);
         return { kind: 'error', seq, t: draft.t, source: draft.source, message, stack };
       }
+      case 'note':
+        // The user's own words may hold a pasted secret: police them like an error message (C-10).
+        return {
+          kind: 'note',
+          seq,
+          t: draft.t,
+          title: redactFreeText(draft.title, secrets, hidden, max).text,
+          text: redactFreeText(draft.text, secrets, hidden, max).text,
+        };
       default: {
         const unknownDraft: never = draft;
         throw new TypeError(`Unknown draft kind: ${(unknownDraft as { kind?: unknown }).kind}`);
@@ -261,6 +276,7 @@ export function createRecorder(policy: CapturePolicy): LiveRecorder & ProbeRecor
 
   const STATS: RecorderChange = Object.freeze({ type: 'stats' });
   const CLEARED: RecorderChange = Object.freeze({ type: 'cleared' });
+  const CAPACITY: RecorderChange = Object.freeze({ type: 'capacity' });
 
   /** `dropped` or `failed` moved: the panel's status bar reads `stats()` again (C-6). */
   function countDropped(): void {
@@ -271,6 +287,17 @@ export function createRecorder(policy: CapturePolicy): LiveRecorder & ProbeRecor
   function countFailed(): void {
     failed++;
     emit(changeListeners, STATS);
+  }
+
+  /** C-9: an entry joins or (`sign` -1) leaves the buffer's numbers. */
+  function count(entry: CaptureEntry, sign: number): void {
+    bytes += sign * (ENTRY_COST_BYTES + weigh(entry));
+    if (isProblemEntry(entry)) problems += sign;
+  }
+
+  function evict(entry: CaptureEntry): void {
+    evicted++;
+    count(entry, -1);
   }
 
   function endPending(id: number): void {
@@ -312,8 +339,10 @@ export function createRecorder(policy: CapturePolicy): LiveRecorder & ProbeRecor
         // seq is consumed only once the entry is built, so a failed draft leaves no gap.
         const entry = Object.freeze(normalise(draft, lastSeq + 1));
         lastSeq = entry.seq;
-        if (buffer.push(entry) !== undefined) {
-          evicted++;
+        count(entry, 1);
+        const old = buffer.push(entry);
+        if (old !== undefined) {
+          evict(old);
         }
         recorded++;
         emit(listeners, entry);
@@ -329,6 +358,8 @@ export function createRecorder(policy: CapturePolicy): LiveRecorder & ProbeRecor
 
     clear(): void {
       buffer.clear();
+      bytes = 0;
+      problems = 0;
       recorded = 0;
       dropped = 0;
       evicted = 0;
@@ -345,6 +376,18 @@ export function createRecorder(policy: CapturePolicy): LiveRecorder & ProbeRecor
     },
 
     onEntry: (listener: EntryListener): Unsubscribe => subscribe(listeners, listener),
+
+    usage(): BufferUsage {
+      return { entries: buffer.size, capacity: buffer.capacity, bytes, problems };
+    },
+
+    setCapacity(capacity: number): void {
+      if ((capacity !== Infinity && !(Number.isInteger(capacity) && capacity >= 1)) || capacity === buffer.capacity) {
+        return;
+      }
+      buffer.setCapacity(capacity).forEach(evict);
+      emit(changeListeners, CAPACITY);
+    },
 
     onChange: (listener: RecorderChangeListener): Unsubscribe => subscribe(changeListeners, listener),
 
@@ -394,4 +437,19 @@ export function createRecorder(policy: CapturePolicy): LiveRecorder & ProbeRecor
       return ++lastSocketId;
     },
   };
+}
+
+/** C-9's size estimate: 2 B per character of every string and object key, at any depth. */
+function weigh(value: unknown): number {
+  if (typeof value === 'string') {
+    return value.length * 2;
+  }
+  let n = 0;
+  if (value !== null && typeof value === 'object') {
+    const list = Array.isArray(value);
+    for (const key of Object.keys(value)) {
+      n += (list ? 0 : key.length * 2) + weigh((value as Record<string, unknown>)[key]);
+    }
+  }
+  return n;
 }

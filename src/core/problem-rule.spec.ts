@@ -139,3 +139,9 @@ describe('isProblemEntry (FR-ACT-04)', () => {
     expect(isProblemEntry(future as CaptureEntry)).toBe(false);
   });
 });
+
+describe('isProblemEntry — 2.1 notes (C-10)', () => {
+  it('a note is never a problem, whatever its text', () => {
+    expect(isProblemEntry({ kind: 'note', seq: 1, t: 0, title: 'error 500', text: 'boom' })).toBe(false);
+  });
+});
