@@ -678,8 +678,9 @@ describe('createVirtualList (S04-05, S04-07)', () => {
       // budget): ≥ 4× above the measured median, ≥ 18× below the regression.
       // Wave 3: late in the full suite (1,115 specs) on a 4-CPU box the median
       // drifts to 8.4–9.6 ms (it passed 1 run in 3); alone it is still ~1–2 ms.
-      // Limit 16 ms there: still ≥ 9× below the regression. S-10 measures this
-      // in isolation (NFR-PERF-03).
+      // Limit 16 ms there: still ≥ 9× below the regression. Measured alone in
+      // S-10b (NFR-PERF-03; Chromium 153, 3 runs): median 1.0–1.4 ms for 5,000,
+      // 1.9–2.7 ms for 5,000 ↔ 100,000 — well inside the 8 ms frame budget.
       const fx = makeFixture();
       const list = makeList(fx);
       const a = makeItems(5_000);

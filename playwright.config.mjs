@@ -25,7 +25,18 @@ export default defineConfig({
   // The guard fails the run on any skipped test or below test/e2e-floor.json.
   reporter: [['list'], ['./test/e2e-guard-reporter.mjs']],
   use: { baseURL: `http://127.0.0.1:${port}` },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // NFR-PERF measurements (S10-11): after every e2e test, one at a time, so no other browser shares the CPU.
+    {
+      name: 'perf',
+      testDir: 'test/perf',
+      dependencies: ['chromium'],
+      fullyParallel: false,
+      workers: 1,
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
   webServer: [
     {
       // The Angular and React hosts are bundled from dist/ first (S-10a).
