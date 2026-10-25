@@ -20,6 +20,8 @@ PR.
 | [S-08 Frame, toolbar and status](08-frame/spec.md) | The P4 frame (tabs, resize, dock, maximize, scheduler, settings storage, banners); pause/follow, clear, export/copy, capture on/off, status bar, settings, states | S-01, S-02, S-03, S-04 |
 | [S-09 Accessibility](09-accessibility/spec.md) | Keyboard map, focus, forced colours, reduced motion | S-05 … S-08 |
 | [S-10 Integration and verification](10-integration/spec.md) | Angular, React and plain hosts; end-to-end, performance, security; `npm pack`; README | all |
+| S-11 v2.1 panel features | Buffer size in Settings, near-full and memory warnings, status observer, "Show DBG button", user notes (HLD `D-28`…`D-34`) | S-10 |
+| S-12 AI add-on | Separate package `debug-capture-ai`: local / on-prem model by URL + token; insights, then proposed changes (HLD `D-35`) | S-11 |
 
 ## Waves (HLD §9.2)
 
@@ -28,6 +30,7 @@ Wave 1:  S-00
 Wave 2:  S-01 ║ S-02 ║ S-03 ║ S-04     parallel — they code against the S-00 contract
 Wave 3:  S-05 ║ S-06 ║ S-07 ║ S-08     parallel — one view each + the frame; a small contract PR first
 Wave 4:  S-09 ─► S-10                  in order — S-09 touches every view
+Wave 5:  S-11 ─► S-12                  v2.1, after S-10b closes 2.0
 ```
 
 The wave plans (branches, tracks, owned paths, contracts): [`wave-2.md`](wave-2.md),
