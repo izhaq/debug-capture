@@ -27,24 +27,26 @@ to undo. Never merge into the integration branch yourself.
   before raising any budget.
 - **Next: S-10 Integration and verification — the last spec** (HLD §9.1 row S-10, §9.3).
   §5 below is the finished wave-3 plan; for S-10 follow the S-09 pattern instead:
-  1. Write `docs/specs/10-integration/` (`spec.md` with S10-xx rows citing HLD IDs and a
-     traceability table, `plan.md`, `prs/10-*.md`) on branch `claude/dc-v2-s10-integration`
-     from the integration branch. Show the owner the spec before code.
-  2. What HLD gives S-10 (grep `S-10` in the HLD):
-     - **NFR-PORT-01:** three hosts on the built `dist/` — an Angular host, a React host and a
-       plain page — each installs capture + panel the way HLD §6.6 shows, with an e2e each.
-     - **BR-01…07:** verified end to end (a short e2e or a checklist per row).
-     - **NFR-PERF-02/03/04/06 measured:** open time, apply budget, node count, closed cost;
-       include the virtual-list frame-budget spec **in isolation** (its suite limit was
-       relaxed to 16 ms in #91).
-     - **NFR-SIZE-01 final** numbers; **NFR-SEC-01…04** final pass (CSP page, copy / export
-       only on user action, no `innerHTML`); **NFR-COMP-01**: a run on Chrome 146 if one is
-       available (laptop has 155).
-     - **`npm pack`** (pack-check already exists) and the package **README**.
-     - **Every MUST covered:** walk the HLD MUST rows against the specs' traceability tables
-       and list any gap.
-  3. One PR `claude/dc-v2-s10-integration` → integration branch. **Only the owner merges it.**
-- **Known limits (name them in the S-10 PR):** fullscreen and a host modal dialog — panel drawn
+  **S-10 is split into two PRs (owner, 2026-10-25)**, one after the other, each from the
+  integration branch and each merged by the owner:
+  - **S-10a — hosts, packaging, README** (branch `claude/dc-v2-s10a-hosts`):
+    **NFR-PORT-01** — three hosts on the built `dist/`: an Angular host (Angular 16, as the
+    playground and the package's peer range `>=16 <21`), a React host and a plain page; each
+    installs capture + panel as HLD §6.6 shows, with an e2e each. **`npm pack`** (pack-check
+    exists) and the package **README**.
+  - **S-10b — verification** (branch `claude/dc-v2-s10b-verify`, after S-10a is merged):
+    **BR-01…07** end to end (a test or a checklist row each); **NFR-PERF-02/03/04/06
+    measured** (open time, apply budget, node count, closed cost; the virtual-list
+    frame-budget spec **in isolation** — its suite limit was relaxed to 16 ms in #91);
+    **NFR-SIZE-01 final**; **NFR-SEC-01…04** final pass (CSP page, copy / export only on a
+    user action, no `innerHTML`); **NFR-COMP-01** on Chrome 146 if one is available; the
+    **every-MUST walk**: HLD MUST rows against the specs' traceability tables, gaps listed.
+  - Write `docs/specs/10-integration/` first (`spec.md` with S10-xx rows citing HLD IDs and a
+    traceability table, `plan.md`, `prs/10a-hosts.md`, `prs/10b-verify.md`) in the S-10a branch
+    and show it to the owner before any code.
+  - Angular note: the hosts are Angular 16+ (HLD §1.1, package peer range). The repo name says
+    "angular-13" but the app is Angular 16.2; do not target Angular 13 unless the owner says so.
+- **Known limits (name them in the S-10 PRs):** fullscreen and a host modal dialog — panel drawn
   on top and live but not clickable (Chrome rule, `D-15`); a modal dialog inside a host's shadow
   root is not seen (ISO-21); in a narrow right dock the HTTP filter bar clips its last chips;
   `redactUserinfo` misses leading-space and `//host` URLs (§7).
