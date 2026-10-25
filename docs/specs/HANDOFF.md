@@ -24,25 +24,21 @@ to undo. Never merge into the integration branch yourself.
   **33** e2e (floor 33); loader **4,084 / 4,096 B (12 B left)**, panel-ui **38,926 / 40,960 B
   (~2 kB left)**, core 11,743 / 12,368 B. S-10 should add **no panel code**; ask the owner
   before raising any budget.
-- **Next: S-10 Integration and verification — the last spec** (HLD §9.1 row S-10, §9.3).
-  Follow the S-09 pattern (a spec folder, one branch per PR).
-  **S-10 is split into two PRs (owner, 2026-10-25)**, one after the other, each from the
-  integration branch and each merged by the owner:
-  - **S-10a — hosts, packaging, README** (branch `claude/dc-v2-s10a-hosts`):
-    **NFR-PORT-01** — three hosts on the built `dist/`: an Angular host (Angular 16, as the
-    playground and the package's peer range `>=16 <21`), a React host and a plain page; each
-    installs capture + panel as HLD §6.6 shows, with an e2e each. **`npm pack`** (pack-check
-    exists) and the package **README**.
-  - **S-10b — verification** (branch `claude/dc-v2-s10b-verify`, after S-10a is merged):
-    **BR-01…07** end to end (a test or a checklist row each); **NFR-PERF-02/03/04/06
-    measured** (open time, apply budget, node count, closed cost; the virtual-list
-    frame-budget spec **in isolation** — its suite limit was relaxed to 16 ms in #91);
-    **NFR-SIZE-01 final**; **NFR-SEC-01…04** final pass (CSP page, copy / export only on a
-    user action, no `innerHTML`); **NFR-COMP-01** on Chrome 146 if one is available; the
-    **every-MUST walk**: HLD MUST rows against the specs' traceability tables, gaps listed.
-  - Write `docs/specs/10-integration/` first (`spec.md` with S10-xx rows citing HLD IDs and a
-    traceability table, `plan.md`, `prs/10a-hosts.md`, `prs/10b-verify.md`) in the S-10a branch
-    and show it to the owner before any code.
+- **S-10a — hosts, packaging, README: done, in review** (branch `claude/dc-v2-s10a-hosts`, one PR
+  into the integration branch; **the owner merges it**). Spec folder `docs/specs/10-integration/`
+  (spec S10-01…15, plan, briefs `prs/10a-hosts.md`, `prs/10b-verify.md`). Built: Angular 16.2,
+  React 19.3.1 and plain hosts in `test/hosts/` (Angular / React bundled from `dist/` through
+  `exports` by `test/hosts/build.mjs`); `test/e2e/hosts.spec.mjs` runs one scenario and a
+  flag-off test on each; user README; React as a dev dependency. No `src/` change.
+  Checks on the S-10a head: **1122** unit (floor 1122), **39** e2e (floor 39), sizes unchanged,
+  tarball `debug-capture-2.0.0-alpha.0.tgz` 126 files, 329,217 B.
+- **Next: S-10b — verification** (branch `claude/dc-v2-s10b-verify`, from the integration branch
+  **after S-10a is merged**). Brief: `docs/specs/10-integration/prs/10b-verify.md` (S10-10…15):
+  **BR-01…07** end to end (a test or a checklist row each — S-10a's host e2e covers BR-01/02/03/
+  05/06/07 on real hosts); **NFR-PERF-02/03/04/06 measured** (open time, apply budget, node
+  count, memory; the virtual-list frame-budget spec **in isolation** — its suite limit was
+  relaxed to 16 ms in #91); **NFR-SIZE-01 final**; **NFR-SEC-01…04** final pass; **NFR-COMP-01**
+  on Chrome 146 if one is available; the **every-MUST walk**. Delete this file in that PR.
   - Angular note: the hosts are Angular 16+ (HLD §1.1, package peer range). The repo name says
     "angular-13" but the app is Angular 16.2; do not target Angular 13 unless the owner says so.
 - **Known limits (name them in the S-10 PRs):** fullscreen and a host modal dialog — panel drawn

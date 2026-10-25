@@ -49,4 +49,27 @@ Nothing in `src/`. Nothing outside the package.
 
 ## Status
 
-S-10a — in review (PR into the integration branch). S-10b — not started.
+S-10a — done, in review (one PR into the integration branch; the owner merges it).
+S-10b — not started (after S-10a is merged).
+
+S-10a numbers:
+
+- Unit specs: 1122 ran, floor 1122 (no unit specs added; S-10a adds no `src/` code).
+- e2e: 39 ran, floor 39 (was 33): `hosts.spec.mjs` adds 6 — the shared scenario and the
+  flag-off test on each of Angular, React and plain.
+- Proved red once each: the React host without `installDebugPanel` (no launcher); the Angular
+  host with the controller always created (flag-off test); the Angular host without
+  `provideDebugCapture()` and the React host without `createReactRootErrorOptions` (no
+  framework error in Console).
+- Sizes, min+gzip, unchanged: loader 4,084 / 4,096; UI chunk 38,926 / 40,960; core 11,743 / 12,368.
+- `npm run pack:check`: ok; `debug-capture-2.0.0-alpha.0.tgz`, 126 files, 329,217 B.
+- Nothing outside `packages/debug-capture/` changed.
+
+Deviations from the brief:
+
+- `plain-host.spec.mjs` now opens `/plain/?debug=1` and imports the vendored copy; the plain page
+  is the §6.6 snippet plus the page's own script (test hooks: `__hostReady`, `__hostSession`).
+- Each host sets `window.__hostSession` (null when the flag is off) for the flag-off test:
+  zone.js makes its own patches of `fetch` / XHR / `WebSocket` read as native, so the "globals
+  stay native" check alone says little on the Angular host.
+- The Angular host calls `enableProdMode()` (a production build, BR-02).
