@@ -501,7 +501,7 @@ describe('S-08 frame (mountFrame)', () => {
   });
 });
 
-describe('FRAME_CSS forced colours (S09-03, §5.7)', () => {
+describe('FRAME_CSS forced colours (S09-02, §5.7)', () => {
   it('keeps the banner 2 px mark when forced colours drop the inset shadow', () => {
     const rule = FRAME_CSS.slice(FRAME_CSS.indexOf('@media (forced-colors:active)'));
     expect(rule.startsWith('@media (forced-colors:active)'))

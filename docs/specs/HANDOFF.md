@@ -1,9 +1,10 @@
-# Handoff — debug-capture v2, wave 3 (updated 2026-10-22)
+# Handoff — debug-capture v2, S-10 (updated 2026-10-25)
 
 You are the new **orchestrator** for debug-capture v2 (GitHub Copilot in agent
-mode, on the owner's **Windows laptop** — see §10 for setup). Waves 1 and 2 are done and
-merged. Your job is **wave 3**: S-05 HTTP view, S-06 WebSocket view, S-07 Console
-view, S-08 frame + toolbar + status bar. This file is everything you need to start.
+mode, on the owner's **Windows laptop** — see §10 for setup). Waves 1–3 and S-09 are
+done and merged. Your job is **S-10, integration and verification — the last spec**
+(§0). Sections §3–§7 describe how wave 3 was built and are background now. This file
+is everything you need to start.
 Read it first; open other files only when a step needs them, by line range or grep
 (§9).
 
@@ -16,64 +17,42 @@ to undo. Never merge into the integration branch yourself.
 
 **Status (keep this section current — update it before you stop):**
 
-- **Step 0 (plan and specs): done** on the wave branch `claude/dc-v2-wave3`:
-  #77 (plan `wave-3.md` + specs S-05…S-08), #78 (spec notes; **D-24**: no Launcher
-  Show/Hide setting in 2.0), #79 (**D-25**: UI chunk budget **40 kB**; loader stays
-  4 kB).
-- **Step 1, the contract PR: merged** — C3-1…C3-6, **PR #81** into the wave
-  branch. The names every track codes against are in `wave-3.md` "Names fixed now"
-  (view types in `src/panel/ui/view-contract.ts`; HTTP sort rules; virtual list
-  `sortable` / `onSort` / `setSort` / `follow` / `setNewCount`; `panelRoot`). HLD
-  D-20 now says the HTTP sort is not remembered.
-- **Step 2, S-08 frame: merged** — **PR #83** (finished by Claude after a Copilot
-  WIP). Frame, toolbar (Capture next to Pause), status bar, settings + storage,
-  dock / resize / maximize, once-per-frame scheduler, banners. Fresh-context review
-  done, fixes confirmed. Read `src/panel/app/frame.ts` to see how views are mounted
-  (`ViewDeps`: `store`, `source`, `root`, `requestFrame`, `schedule`, `report`).
-- **Fullscreen (D-15, updated):** Chrome blocks clicks and focus outside a fullscreen
-  element (it matches `:modal`). The panel is drawn on top and live; a banner says it
-  cannot be used until fullscreen ends.
-- **Follow button ("↓ N new") is the views' job** (S05-15, S06-10, S07-09), not the
-  frame's.
-- **Step 3, S-05 HTTP view: merged** — **PR #84** (three commits on
-  `claude/dc-v2-w3-05-http`: list, filters, detail). Read `src/panel/views/http/`
-  as the pattern for S-06 / S-07: a `fakes.spec.ts` stage (real store, real theme,
-  fake source), the view renders only in `update(state)`, every P2 block gets
-  `onError: report`, the follow count by `seq` / pending id. The store keeps a
-  selected entry that left the buffer (`selection.<view>.removed === true`), so a
-  view can show its "removed" note from that instead of `onSelectionLost` (S05-12).
-  **Its `cleanup()` must destroy each view** (fixed after #84): views left alive slowed
-  later timing specs (the virtual-list frame-budget spec failed at 9.6 ms on Linux).
-- **S-07 Console: merged (#87)** — 1076 unit specs, 28 e2e on the wave branch; panel-ui
-  35,824 / 40,960 B.
-- **S-06 WebSocket: merged (#89)** — all four tracks are done. Wave branch: **1109** unit specs
-  (floor 1109), **30** e2e (floor 30); loader **4,084 / 4,096 B**, panel-ui **38,587 / 40,960 B**
-  (2.4 kB left).
-- **Step 3, the whole-wave review: done.** One fresh reviewer on the wave diff, focused on the
-  seams: 0 blockers, 0 majors, 8 minors, 3 nits. All fixed in **PR #90**
-  (`claude/dc-v2-w3-review-fixes` → wave branch): Escape reads the store; pressed button look in
-  P2; the Network sub-tabs sit in the view's filter bar (HLD §5.2, owner); the status bar counts
-  entries (HLD §4.9 text, owner); a reload e2e for settings; docs match the code. Checks on the
-  #90 head: **1115** unit specs (floor 1115), **31** e2e (floor 31); loader **4,084 / 4,096 B**,
-  panel-ui **38,674 / 40,960 B** (2.2 kB left).
-- **Next: step 4.** After the owner's "go": merge #90 into `claude/dc-v2-wave3` (merge commit),
-  re-run `npm run check` on the wave branch, then open one PR `claude/dc-v2-wave3` →
-  `claude/air-gapped-debug-logging-zkn1nr` for the owner (**do not merge it**).
-- **Known limits to name in the wave PR:** fullscreen and a host modal dialog — the panel is drawn
-  on top and live but cannot be clicked (Chrome rule, `D-15`; the 2.x separate window is the real
-  fix); a modal dialog inside a host's shadow root is not seen (ISO-21); the loader has 12 B left;
-  in a narrow right dock the HTTP filter bar clips its last chips.
-- Last known checks on `claude/dc-v2-w3-05-http` (#84 head): green — **1043** unit
-  specs (floor 1043), **26** e2e (floor 26); loader **4,084 / 4,096 B (12 B left)**,
-  panel-ui **34,043 / 40,960 B** (~6.9 kB left for two views: about 3 WS,
-  2 Console — report your growth in the PR).
-- **Flaky once:** `panel-hostile-host` "ISO-20 … the next open mounts it again"
-  timed out in `browserContext.newPage` (before the test body) on one slow run
-  (2 min); the re-run passed in 42 s. If it repeats, look at the machine first.
+- **Waves 1–3 and S-09 are merged** into the integration branch
+  `claude/air-gapped-debug-logging-zkn1nr`: wave 3 in **#92** (frame, HTTP, WebSocket,
+  Console; review fixes #90, #91; a paused-row fix `7f1aed2`), **S-09 accessibility in #93**
+  (keyboard walk e2e, forced-colour banner border, first paint follows a restored filter).
+- Last checks on the integration branch (#93 head): green — **1122** unit specs (floor 1122),
+  **33** e2e (floor 33); loader **4,084 / 4,096 B (12 B left)**, panel-ui **38,926 / 40,960 B
+  (~2 kB left)**, core 11,743 / 12,368 B. S-10 should add **no panel code**; ask the owner
+  before raising any budget.
+- **Next: S-10 Integration and verification — the last spec** (HLD §9.1 row S-10, §9.3).
+  §5 below is the finished wave-3 plan; for S-10 follow the S-09 pattern instead:
+  1. Write `docs/specs/10-integration/` (`spec.md` with S10-xx rows citing HLD IDs and a
+     traceability table, `plan.md`, `prs/10-*.md`) on branch `claude/dc-v2-s10-integration`
+     from the integration branch. Show the owner the spec before code.
+  2. What HLD gives S-10 (grep `S-10` in the HLD):
+     - **NFR-PORT-01:** three hosts on the built `dist/` — an Angular host, a React host and a
+       plain page — each installs capture + panel the way HLD §6.6 shows, with an e2e each.
+     - **BR-01…07:** verified end to end (a short e2e or a checklist per row).
+     - **NFR-PERF-02/03/04/06 measured:** open time, apply budget, node count, closed cost;
+       include the virtual-list frame-budget spec **in isolation** (its suite limit was
+       relaxed to 16 ms in #91).
+     - **NFR-SIZE-01 final** numbers; **NFR-SEC-01…04** final pass (CSP page, copy / export
+       only on user action, no `innerHTML`); **NFR-COMP-01**: a run on Chrome 146 if one is
+       available (laptop has 155).
+     - **`npm pack`** (pack-check already exists) and the package **README**.
+     - **Every MUST covered:** walk the HLD MUST rows against the specs' traceability tables
+       and list any gap.
+  3. One PR `claude/dc-v2-s10-integration` → integration branch. **Only the owner merges it.**
+- **Known limits (name them in the S-10 PR):** fullscreen and a host modal dialog — panel drawn
+  on top and live but not clickable (Chrome rule, `D-15`); a modal dialog inside a host's shadow
+  root is not seen (ISO-21); in a narrow right dock the HTTP filter bar clips its last chips;
+  `redactUserinfo` misses leading-space and `//host` URLs (§7).
+- **Process:** every change goes through a PR — never push straight to the integration branch
+  (or a wave branch). Commit and push after each step; `npm run format` before each commit.
 - The hostile host uses the real `createCaptureController` (`test/hostile-host/controller.mjs`).
-  A view's e2e makes real traffic with `page.evaluate` (fetch / XHR / WebSocket /
-  console) and finds rows inside the shadow root.
-- `wave-3.md` is your main guide; its status table must be kept current.
+  A view's e2e makes real traffic with `page.evaluate` (fetch / XHR / WebSocket / console)
+  and finds rows inside the shadow root. Spec stages' `cleanup()` must destroy their views.
 - **Windows tip:** a terminal opened by the IDE may not have the user variable
   `CHROME_BIN`; Karma then tries the blocked `chrome.exe` (`spawn EPERM`). Set
   it in the command: `$env:CHROME_BIN = [Environment]::GetEnvironmentVariable('CHROME_BIN','User')`.
