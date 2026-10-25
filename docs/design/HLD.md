@@ -3,7 +3,9 @@
 **Status:** Draft 0.5 — for owner review. Written 2026-10-14; revised the same day after a
 fresh-context review (33 findings), a confirmation review (14 findings) and the
 mockup build (14 questions), all applied. 0.5 (2026-10-15): the P4 frame moves
-from S-02 to S-08, so wave 2 has no track waiting on another (§9).
+from S-02 to S-08, so wave 2 has no track waiting on another (§9). 0.6 (2026-10-25):
+release 2.1 (S-11) — scope §2.1a, requirement rows §3.10, core changes `C-9` / `C-10`,
+the 2.1 options, handle and data-source members (§6.4); `D-24` gives way to `D-32`.
 **Scope:** the whole of v2: the capture layer it inherits from v1, and the new
 on-screen **debug panel**.
 **This document is the source of truth.** Every v2 spec and plan is cut from
@@ -17,7 +19,7 @@ and looks. Section 6 is how it is built. Sections 7–8 are how we build and
 test it. Section 9 is the delivery plan. Section 10 holds every decision, and
 which ones still need the owner. Section 11 is open questions.
 
-Words used here: **MUST** = required for 2.0. **SHOULD** = wanted in 2.0, can
+Words used here: **MUST** = required for 2.0; **MUST (2.1)** = required for release 2.1 (S-11). **SHOULD** = wanted in 2.0, can
 slip. **COULD** = later (2.x) unless cheap. "**Host**" = the app the panel runs
 inside. "**Entry**" = one recorded item (a request, a frame, a log line, an
 error).
@@ -140,6 +142,16 @@ error).
     on/off.
 - Package layout and tooling for v2 (tests, build, lint, layer checks).
 
+### 2.1a Release 2.1 (S-11, `D-27`)
+
+- **Buffer size** in Settings, up to **No limit**, changed live and remembered (`D-28`).
+- **Buffer-near-full** banner and a repeating **memory** warning (`D-29`, `D-30`).
+- A **status observer** for the host: `handle.onStatus()` (`D-31`).
+- A **"Show DBG button"** setting; the shortcut stays code-only (`D-32`).
+- **User notes**: Add note in the panel, `session.addNote()` in code, a `note` entry kind (`D-33`).
+
+Rows: §3.10. Release 2.1 changes nothing above unless a §3.10 row says so.
+
 ### 2.2 Later (2.x)
 
 - **Separate window** mode (the panel in its own browser window, fed over
@@ -147,7 +159,6 @@ error).
   is handled in 2.0, `D-15`).
 - Export of the **current view** only (filtered).
 - Column choice (column sorting is in 2.0, `D-18`).
-- A **Launcher Show / Hide** setting (`D-24`); in 2.0 the host option `launcher: false`.
 - A **Problems** quick view (all failures across tabs).
 - Hebrew UI text (the UI is English in 2.0; data is bidi-safe — `NFR-I18N-01`).
 
@@ -180,7 +191,7 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 |---|---|---|
 | FR-ACT-01 | The host installs the panel with one call after creating the capture controller: `installDebugPanel(controller, options?)` (§6.6). With the flag off the host has no controller and passes `null`: the call does nothing and returns an inert handle. | MUST |
 | FR-ACT-02 | The panel **UI** is **loaded on first open** (dynamic import), not at app start. Before that only the **loader** exists: launcher, toggle shortcut and badge counter (§6.1). | MUST |
-| FR-ACT-03 | A **launcher** — a small button in a screen corner — opens the panel. It can be turned off with the `launcher: false` option (a Settings switch is 2.x, `D-24`). | MUST |
+| FR-ACT-03 | A **launcher** — a small button in a screen corner — opens the panel. It can be turned off with the `launcher: false` option; from 2.1 the user can also hide it in Settings (`FR-ACT-10`, `D-32`). | MUST |
 | FR-ACT-04 | The launcher shows how many **new problems** happened since the panel was last closed. A **problem** is: an `ErrorEntry`; an HTTP entry with `status ≥ 500` or `error ≠ null`; a WebSocket `error` event. Not counted: 4xx, and `console.error` lines (Angular and React errors already make an `ErrorEntry`; counting both would count twice). Opening the panel and **Clear** reset the badge. | SHOULD |
 | FR-ACT-05 | A **toggle shortcut** opens and closes the panel: `Ctrl+Alt+Shift+P` (configurable), matched on `KeyboardEvent.code`, like v1's shortcuts. | MUST |
 | FR-ACT-06 | The panel never opens by itself. It opens only on a user click or key. `handle.open()` exists only for a host's own user action (a menu item, a button). | MUST |
@@ -242,7 +253,7 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 | FR-BAR-03 | **Clear** empties the capture buffer (same as v1 `Ctrl+Alt+Shift+X`, all tabs) and closes every open detail; focus inside a detail moves to its list (or, when the list is empty, its search box). | MUST |
 | FR-BAR-04 | **Export** menu: Download all (JSON file, v1 format), Copy all. Export always takes the **whole buffer** — paused or not, whatever the filters. | MUST |
 | FR-BAR-05 | Export the current view only. | COULD (2.x) |
-| FR-BAR-06 | **Status bar:** entries shown / total, problems in the buffer (rule in `FR-ACT-04`), buffer use (`4,812 / 5,000`), dropped and evicted counts, capture on/off. Counts update on every entry, clear and stats change (`C-6`). | MUST |
+| FR-BAR-06 | **Status bar:** entries shown / total, problems in the buffer (rule in `FR-ACT-04`), buffer use (`4,812 / 5,000`; `4,812 / no limit` from 2.1, `FR-BUF-02`), dropped and evicted counts, capture on/off. Counts update on every entry, clear and stats change (`C-6`). | MUST |
 | FR-BAR-07 | **Settings** (§4.10). | MUST |
 
 ### 3.8 Functional — common
@@ -266,7 +277,7 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 | NFR-PERF-04 | **Scroll:** lists are virtualised — under 2,000 DOM nodes per tab **including the detail pane**, whatever the entry count, for a panel up to **1,080 px** tall; taller (a maximised panel on a 4K screen) adds at most ~23 nodes per extra visible row, because every visible row is drawn (`D-22`). No long task over 50 ms while scrolling. | MUST |
 | NFR-PERF-05 | **Angular host:** the panel causes **0** change-detection cycles (verified with an `NgZone` counter). | MUST |
 | NFR-PERF-06 | **Memory:** the panel adds under 10 MB on top of the capture buffer with 5,000 entries. | SHOULD |
-| NFR-SIZE-01 | **Loader** (`debug-capture/panel`, loaded at start): ≤ **4 kB** min+gzip. **UI chunk** (loaded on first open): ≤ **40 kB** min+gzip (raised from 25 kB, `D-25`); hosts that never open the panel load **0 bytes** of it. **Core:** within ± 2 kB of v1's size — the baseline is measured and recorded in S-00. | MUST |
+| NFR-SIZE-01 | **Loader** (`debug-capture/panel`, loaded at start): ≤ **4 kB** min+gzip. **UI chunk** (loaded on first open): ≤ **40 kB** min+gzip (raised from 25 kB, `D-25`); hosts that never open the panel load **0 bytes** of it. **Core:** within ± 2 kB of v1's size — the baseline is measured and recorded in S-00. **2.1** (`D-34`): S-11 raises the loader and UI chunk budgets from a measurement and writes the new numbers here. | MUST |
 | NFR-SEC-01 | No `innerHTML` / `outerHTML` / `insertAdjacentHTML`, no `eval` / `new Function`, no inline handlers. Captured data enters the DOM only as text. No `href` / `src` built from captured data. | MUST |
 | NFR-SEC-02 | Works under a strict CSP (`default-src 'self'`, no `'unsafe-inline'`) and Trusted Types (`require-trusted-types-for 'script'`) with no violations. | MUST |
 | NFR-SEC-03 | The panel never makes network requests and never reads anything the recorder did not store (it sees only redacted data). | MUST |
@@ -277,6 +288,24 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 | NFR-COMP-01 | **Chrome 146.0.7680.72+** only (`OPEN-01`, answered by the owner); no Edge, no other browsers. Top layer via `popover` and `inert` are always present, so there are no old-browser fallbacks. Language target stays ES2020 (§7.2). | MUST |
 | NFR-COMP-02 | Screens from 1280 × 720 up. Pointer and keyboard; touch not required. | MUST |
 | NFR-PORT-01 | Same behaviour in an Angular host, a React host and a plain HTML page — each covered by an end-to-end test. The package ships a prebuilt ESM file per entry point (`dist/*.mjs`) so a plain page needs no bundler (§6.6). | MUST |
+
+### 3.10 Functional — release 2.1 (S-11)
+
+Cut from `D-28` … `D-33` (owner, 2026-10-25). Behaviour in §4.4, §4.9 – §4.11; interfaces in §6.4; core changes `C-9`, `C-10`.
+
+| ID | Requirement | Pri |
+|---|---|---|
+| FR-BUF-01 | **Buffer size in Settings** (`D-28`): 1,000 · 5,000 · 10,000 · 50,000 · **No limit**. The policy's `maxEntries` (default 5,000) is the default and joins the list when it is not one of them. Changed live; remembered per browser (§4.10). The loader applies the remembered size at install, before the first open, so a reload keeps it. | MUST (2.1) |
+| FR-BUF-02 | A size change applies to the recorder at once (`C-9`): a smaller size drops the oldest entries at once (counted as evicted; their rows leave the lists; an open detail keeps the "removed" note, §4.4); a larger size keeps everything. `seq`, request ids and socket ids keep counting (`C-2`). The status bar shows the new capacity: `buffer 812 / 1,000`, or `buffer 812 / no limit`. | MUST (2.1) |
+| FR-BUF-03 | **No limit**: the buffer never drops an entry. While it is chosen, Settings shows: "No limit: the page may get slow and use a lot of memory. Use it at your own risk." | MUST (2.1) |
+| FR-BUF-04 | **Near-full banner** (`D-29`): when the buffer holds at least `nearFullAt` × capacity entries (panel option, default `0.9`), a banner says "The buffer is almost full (N / M). The oldest entries will soon be dropped." with **Download all**, **Raise the limit** (opens Settings with focus on the buffer size) and **Dismiss**. Shown once per crossing: once dismissed it stays hidden until the buffer is below the threshold again — after **Clear** or a size change — and crosses it again. Never with No limit. | MUST (2.1) |
+| FR-BUF-05 | **Memory warning** (`D-30`): the recorder's size estimate (`C-9`) is checked against steps of `memoryStep` bytes (panel option, default 25 MB = 26,214,400 B). Each time it passes a new step, a banner says "Captured data uses about N MB. The page may get slow." with **Download all** and **Dismiss**; once dismissed it comes back at the next step. Falling below a step re-arms that step. | MUST (2.1) |
+| FR-STAT-01 | **Status observer** (`D-31`): `handle.onStatus(listener)` returns an unsubscribe function. The listener gets a `DebugPanelStatus` (§6.4): open, capture on/off, entries, capacity, problems in the buffer, near full, estimated bytes and memory step. It is called once when it subscribes, then after a change — at most once per frame, and only when a field changed. Works while the panel is closed and before the UI chunk loads. A throwing listener is isolated (`ISO-12`). The inert handle never calls it. | MUST (2.1) |
+| FR-ACT-10 | **"Show DBG button"** setting (`D-32`): Show / Hide, remembered per browser, applied live and by the loader at install. Code `launcher: false` removes the launcher and hides the switch: the host wins. The toggle shortcut stays code-only (`shortcut` option). | MUST (2.1) |
+| FR-NOTE-01 | **Add note** (`D-33`): a toolbar button opens a small form — Title, Text, **Add note**. Adding records an entry of the new kind `note` (`C-10`), stamped at the moment of the click; with both fields empty nothing is added. Enter in Title, or Ctrl+Enter in Text, adds too; Escape closes the form. | MUST (2.1) |
+| FR-NOTE-02 | Notes show in **Console** in time order, with the icon and the word `note`. Level chips never hide them; the search looks in title and text; the detail shows the title, the time and the whole text. They count in `N / M shown` and are never problems. | MUST (2.1) |
+| FR-NOTE-03 | Notes are exported like any entry (`kind: 'note'`, `title`, `text`) in the `entries` list, so equal titles never clash. `schemaVersion` stays 1; a reader that does not know `note` skips it. | MUST (2.1) |
+| FR-NOTE-04 | A host adds a note from code: `controller.session.addNote(title, text?)`. It records while capture is off too (a note is the user's own act, not a probe). Title and text are redacted and truncated by the policy, like an error message. | MUST (2.1) |
 
 ---
 
@@ -356,7 +385,10 @@ createCaptureController()  ──►  installDebugPanel(controller)   (loader)
   already on screen updates in place when that request finishes (same row,
   highlight kept); it is not counted in `N new`. A request that starts while
   paused stays hidden until Resume. Resume applies everything that waited.
-- **Buffer limits:** the capture buffer holds `maxEntries` (default 5,000).
+- **Buffer limits:** the capture buffer holds `maxEntries` (default 5,000), or
+  from 2.1 the size chosen in Settings, up to **No limit** (`FR-BUF-01` … `03`).
+  At 90 % a banner warns once per crossing; a memory banner warns at each
+  25 MB step of the size estimate (`FR-BUF-04`, `05`).
   When it is full, the oldest entries drop out of the lists too; the status
   bar shows the evicted count. A selected entry that drops out keeps its
   detail open with the note "This entry was removed from the buffer".
@@ -441,6 +473,8 @@ a close `✕`. `↑` / `↓` in the list moves the selection and updates the det
 ├ 1,284 / 1,284 shown · ✕ 3 problems · buffer 1,284 / 5,000 · capture ● on · dropped 0 · evicted 0 ┤
 ```
 
+- **Note** (2.1, `FR-NOTE-01`): a toolbar button before Settings opens the
+  Add note form; the note lands in Console and in the export.
 - **Clear** asks nothing and is not undoable — like v1's `X` shortcut. It
   clears the capture buffer, so it also empties the next export.
 - **Export ▾:** "Download all (JSON)" and "Copy all (JSON)". The whole
@@ -465,6 +499,11 @@ A popover under the gear button.
 | Text size | Small 11 px · Normal 12 px · Large 14 px (meta text 10 / 11 / 13 px) | Normal |
 | Time | Clock · Relative | Clock |
 | Capture | On · Off (`FR-ACT-09`) — **not remembered**; every reload starts On | On |
+| Buffer (2.1) | 1,000 · 5,000 · 10,000 · 50,000 · No limit (with its warning) — `FR-BUF-01` | the policy's `maxEntries` |
+| DBG button (2.1) | Show · Hide — `FR-ACT-10`; not shown when the host passes `launcher: false` | Show |
+
+From 2.1 the loader reads two of these at install — `buffer` and `launcher` —
+so a reload keeps them before the first open (`D-32`, `D-34`).
 
 Remembered in `localStorage` under `debug-capture:panel`: settings (except
 Capture), size, dock, last tab and filter **chips** — never search text, never
@@ -482,6 +521,8 @@ storage is blocked the panel uses defaults and works the same.
 | Entry removed | Detail: "This entry was removed from the buffer." |
 | Host modal dialog or fullscreen | Banner: "The page has a dialog open or is fullscreen. The panel can be seen but not used until it closes." Chrome blocks clicks and focus outside a modal dialog or a fullscreen element; the panel is still drawn on top and live (`FR-WIN-07`, `D-15`, `ISO-21`). |
 | Panel failure | Status bar shows `panel error` with a count; the panel keeps working (`NFR-REL-01`). |
+| Buffer near full (2.1) | Banner: "The buffer is almost full (N / M). The oldest entries will soon be dropped." **Download all** · **Raise the limit** · **Dismiss** (`FR-BUF-04`). |
+| Memory step passed (2.1) | Banner: "Captured data uses about N MB. The page may get slow." **Download all** · **Dismiss** (`FR-BUF-05`). |
 
 ### 4.12 Keyboard
 
@@ -689,7 +730,7 @@ Line height 1.4 for text blocks, row height fixed for lists. No web fonts
 | `redacted` badge | `--dcp-text-muted` (badge rule above) |
 | `truncated` badge | `--dcp-warning` |
 | `pending` badge | `--dcp-text-muted` |
-| Banner (capture off, host modal) | full width under the title bar, `--dcp-bg-elevated`, 2 px `--dcp-warning` bar at the start, text + one button |
+| Banner (capture off, host modal) | full width under the title bar, `--dcp-bg-elevated`, 2 px `--dcp-warning` bar at the start, text + its buttons (the 2.1 warning banners end with **Dismiss**) |
 | Popover / menu | `--dcp-bg-elevated`, 1 px `--dcp-divider` border, radius 6 px, no shadow |
 | "↓ N new" follow button | a control, bottom-right of the list, 8 px from its edges, `--dcp-bg-elevated` |
 | Timing bar | `--dcp-accent` fill on a `--dcp-divider` track, 6 px tall |
@@ -797,6 +838,10 @@ interface PanelDataSource {
   download(root: ShadowRoot): void;                         // C-5: temporary <a> inside `root`
   copyText(text: string, root: ShadowRoot): Promise<boolean>; // C-5: fallback textarea inside `root`
   capture: { readonly on: boolean; start(): void; stop(): void };   // C-2
+  // 2.1
+  defaultCapacity(): number;                     // policy.maxEntries — the Settings default (FR-BUF-01)
+  setCapacity(capacity: number): void;           // C-9: integer ≥ 1 or Infinity (No limit)
+  addNote(title: string, text: string): void;    // C-10
 }
 
 type PanelDataEvent =
@@ -805,7 +850,8 @@ type PanelDataEvent =
   | { type: 'pending-end'; id: number }                  // C-1: finished, sampled out, failed, capped or stopped
   | { type: 'cleared' }                                  // C-6
   | { type: 'stats'; stats: CaptureStats }               // C-6: dropped / failed changed
-  | { type: 'capture'; on: boolean };                    // C-2
+  | { type: 'capture'; on: boolean }                     // C-2
+  | { type: 'capacity'; capacity: number };              // C-9 (2.1): the store drops its oldest beyond it
 
 /** C-1. Filtered by ignoreUrls and redacted (URL, headers) like an HttpEntry; sample() runs at completion. */
 interface PendingRequest {
@@ -822,6 +868,8 @@ interface DebugPanelOptions {
   shortcut?: string | false;               // default 'ctrl+alt+shift+p'
   defaultDock?: 'bottom' | 'right';        // default 'bottom'
   storageKey?: string | false;             // default 'debug-capture:panel'
+  nearFullAt?: number;                     // 2.1, FR-BUF-04: share of the capacity, (0, 1]; default 0.9
+  memoryStep?: number;                     // 2.1, FR-BUF-05: bytes; default 26,214,400 (25 MB)
 }
 
 function installDebugPanel(controller: CaptureController | null, options?: DebugPanelOptions): DebugPanelHandle;  // null → inert handle
@@ -831,6 +879,19 @@ interface DebugPanelHandle {
   close(): void;
   readonly isOpen: boolean;
   dispose(): void;                         // closes (focus returns), unsubscribes, removes launcher, listener, element
+  onStatus(listener: (status: DebugPanelStatus) => void): Unsubscribe;   // 2.1, FR-STAT-01
+}
+
+/** 2.1, FR-STAT-01 (D-31). A fresh object per call. */
+interface DebugPanelStatus {
+  readonly open: boolean;
+  readonly capture: boolean;               // controller.on
+  readonly entries: number;                // in the buffer now
+  readonly capacity: number;               // Infinity = No limit
+  readonly problems: number;               // in the buffer (FR-ACT-04 rule)
+  readonly nearFull: boolean;              // entries ≥ nearFullAt × capacity
+  readonly bytes: number;                  // C-9 estimate
+  readonly memoryStep: number;             // floor(bytes / memoryStep); 0 = below the first step
 }
 
 /** C-2. One recorder for the page's life; `session` is one stable wrapper whose
@@ -854,6 +915,13 @@ The exact contract types (S-00) live in `src/contract/capture-contract.ts`:
 Where this section and that file differ in detail, the file is the contract
 and this section is updated to match.
 
+**2.1 (S-11).** The contract adds `NoteEntry` (`C-10`), `BufferUsage` and the
+`LiveRecorder` members `usage()` / `setCapacity()` with the `capacity`
+change (`C-9`), and `ControlledCaptureSession.addNote()`. The loader keeps
+the warning state (which banner is dismissed), because it lives while the
+panel is closed; it hands the UI `launcher`, `setLauncher`, `warnings()` and
+`dismissWarning()` through `MountPanelUiOptions` (P4's contract).
+
 ### 6.5 Changes v2 needs in the capture layer
 
 | ID | Change | Why | Effect on v1 file format |
@@ -865,6 +933,8 @@ and this section is updated to match.
 | C-5 | **Copy and download without touching `<body>`.** `copyText` gets an option to place its fallback textarea inside a given root, and `downloadText` an option to place its temporary `<a>` there — the panel passes its shadow root, so no node is added to the host page. To be proven in a spike (`OPEN-04`). | `ISO-04`, research §3.4 | None |
 | C-7 | **Capped fetch body flag.** v1's fetch probe stops reading at 1,048,576 chars and appends a note, but the recorder then truncates to `maxBodyLength` (32,768) and the note is lost. The probe sets a new optional `resBodyCapped: true` on the draft instead, kept on the `HttpEntry`. | `§4.6` Response | One optional field on HTTP entries |
 | C-8 | **Problem rule in core.** `isProblemEntry(entry)` (the `FR-ACT-04` rule), exported from L5, so the loader's badge and the panel model share one definition. | `FR-ACT-04`, `FR-BAR-06` | None |
+| C-9 | **Resizable buffer and usage** (2.1). `recorder.setCapacity(n)` takes an integer ≥ 1 or `Infinity` (No limit; anything else is ignored); a smaller size evicts the oldest entries at once (counted in `evicted`), then `onChange` fires `{ type: 'capacity' }`. `recorder.usage()` returns `{ entries, capacity, bytes, problems }`, kept up to date in O(1) per entry: `problems` by `isProblemEntry` (`C-8`), `bytes` = the size estimate — per entry, 160 B plus 2 B per character of every string and object key in it, at any depth (`D-30`; strings shared between entries count each time, so it errs high). `seq` and the ids never restart (`C-2`). | `FR-BUF-01`…`05`, `FR-STAT-01` | None |
+| C-10 | **Note entries** (2.1). A new entry kind `note` (`title`, `text`), policed like an error message (redacted, truncated). `session.addNote(title, text?)` records one with the session clock's time, also while capture is off. Never a problem (`C-8`). | `FR-NOTE-01`…`04` | One new entry kind; `schemaVersion` stays 1; readers skip unknown kinds |
 | C-6 | **Change events.** `recorder.onChange(listener)` fires on `clear()` (also from v1's `Ctrl+Alt+Shift+X`) and when only stats change (`dropped`, `failed`). The data source maps it to `cleared` / `stats`. | `FR-BAR-03`, `FR-BAR-06` | None |
 
 ### 6.6 Using it in a host
@@ -1086,6 +1156,7 @@ end to end that every `MUST` is covered.
 | NFR-COMP-01 | S-02 (fallbacks), S-10 (old-Chromium run if one is available) |
 | NFR-COMP-02 | S-02 |
 | NFR-PORT-01 | S-10 (three hosts, `dist/` build from S-00) |
+| FR-BUF-01…05, FR-STAT-01, FR-ACT-10, FR-NOTE-01…04 (2.1) | S-11 (core `C-9`, `C-10` in S-11a; panel in S-11b) |
 
 ---
 
@@ -1119,17 +1190,17 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-21 | A **problem** (badge, status bar) = error entry, HTTP 5xx or failed, WebSocket error. Not 4xx, not `console.error`. | Decided |
 | D-22 | The 2,000-node budget holds up to a 1,080 px panel; above that the list draws every visible row (~23 nodes each) rather than leaving rows blank. Views keep rows lean (text cells, one icon). Found in the S-04 review. | Decided |
 | D-23 | A host page that registers a `--dcp-*` name with `@property` is out of scope (research S4): the theme keeps CSS variables. Only the loader, which must always be visible, uses literal colours. | Decided |
-| D-24 | The **Launcher Show / Hide** setting moves to 2.x: remembering "Hide" would make the always-loaded loader read storage at start (loader bytes, `NFR-SIZE-01`). In 2.0 a host turns the launcher off with the `launcher: false` option; the shortcut always works. | Decided |
+| D-24 | The **Launcher Show / Hide** setting moves to 2.x: remembering "Hide" would make the always-loaded loader read storage at start (loader bytes, `NFR-SIZE-01`). In 2.0 a host turns the launcher off with the `launcher: false` option; the shortcut always works. | Decided for 2.0; **superseded in 2.1 by `D-32`** |
 | D-25 | The **UI chunk** budget is **40 kB** min+gzip (was 25 kB). Measured before wave 3: 22,695 B with only the model and the UI blocks (no views, no frame); wave 3 is estimated at +13–15 kB. The chunk loads once, on first open, from the local network; the host's start cost (the 4 kB loader) does not change. | Decided |
 | D-26 | The **WebSocket message detail has `Copy ▾`** (message, URL — `FR-WS-06`), as in the mockup (owner, 2026-10-22). Copy and export stay explicit user actions (`NFR-SEC-04`). | Decided |
 | D-27 | **Order after 2.0** (owner, 2026-10-25): S-10b closes 2.0; then **S-11** (v2.1 panel features, `D-28`…`D-34`); then **S-12** (the AI add-on, `D-35`). | Decided |
-| D-28 | **Buffer size in Settings**, changed live, remembered per browser: default 5,000 (the policy's `maxEntries`); a few sizes plus **No limit**, which shows a warning that the page may get slow and use a lot of memory. A smaller size drops the oldest entries at once. Needs a core change: the recorder can change its capacity (keeps `seq`, `C-2`). | Decided (owner, 2026-10-25); the size list is proposed |
+| D-28 | **Buffer size in Settings**, changed live, remembered per browser: default 5,000 (the policy's `maxEntries`); a few sizes plus **No limit**, which shows a warning that the page may get slow and use a lot of memory. A smaller size drops the oldest entries at once. Needs a core change: the recorder can change its capacity (keeps `seq`, `C-2`). | Decided (owner, 2026-10-25); size list (1,000 · 5,000 · 10,000 · 50,000 · No limit) set in S-11, `FR-BUF-01` |
 | D-29 | **Buffer-near-full banner**: when the buffer reaches a threshold (default **90 %**, configurable in code), a banner says the oldest entries will soon be dropped and offers **Download all** and **Raise the limit**. Shown once per crossing; again after Clear or a size change. The buffer never clears itself: when full it drops the oldest entry for each new one (§4.4). | Decided (owner, 2026-10-25) |
-| D-30 | **Memory warning**, repeating: the panel estimates the size of what the recorder stores (string lengths × 2 B plus a fixed cost per entry — the browser cannot measure the memory of given objects) and warns each time it passes another step (default **25 MB**, configurable in code). | Decided (owner, 2026-10-25); the estimate formula is proposed |
-| D-31 | **Status observer** for the host app, optional: `handle.onStatus(listener)` → unsubscribe, with open / closed, capture on / off, entry count and capacity, problem count, and the `D-29` / `D-30` warnings. Listener errors are caught (`ISO-12`). | Decided (owner, 2026-10-25); the shape is proposed |
-| D-32 | **Shortcut stays code only** (`shortcut` option). **Settings gets "Show DBG button"**, remembered per browser — this replaces `D-24` for 2.1. The code option `launcher` is the default; `launcher: false` in code also hides the switch, so the host's choice wins. The loader then reads storage at start, so it needs loader bytes (`D-34`). | Decided (owner, 2026-10-25); the code-wins rule is proposed |
-| D-33 | **User notes**: an **Add note** action (title + text) records a new entry kind `note` at that moment; it shows in Console and in the export. The file keeps entries as a list, so equal titles never clash (no `title_date` key needed). `schemaVersion` stays 1 (additive); a reader that does not know `note` skips it. A host can also add one from code. | Decided (owner, 2026-10-25); details proposed |
-| D-34 | **Budgets for 2.1**: the owner allows raising the **UI chunk** budget (40 kB, `D-25`). The new value is set in S-11 from a measurement (several times above the measured size growth, as the margin rule). The **loader** (4 kB, 12 B left) also needs a raise for `D-31` / `D-32`; S-11 proposes the number. | Decided for the UI chunk (owner, 2026-10-25); loader proposed |
+| D-30 | **Memory warning**, repeating: the panel estimates the size of what the recorder stores (string lengths × 2 B plus a fixed cost per entry — the browser cannot measure the memory of given objects) and warns each time it passes another step (default **25 MB**, configurable in code). | Decided (owner, 2026-10-25); formula set in S-11: 160 B + 2 B per character, per entry (`C-9`) |
+| D-31 | **Status observer** for the host app, optional: `handle.onStatus(listener)` → unsubscribe, with open / closed, capture on / off, entry count and capacity, problem count, and the `D-29` / `D-30` warnings. Listener errors are caught (`ISO-12`). | Decided (owner, 2026-10-25); shape set in S-11 (`DebugPanelStatus`, §6.4) |
+| D-32 | **Shortcut stays code only** (`shortcut` option). **Settings gets "Show DBG button"**, remembered per browser — this replaces `D-24` for 2.1. The code option `launcher` is the default; `launcher: false` in code also hides the switch, so the host's choice wins. The loader then reads storage at start, so it needs loader bytes (`D-34`). | Decided (owner, 2026-10-25; code-wins accepted with #99) |
+| D-33 | **User notes**: an **Add note** action (title + text) records a new entry kind `note` at that moment; it shows in Console and in the export. The file keeps entries as a list, so equal titles never clash (no `title_date` key needed). `schemaVersion` stays 1 (additive); a reader that does not know `note` skips it. A host can also add one from code. | Decided (owner, 2026-10-25); details in `FR-NOTE-01`…`04`, `C-10` |
+| D-34 | **Budgets for 2.1**: the owner allows raising the **UI chunk** budget (40 kB, `D-25`). The new value is set in S-11 from a measurement (several times above the measured size growth, as the margin rule). The **loader** (4 kB, 12 B left) also needs a raise for `D-31` / `D-32`; S-11 proposes the number. | Decided (owner, 2026-10-25; the loader raise accepted with #99); the numbers are measured in S-11 and written into `NFR-SIZE-01` |
 | D-35 | **AI as a separate package** `debug-capture-ai`, in the same family as the panel. Without it nothing about AI is shown or shipped. With it, the host adds it in code and the panel shows an **AI** section. The user connects it to a **local or company on-prem model** by entering its **URL and a token** in the AI settings. Only this package makes network requests — only to that URL and only on a user action; the panel itself keeps `NFR-SEC-03`. It sends only what the recorder stored (redacted) plus a trimmed page snapshot. Phase 1: read-only insights. Phase 2: it **proposes** DOM / style changes; the user clicks **Apply**, with **Undo**; it never runs code (CSP and Trusted Types stay intact). The host's CSP must allow the model URL in `connect-src`. | Decided (owner, 2026-10-25); the API shape (`OPEN-08`) and token storage (`OPEN-07`) are open |
 
 ---
