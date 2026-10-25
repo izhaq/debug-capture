@@ -17,12 +17,17 @@ merge into the integration branch yourself — only the owner merges.
 | PR | Branch | State |
 |---|---|---|
 | docs | `claude/dc-v2-s11-docs` | open, #102 |
-| S-11a core | `claude/dc-v2-s11a-core` | open (stacked on docs) |
-| S-11b panel | `claude/dc-v2-s11b-panel` | open (stacked on S-11a) |
-| S-11c app | `claude/dc-v2-s11c-app` | not started |
+| S-11a core | `claude/dc-v2-s11a-core` | open, #103 (stacked on docs) |
+| S-11b panel | `claude/dc-v2-s11b-panel` | open, #104 (stacked on S-11a) |
+| S-11c app | `claude/dc-v2-s11c-app` | open, #105 |
 
 - Numbers at the start of S-11: 1126 unit specs, 48 e2e + perf; loader 4,084 / 4,096 B,
   UI chunk 39,001 / 40,960 B, core 11,743 / 12,368 B; warm open 49–60 ms (limit 100).
+
+- Merge order: #102 → #103 → #104 → #105. After each merge, merge the integration branch into the
+  next open branch (no rebase) and re-run `npm run check`.
+- Numbers after S-11b: 1197 unit, 54 e2e + perf; loader 4,717 / 5,632 B, UI chunk 40,577 / 45,056 B,
+  core 12,071 / 12,368 B; warm open 52–67 ms (Chromium 153), 43 ms (Chrome 146).
 
 ## Rules that bite
 

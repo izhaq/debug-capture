@@ -75,6 +75,8 @@ S-11b — done, in review. Numbers:
 - Perf, 3 runs (Chromium 153): warm open 52–67 ms (limit 100), cold 62–72 ms; 100 entries/s: no long
   task; nodes at 1,080 px — HTTP 831, WebSocket 1,012, Console 1,299 (limit 2,000); memory added
   1.58–1.60 MB (limit 10 MB).
+- Chrome 146 (NFR-COMP-01): `npm run check` passed on Chrome for Testing 146.0.7680.72 — Karma
+  1197 specs, Playwright 54 (warm open 43 ms).
 - Version 2.1.0-alpha.0; `npm run pack:check`: `debug-capture-2.1.0-alpha.0.tgz`, 127 files, 345,470 B.
 
 Deviations and notes:
@@ -86,3 +88,6 @@ Deviations and notes:
 - The HLD budget numbers (`NFR-SIZE-01`, `D-34`, §0, §1.6, §6.1, §6.6) are written in this PR, as
   the docs PR said they would be.
 - Notes are stamped when **Add note** is clicked (`FR-NOTE-01`).
+
+S-11c — done, in review (#105): the app takes `vendor/debug-capture-2.1.0-alpha.0.tgz`; `tsc`,
+`lint:layers`, `ng build` and `ng test` (603 specs) pass.
