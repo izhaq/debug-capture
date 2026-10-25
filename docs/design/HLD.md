@@ -1038,6 +1038,8 @@ Each spec lives in `docs/specs/<nn>-<slug>/` with `spec.md`, `plan.md` and a
 | **S-08 Frame, toolbar and status** | P4 app frame (replaces S-02's placeholder): title bar, top tabs and Network sub-tab routing, resize/dock/maximize, scheduler (rAF batching), settings storage, banners. Toolbar: pause/follow, clear, export/copy, capture on/off. Status bar, settings popover, states. Fullscreen re-raise (`FR-WIN-07`, `D-15`) needs a loader change: one `fullscreenchange` listener also while closed (update S02-07; the loader has ~55 B of budget left) | S-02, S-03, S-04, S-01 |
 | **S-09 Accessibility** | Keyboard map, focus, forced colours, reduced motion | S-05 … S-08 |
 | **S-10 Integration and verification** | Angular + React + plain hosts, end-to-end, performance, security, packaging (`npm pack`), README | all |
+| **S-11 v2.1 panel features** | Buffer size in Settings incl. "No limit" (`D-28`); buffer-near-full banner (`D-29`); memory warning (`D-30`); status observer (`D-31`); "Show DBG button" setting (`D-32`); user notes (`D-33`); budgets (`D-34`). HLD requirement rows first, in S-11's own spec | S-10 |
+| **S-12 AI add-on** | A separate package `debug-capture-ai` that plugs into the panel and talks to a local or on-prem model (`D-35`): read-only insights first, then proposed DOM / style changes with Apply and Undo | S-11 |
 
 ### 9.2 Waves
 
@@ -1046,6 +1048,7 @@ Wave 1:  S-00
 Wave 2:  S-01 ║ S-02 ║ S-03 ║ S-04            (parallel — they code against the S-00 contract)
 Wave 3:  S-05 ║ S-06 ║ S-07 ║ S-08            (parallel — one view each, plus the frame; a small contract PR first fixes the view interface the frame mounts)
 Wave 4:  S-09 ─► S-10                         (sequential — S-09 touches every view, after wave 3 is merged)
+Wave 5:  S-11 ─► S-12                         (v2.1, after 2.0 is closed by S-10b — owner, 2026-10-25)
 ```
 
 Every wave ends with the merged branch verified as a whole, and the security-
@@ -1119,6 +1122,15 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-24 | The **Launcher Show / Hide** setting moves to 2.x: remembering "Hide" would make the always-loaded loader read storage at start (loader bytes, `NFR-SIZE-01`). In 2.0 a host turns the launcher off with the `launcher: false` option; the shortcut always works. | Decided |
 | D-25 | The **UI chunk** budget is **40 kB** min+gzip (was 25 kB). Measured before wave 3: 22,695 B with only the model and the UI blocks (no views, no frame); wave 3 is estimated at +13–15 kB. The chunk loads once, on first open, from the local network; the host's start cost (the 4 kB loader) does not change. | Decided |
 | D-26 | The **WebSocket message detail has `Copy ▾`** (message, URL — `FR-WS-06`), as in the mockup (owner, 2026-10-22). Copy and export stay explicit user actions (`NFR-SEC-04`). | Decided |
+| D-27 | **Order after 2.0** (owner, 2026-10-25): S-10b closes 2.0; then **S-11** (v2.1 panel features, `D-28`…`D-34`); then **S-12** (the AI add-on, `D-35`). | Decided |
+| D-28 | **Buffer size in Settings**, changed live, remembered per browser: default 5,000 (the policy's `maxEntries`); a few sizes plus **No limit**, which shows a warning that the page may get slow and use a lot of memory. A smaller size drops the oldest entries at once. Needs a core change: the recorder can change its capacity (keeps `seq`, `C-2`). | Decided (owner, 2026-10-25); the size list is proposed |
+| D-29 | **Buffer-near-full banner**: when the buffer reaches a threshold (default **90 %**, configurable in code), a banner says the oldest entries will soon be dropped and offers **Download all** and **Raise the limit**. Shown once per crossing; again after Clear or a size change. The buffer never clears itself: when full it drops the oldest entry for each new one (§4.4). | Decided (owner, 2026-10-25) |
+| D-30 | **Memory warning**, repeating: the panel estimates the size of what the recorder stores (string lengths × 2 B plus a fixed cost per entry — the browser cannot measure the memory of given objects) and warns each time it passes another step (default **25 MB**, configurable in code). | Decided (owner, 2026-10-25); the estimate formula is proposed |
+| D-31 | **Status observer** for the host app, optional: `handle.onStatus(listener)` → unsubscribe, with open / closed, capture on / off, entry count and capacity, problem count, and the `D-29` / `D-30` warnings. Listener errors are caught (`ISO-12`). | Decided (owner, 2026-10-25); the shape is proposed |
+| D-32 | **Shortcut stays code only** (`shortcut` option). **Settings gets "Show DBG button"**, remembered per browser — this replaces `D-24` for 2.1. The code option `launcher` is the default; `launcher: false` in code also hides the switch, so the host's choice wins. The loader then reads storage at start, so it needs loader bytes (`D-34`). | Decided (owner, 2026-10-25); the code-wins rule is proposed |
+| D-33 | **User notes**: an **Add note** action (title + text) records a new entry kind `note` at that moment; it shows in Console and in the export. The file keeps entries as a list, so equal titles never clash (no `title_date` key needed). `schemaVersion` stays 1 (additive); a reader that does not know `note` skips it. A host can also add one from code. | Decided (owner, 2026-10-25); details proposed |
+| D-34 | **Budgets for 2.1**: the owner allows raising the **UI chunk** budget (40 kB, `D-25`). The new value is set in S-11 from a measurement (several times above the measured size growth, as the margin rule). The **loader** (4 kB, 12 B left) also needs a raise for `D-31` / `D-32`; S-11 proposes the number. | Decided for the UI chunk (owner, 2026-10-25); loader proposed |
+| D-35 | **AI as a separate package** `debug-capture-ai`, in the same family as the panel. Without it nothing about AI is shown or shipped. With it, the host adds it in code and the panel shows an **AI** section. The user connects it to a **local or company on-prem model** by entering its **URL and a token** in the AI settings. Only this package makes network requests — only to that URL and only on a user action; the panel itself keeps `NFR-SEC-03`. It sends only what the recorder stored (redacted) plus a trimmed page snapshot. Phase 1: read-only insights. Phase 2: it **proposes** DOM / style changes; the user clicks **Apply**, with **Undo**; it never runs code (CSP and Trusted Types stay intact). The host's CSP must allow the model URL in `connect-src`. | Decided (owner, 2026-10-25); the API shape (`OPEN-08`) and token storage (`OPEN-07`) are open |
 
 ---
 
@@ -1132,6 +1144,8 @@ owner confirms or changes it before the spec that depends on it starts.
 | OPEN-04 | Do the copy fallback and the download link work from inside the panel's shadow root in the station browser? | `C-5`; otherwise copy or download from the panel adds a node to `<body>` for a moment. | S-01 spike |
 | OPEN-05 | Is "flag on" enough of a gate in production, or should opening the panel need more (a PIN, an allow-list of stations)? | Who can see captured data on a station. | Owner / security |
 | OPEN-06 | Where will the v2 repository live: GitHub or Azure DevOps? | CI system and pipeline format. | Owner |
+| OPEN-07 | Where does the AI add-on keep the model token: in memory for the page session only (safest; asked again after a reload), or remembered in `localStorage` (easier, but any script on the page can read it)? Proposed: memory only, with an opt-in "Remember on this browser". | The token is a secret on a shared station. | Owner / security |
+| OPEN-08 | Which API do the local / on-prem models speak? Proposed: the OpenAI-compatible chat API (`POST /v1/chat/completions`, `Authorization: Bearer <token>`), which vLLM, Ollama and most on-prem servers offer. | The add-on's one network call. | Owner |
 
 ---
 
