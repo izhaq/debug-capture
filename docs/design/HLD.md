@@ -9,6 +9,8 @@ the 2.1 options, handle and data-source members (§6.4); `D-24` gives way to `D-
 release 2.2 (S-13, background control) — scope §2.1b, rows §3.11, core change `C-11`, the
 activation entry `debug-capture/activate` (§6.1, §6.4, §6.6), decisions `D-37` … `D-45`; the
 activation shortcut comes on top of the `?debug=1` URL switch, which stays (`D-40`, `D-45`).
+0.8 (2026-10-26): release 2.3 (S-14, custom messages) — scope §2.1c, rows §3.12, core change
+`C-12`, decisions `D-46`, `D-47`.
 **Scope:** the whole of v2: the capture layer it inherits from v1, and the new
 on-screen **debug panel**.
 **This document is the source of truth.** Every v2 spec and plan is cut from
@@ -176,6 +178,12 @@ Everything works **while the panel is closed**, by keyboard chords (`D-37` … `
 - Budgets: core v1 + 3.5 kB; the activation piece has its own small budget (`D-43`).
 
 Rows: §3.11. Release 2.2 changes nothing above unless a §3.11 row says so.
+
+### 2.1c Release 2.3 (S-14, custom messages — before S-12, `D-47`)
+
+The host app can send its **own messages** — a type name, a level and any JSON data — into
+the capture (`D-46`). They are kept in the buffer, shown in **Console** (with an **App** filter
+chip) and exported in the JSON file. Messages sent while the tool is off are dropped. Rows: §3.12.
 
 ### 2.2 Later (2.x)
 
@@ -351,6 +359,21 @@ with all four modifiers exact (`ISO-08`).
 | FR-BG-08 | **Save to a pre-defined folder** (`D-39`): no new code. `Ctrl+Alt+Shift+D` downloads; IT sets the Chrome policies `DownloadDirectory` (the folder) and `PromptForDownloadLocation` = false on the stations, so the file lands in that folder with no dialog. The user README and the app guide describe the station setup. `Ctrl+Alt+Shift+C` copies the same JSON to the clipboard, panel closed or open. | MUST (2.2) |
 | FR-BG-09 | **About** in Settings (`D-42`): the Settings popover ends with an **About** part — the package version and every shortcut, each with the chord **actually configured** (from the options; a disabled one reads "off"): the background chords (activation, when the panel was installed by it; panel toggle; download; copy; clear; capture on / off; note) and the in-panel keys of §4.12. | MUST (2.2) |
 | FR-BG-10 | **Seams find a later session** (`D-40`): `provideDebugCaptureSession()` and `createReactRootErrorOptions()` also take a function that returns the session (`() => debug.session`), read on each error, so the Angular `ErrorHandler` and the React callbacks record into a session that starts after bootstrap, and stop when it is turned off. | MUST (2.2) |
+
+### 3.12 Functional — release 2.3, custom messages (S-14)
+
+Cut from `D-46` (owner, 2026-10-26). Core change `C-12`; interfaces §6.4.
+
+| ID | Requirement | Pri |
+|---|---|---|
+| FR-MSG-01 | **Send a message from code** (`D-46`): `session.addMessage(type, data?, level?)` records an entry of the new kind `app` — `type` (a short name, e.g. `order-saved`), `level` (`info` · `warn` · `error`; anything else is `info`) and `data` (any value; default `null`), stamped with the session clock. Never throws. | MUST (2.3) |
+| FR-MSG-02 | **The host's handle**: the same call is `message(type, data?, level?)` on the activation handle (`installDebugActivation`) and on the panel handle (`installDebugPanel`), so the host keeps one object from start-up and calls it any time. The inert panel handle's `message` does nothing. | MUST (2.3) |
+| FR-MSG-03 | **Dropped while off** (`D-46`): before the tool is switched on, after it is turned off, and while capture is off (`FR-ACT-09`, `FR-BG-05`), a message is dropped — nothing is kept, nothing is loaded. (Unlike a note, which is the user's own act, `FR-NOTE-04`.) | MUST (2.3) |
+| FR-MSG-04 | **Policed like a log call**: `data` becomes a JSON-safe clone with the policy's redaction and size limits (as `LogEntry.args`); `type` is redacted and cut like a note title. A live object the host keeps changing never changes the stored entry. | MUST (2.3) |
+| FR-MSG-05 | **Console** shows app messages in time order: the level icon, the word `app` and `type` with a one-line preview of `data`; the detail shows type, level, time and `data` as a JSON tree. A chip **App** in the level chip group shows or hides them (the level chips do not); search looks in `type` and `data`. They count in `N / M shown`. | MUST (2.3) |
+| FR-MSG-06 | **Problems**: an app message with level `error` is a problem (badge, status bar, `onStatus`; the `FR-ACT-04` rule, `C-8`). | MUST (2.3) |
+| FR-MSG-07 | **Export**: app messages are entries like any other (`kind: 'app'`, `type`, `level`, `data`, with `sequence` and `time`). `schemaVersion` stays 2 (a new kind is additive; readers skip kinds they do not know, `D-33`). | MUST (2.3) |
+| FR-MSG-08 | **Budgets**: no raise — core ≤ 13,904 B, activation ≤ 1,536 B, loader ≤ 5,632 B, UI chunk ≤ 45,056 B (`D-43`, `D-34`). | MUST (2.3) |
 
 ---
 
@@ -1001,6 +1024,14 @@ interface DebugActivationHandle {
 }
 function installDebugActivation(options?: DebugActivationOptions): DebugActivationHandle;
 const DEBUG_STORAGE_KEY = 'debug-capture';
+
+// 2.3 (C-12, FR-MSG-01…07)
+type AppMessageLevel = 'info' | 'warn' | 'error';
+interface AppMessageEntry { kind: 'app'; seq: number; t: number; type: string; level: AppMessageLevel; data: JsonValue }
+// CaptureEntry gains AppMessageEntry
+interface ControlledCaptureSession { addMessage(type: string, data?: unknown, level?: AppMessageLevel): void }  // only while on
+interface DebugActivationHandle { message(type: string, data?: unknown, level?: AppMessageLevel): void }  // dropped while off
+interface DebugPanelHandle { message(type: string, data?: unknown, level?: AppMessageLevel): void }       // inert: no-op
 ```
 
 The exact contract types (S-00) live in `src/contract/capture-contract.ts`:
@@ -1033,6 +1064,7 @@ panel is closed; it hands the UI `launcher`, `setLauncher`, `warnings()` and
 | C-9 | **Resizable buffer and usage** (2.1). `recorder.setCapacity(n)` takes an integer ≥ 1 or `Infinity` (No limit; anything else is ignored); a smaller size evicts the oldest entries at once (counted in `evicted`), then `onChange` fires `{ type: 'capacity' }`. `recorder.usage()` returns `{ entries, capacity, bytes, problems }`, kept up to date in O(1) per entry: `problems` by `isProblemEntry` (`C-8`), `bytes` = the size estimate — per entry, 160 B plus 2 B per character of every string and object key in it, at any depth (`D-30`; strings shared between entries count each time, so it errs high). `seq` and the ids never restart (`C-2`). | `FR-BUF-01`…`05`, `FR-STAT-01` | None |
 | C-10 | **Note entries** (2.1). A new entry kind `note` (`title`, `text`), policed like an error message (redacted, truncated). `session.addNote(title, text?)` records one with the session clock's time, also while capture is off. Never a problem (`C-8`). | `FR-NOTE-01`…`04` | One new entry kind; `schemaVersion` stays 1; readers skip unknown kinds |
 | C-11 | **Chords for the controller's life** (2.2). The controller binds its chords — download, copy, clear, plus the new **record** (`ctrl+alt+shift+s`: `stop()` / `start()`) and **note** (`ctrl+alt+shift+m`: `session.addNote()` with the `note` option's title and text) — when it is created, not with the probes; `stop()` / `start()` leave them. `controller.dispose()` stops capture and unbinds them for good; `controller.shortcuts` is the resolved config (or `null`). `installDebugCapture()` keeps v1's meaning: its `session.dispose()` is a full dispose. `isDebugRequested()` stays (`D-45`); `DEBUG_CAPTURE_VERSION` joins the core. | `FR-BG-05`…`07`, `FR-BG-09`, `D-37` | None |
+| C-12 | **App messages** (2.3). A new entry kind `app` (`type`, `level`, `data`) and `session.addMessage(type, data?, level?)`: recorded only while capture is on; `data` by `toJsonSafe` like log args, `type` by `redactFreeText`. `isProblemEntry` is true for `level: 'error'`. | `FR-MSG-01`…`07` | One new entry kind; `schemaVersion` stays 2; readers skip unknown kinds |
 | C-6 | **Change events.** `recorder.onChange(listener)` fires on `clear()` (also from v1's `Ctrl+Alt+Shift+X`) and when only stats change (`dropped`, `failed`). The data source maps it to `cleared` / `stats`. | `FR-BAR-03`, `FR-BAR-06` | None |
 
 ### 6.6 Using it in a host
@@ -1216,6 +1248,7 @@ Each spec lives in `docs/specs/<nn>-<slug>/` with `spec.md`, `plan.md` and a
 | **S-10 Integration and verification** | Angular + React + plain hosts, end-to-end, performance, security, packaging (`npm pack`), README | all |
 | **S-11 v2.1 panel features** | Buffer size in Settings incl. "No limit" (`D-28`); buffer-near-full banner (`D-29`); memory warning (`D-30`); status observer (`D-31`); "Show DBG button" setting (`D-32`); user notes (`D-33`); budgets (`D-34`). HLD requirement rows first, in S-11's own spec | S-10 |
 | **S-13 Background control** | Activation shortcut on top of `?debug=1`, remembered per browser, hidden DBG button (`D-40`, `D-41`); chords for capture on/off and a pre-defined note, live while capture is off (`D-37`, `D-38`, `C-11`); save to a folder by Chrome policy (`D-39`); About in Settings (`D-42`); budgets (`D-43`). Before S-12 (`D-44`) | S-11 |
+| **S-14 Custom messages** | The host sends its own messages (type, level, JSON data) through a handle; buffer, Console (App chip), export; dropped while off (`D-46`, `C-12`). Before S-12 (`D-47`) | S-13 |
 | **S-12 AI add-on** | A separate package `debug-capture-ai` that plugs into the panel and talks to a local or on-prem model (`D-35`): read-only insights first, then proposed DOM / style changes with Apply and Undo | S-11 |
 
 ### 9.2 Waves
@@ -1225,8 +1258,9 @@ Wave 1:  S-00
 Wave 2:  S-01 ║ S-02 ║ S-03 ║ S-04            (parallel — they code against the S-00 contract)
 Wave 3:  S-05 ║ S-06 ║ S-07 ║ S-08            (parallel — one view each, plus the frame; a small contract PR first fixes the view interface the frame mounts)
 Wave 4:  S-09 ─► S-10                         (sequential — S-09 touches every view, after wave 3 is merged)
-Wave 5:  S-11 ─► S-13 ─► S-12                 (v2.1, after 2.0 is closed by S-10b — owner, 2026-10-25;
-                                               S-13 before S-12 — owner, 2026-10-26, D-44)
+Wave 5:  S-11 ─► S-13 ─► S-14 ─► S-12         (v2.1, after 2.0 is closed by S-10b — owner, 2026-10-25;
+                                               S-13 before S-12 — owner, 2026-10-26, D-44;
+                                               S-14 before S-12 — owner, 2026-10-26, D-47)
 ```
 
 Every wave ends with the merged branch verified as a whole, and the security-
@@ -1265,6 +1299,7 @@ end to end that every `MUST` is covered.
 | NFR-COMP-02 | S-02 |
 | NFR-PORT-01 | S-10 (three hosts, `dist/` build from S-00) |
 | FR-BUF-01…05, FR-STAT-01, FR-ACT-10, FR-NOTE-01…04 (2.1) | S-11 (core `C-9`, `C-10` in S-11a; panel in S-11b) |
+| FR-MSG-01…08 (2.3) | S-14 (core `C-12` and the activation handle in S-14a; panel handle and Console in S-14b; the app in S-14c) |
 | FR-BG-01…10 (2.2), BR-02 (2.2), NFR-SIZE-01 (2.2) | S-13 (core `C-11`, activation, seams in S-13a; panel About and hidden DBG button in S-13b; the app in S-13c) |
 
 ---
@@ -1296,7 +1331,7 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-18 | HTTP list in **start order**, like DevTools; a pending row keeps its place and updates when the request finishes. **Column sorting** by clicking a header (asc / desc / off), plus filters and search. | Decided |
 | D-19 | **Pause** freezes rendering only; Clear and evictions still apply; a pending HTTP row already on screen updates in place when it finishes. Export always takes the whole buffer. To stop recording, use the **Capture on/off** switch (`FR-ACT-09`, like DevTools' record button), placed next to Pause in the toolbar. | Decided |
 | D-20 | **Not remembered:** capture on/off and filter search text. Remembered: settings, size, dock, last tab, filter chips. The HTTP column sort (`D-18`) is not remembered either: it resets on reload, like the search text. | Decided |
-| D-21 | A **problem** (badge, status bar) = error entry, HTTP 5xx or failed, WebSocket error. Not 4xx, not `console.error`. | Decided |
+| D-21 | A **problem** (badge, status bar) = error entry, HTTP 5xx or failed, WebSocket error. Not 4xx, not `console.error`. From 2.3 also an app message with level `error` (`FR-MSG-06`). | Decided |
 | D-22 | The 2,000-node budget holds up to a 1,080 px panel; above that the list draws every visible row (~23 nodes each) rather than leaving rows blank. Views keep rows lean (text cells, one icon). Found in the S-04 review. | Decided |
 | D-23 | A host page that registers a `--dcp-*` name with `@property` is out of scope (research S4): the theme keeps CSS variables. Only the loader, which must always be visible, uses literal colours. | Decided |
 | D-24 | The **Launcher Show / Hide** setting moves to 2.x: remembering "Hide" would make the always-loaded loader read storage at start (loader bytes, `NFR-SIZE-01`). In 2.0 a host turns the launcher off with the `launcher: false` option; the shortcut always works. | Decided for 2.0; **superseded in 2.1 by `D-32`** |
@@ -1321,6 +1356,8 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-43 | **Budgets for 2.2** (owner, 2026-10-26): the core budget rises from v1 + 2 kB to **v1 + 3.5 kB** (13,904 B, `NFR-SIZE-01`). The activation piece is a new entry in `scripts/size-budgets.json` with its own small budget, set in S-13a from a measurement (margin rule as `D-34`). Loader 5.5 kB and UI chunk 44 kB stay; raising them needs the owner. | Decided |
 | D-44 | **S-13 before S-12** (owner, 2026-10-26): background control (S-13) ships as release 2.2 before the AI add-on (S-12). | Decided |
 | D-45 | **Keep `?debug=1`** (owner, 2026-10-26, a scope change during S-13): the URL flag (`?debug=1` / `?debug=true`) stays, beside the shortcut. With the shortcut alone nothing is recorded until someone presses it, so a fresh browser's first load (its startup requests) would be lost; the URL flag captures from the very start. `isDebugRequested()` keeps reading the URL and the stored flag; the activation piece reads both too. The URL flag is one page load and never writes the stored flag. **The activation chord also turns off a session started by `?debug=1`**, for the current page (S-13 proposal, accepted with the scope change): the user who pressed it wants it off now; the next load follows the URL again. | Decided |
+| D-46 | **Custom messages from the host** (owner, 2026-10-26): the host app sends its own messages through a handle — a **type** name, a **level** (`info` · `warn` · `error`) and any **JSON data** — kept in the buffer and exported. Messages sent while the tool is off are **dropped** (no queue in the always-loaded piece). They show in **Console** with an **App** chip. Level `error` counts as a **problem**. | Decided (owner, 2026-10-26; the four choices were the S-14 proposals) |
+| D-47 | **S-14 before S-12** (owner, 2026-10-26). | Decided |
 
 ---
 

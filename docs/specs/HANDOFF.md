@@ -1,4 +1,4 @@
-# Handoff — debug-capture v2, S-13 (updated 2026-10-26)
+# Handoff — debug-capture v2, S-14 (updated 2026-10-26)
 
 For the next session that picks up **S-13, background control** (release 2.2). When S-13 is
 done, rewrite this file for **S-12** (next, below). S-13 comes before S-12 (`D-44`).
@@ -14,8 +14,10 @@ merge into the integration branch yourself — only the owner merges.
 - S-13 spec: [`13-background-control/`](13-background-control/spec.md). HLD rows §3.11
   (`FR-BG-01…10`), `C-11`, decisions `D-37` … `D-45`.
 - S-13 is **merged** (#107 → #108 → #109 → #110 → #111). Follow-up: the DBG button shows
-  on `?debug=1` pages (2.2.0-alpha.2). Numbers and notes in
-  [`13-background-control/plan.md`](13-background-control/plan.md). Next: S-12.
+  on `?debug=1` pages (2.2.0-alpha.2, #112). Numbers and notes in
+  [`13-background-control/plan.md`](13-background-control/plan.md).
+- **Now: S-14, custom messages** (owner, 2026-10-26, `D-46`, `D-47`): spec
+  [`14-custom-messages/`](14-custom-messages/spec.md). Then S-12.
 - Numbers on #107's head: 1202 unit specs, 55 e2e + perf; core 12,294 B (budget becomes
   13,904 B, `D-43`), loader 4,717 / 5,632 B, UI chunk 40,581 / 45,056 B; warm open 52–67 ms.
 

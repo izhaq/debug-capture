@@ -22,6 +22,7 @@ PR.
 | [S-10 Integration and verification](10-integration/spec.md) | Angular, React and plain hosts; end-to-end, performance, security; `npm pack`; README | all |
 | [S-11 v2.1 panel features](11-v21-features/spec.md) | Buffer size in Settings, near-full and memory warnings, status observer, "Show DBG button", user notes (HLD `D-28`…`D-34`) | S-10 |
 | [S-13 Background control](13-background-control/spec.md) | Activation shortcut beside `?debug=1` (remembered, silent), chords for capture on/off and a note that work while capture is off, download folder by Chrome policy, About in Settings (HLD `D-37`…`D-45`) | S-11 |
+| [S-14 Custom messages](14-custom-messages/spec.md) | The host sends its own messages (type, level, JSON data) into the capture; Console App chip; export (HLD `D-46`) | S-13 |
 | S-12 AI add-on | Separate package `debug-capture-ai`: local / on-prem model by URL + token; insights, then proposed changes (HLD `D-35`) | S-11 |
 
 ## Waves (HLD §9.2)
@@ -31,7 +32,7 @@ Wave 1:  S-00
 Wave 2:  S-01 ║ S-02 ║ S-03 ║ S-04     parallel — they code against the S-00 contract
 Wave 3:  S-05 ║ S-06 ║ S-07 ║ S-08     parallel — one view each + the frame; a small contract PR first
 Wave 4:  S-09 ─► S-10                  in order — S-09 touches every view
-Wave 5:  S-11 ─► S-13 ─► S-12          v2.1, after S-10b closes 2.0; S-13 before S-12 (D-44)
+Wave 5:  S-11 ─► S-13 ─► S-14 ─► S-12  v2.1, after S-10b closes 2.0; S-13, S-14 before S-12 (D-44, D-47)
 ```
 
 The wave plans (branches, tracks, owned paths, contracts): [`wave-2.md`](wave-2.md),
