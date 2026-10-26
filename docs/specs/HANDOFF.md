@@ -1,44 +1,32 @@
-# Handoff — debug-capture v2, S-14 (updated 2026-10-26)
+# Handoff — debug-capture v2 (updated 2026-10-26)
 
-For the next session that picks up **S-13, background control** (release 2.2). When S-13 is
-done, rewrite this file for **S-12** (next, below). S-13 comes before S-12 (`D-44`).
+For the next session that works on this package. There is **no planned spec** right now:
+S-13 and S-14 are merged, and the AI work (old S-12) moved to its own product (`D-48`).
 
 **Talking to the owner** (root `CLAUDE.md`): short, simple words; main point first. Never
-merge into the integration branch yourself — only the owner merges.
+merge into the integration branch yourself unless the owner says so.
 
 ## Status
 
-- v2.0, v2.1 (S-11) and the No limit follow-up are in the integration branch
-  `claude/air-gapped-debug-logging-zkn1nr`. **#107** (export schema 2, `D-36`,
-  2.1.0-alpha.2) is open; S-13 is stacked on it.
-- S-13 spec: [`13-background-control/`](13-background-control/spec.md). HLD rows §3.11
-  (`FR-BG-01…10`), `C-11`, decisions `D-37` … `D-45`.
-- S-13 is **merged** (#107 → #108 → #109 → #110 → #111). Follow-up: the DBG button shows
-  on `?debug=1` pages (2.2.0-alpha.2, #112). Numbers and notes in
-  [`13-background-control/plan.md`](13-background-control/plan.md).
-- **Now: S-14, custom messages** (owner, 2026-10-26, `D-46`, `D-47`): spec
-  [`14-custom-messages/`](14-custom-messages/spec.md). Then S-12.
-- Numbers on #107's head: 1202 unit specs, 55 e2e + perf; core 12,294 B (budget becomes
-  13,904 B, `D-43`), loader 4,717 / 5,632 B, UI chunk 40,581 / 45,056 B; warm open 52–67 ms.
+- In the integration branch `claude/air-gapped-debug-logging-zkn1nr`: v2.0, v2.1 (S-11),
+  export schema 2 (#107), **S-13 background control** (#108–#111), the DBG button on
+  `?debug=1` (#112) and **S-14 custom messages** (#113–#116). Package **2.3.0-alpha.1**; the
+  playground app uses it from `vendor/`.
+- Numbers: 1267 unit specs, 66 e2e + perf; core 12,607 / 13,904 B, activation 1,197 / 1,536 B,
+  loader 4,783 / 5,632 B, UI chunk 41,474 / 45,056 B; warm open about 60 ms (limit 100).
+- Plans with all numbers and notes: [`13-background-control/plan.md`](13-background-control/plan.md),
+  [`14-custom-messages/plan.md`](14-custom-messages/plan.md).
 
-## The owner's S-13 decisions in one place
+## The AI assistant is not here
 
-- New chords: activation `Ctrl+Alt+Shift+A`, capture on/off `S`, note `M`; `D` `C` `X` stay
-  and work while capture is off. All configurable in code.
-- `?debug=1` **stays** (`D-45`); the chord is on top and is remembered (`debug-capture` = `1`).
-  The chord again turns it off for good, also on a `?debug=1` page.
-- After activation: panel closed, DBG button hidden (`D-41`).
-- Download folder: Chrome policy `DownloadDirectory` + `PromptForDownloadLocation` = false,
-  no code (`D-39`).
-- About in Settings: version + every chord in use.
-- Budgets: core v1 + 3.5 kB; activation entry its own small budget; loader / UI unchanged
-  (ask before raising them).
+`D-48` (owner, 2026-10-26): the AI assistant is a self-hosted **Chrome extension** for
+developers on the corporate network, in its own repository **`izhaq/devtools-ai-assistant`**
+(its own HLD). This package stays network-free (`NFR-SEC-03`). Do not add AI code here.
 
-## Next: S-12, the AI add-on
+## Still open here
 
-- Decision `D-35` (HLD §10): a **separate package** `debug-capture-ai`; the user connects a
-  local or on-prem model by URL + token. Ask the owner first: `OPEN-07` (token storage) and
-  `OPEN-08` (model API). Then HLD rows and an S-12 spec folder (docs PR first).
+- `OPEN-05`: anyone at a station who knows the activation chord can switch the tool on.
+- `OPEN-02`, `OPEN-03`, `OPEN-06` (HLD §11).
 
 ## Rules that bite
 
