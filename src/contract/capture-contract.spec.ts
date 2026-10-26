@@ -80,6 +80,8 @@ describe('capture contract', () => {
       download: 'ctrl+alt+shift+d',
       copy: 'ctrl+alt+shift+c',
       clear: 'ctrl+alt+shift+x',
+      record: 'ctrl+alt+shift+s',
+      note: 'ctrl+alt+shift+m',
     });
     expect(Object.isFrozen(DEFAULT_SHORTCUTS)).toBeTrue();
     for (const chord of Object.values(DEFAULT_SHORTCUTS)) {

@@ -1,6 +1,6 @@
 {
   "name": "debug-capture",
-  "version": "2.1.0-alpha.2",
+  "version": "2.2.0-alpha.0",
   "private": true,
   "description": "Debug capture v2: framework-free recorder + on-screen panel for air-gapped apps. Seeded from v1 (src/debug-capture in the host app).",
   "type": "module",
@@ -23,6 +23,9 @@
       ],
       "panel": [
         "./dist/panel/index.d.ts"
+      ],
+      "activate": [
+        "./dist/activate/index.d.ts"
       ]
     }
   },
@@ -42,6 +45,10 @@
     "./panel": {
       "types": "./dist/panel/index.d.ts",
       "import": "./dist/panel.mjs"
+    },
+    "./activate": {
+      "types": "./dist/activate/index.d.ts",
+      "import": "./dist/activate.mjs"
     },
     "./dist/*.mjs": "./dist/*.mjs",
     "./package.json": "./package.json"

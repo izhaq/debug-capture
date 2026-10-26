@@ -42,6 +42,11 @@ describe('debug-capture providers', () => {
     expect(TestBed.inject(DEBUG_CAPTURE_SESSION)).toBe(session);
   });
 
+  it('2.2: provideDebugCaptureSession also takes a session getter (FR-BG-10)', () => {
+    const getter = (): CaptureSession | null => null;
+    expect(provideDebugCaptureSession(getter)).toEqual({ provide: DEBUG_CAPTURE_SESSION, useValue: getter });
+  });
+
   it('the token has no root default', () => {
     // A providedIn: 'root' factory would be resolved by the root injector
     // and shadow the platform-level session main.ts provides — capture would

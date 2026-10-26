@@ -43,4 +43,31 @@ All paths are under `packages/debug-capture/` unless they start with `/`.
 
 ## Status
 
-Docs PR open. Code not started.
+Docs PR #108 open.
+
+S-13a — done, in review. Numbers:
+
+- Unit specs: 1235 ran, floor 1235 (was 1202): +33 — `activate.spec.ts` 18 (new),
+  `install-debug-capture.spec.ts` +10, Angular seam +3, React seam +2. Layer self-test: 119
+  cases (+12, rule 9).
+- e2e: 61 ran, floor 61 (was 55): `background.spec.mjs` +6 (new).
+- Every new spec failed once: unit against the old controller and seams, then in mutation
+  rounds (activation stub; storage key, start-time switch-on, never-throws; getter called
+  outside the guard); e2e in three mutation rounds (no turn-off + old chord unbinding + seam
+  ignores getters; switch-on at start always; flag never written).
+- Sizes, min+gzip: core 12,294 → **12,481** (budget 12,368 → **13,904**, v1 + 3.5 kB);
+  activate **1,130** (new budget **1,536**); loader 4,717 / 5,632 and UI chunk 40,581 / 45,056
+  unchanged.
+- Perf: warm open 64 ms (limit 100), cold 82 ms.
+
+Deviations and notes:
+
+- Changed existing specs, on purpose: `stop()` now keeps the chords (`D-37`), so the
+  controller spec expects a download while off; `DEFAULT_SHORTCUTS` and the
+  `DebugCaptureOptions` keys have the 2.2 additions; fake controllers gain `shortcuts` and
+  `dispose`; the plain-host e2e waits for the page (its code now waits for `ready`).
+- The S-10 hosts use the §6.6 snippet (activation); `?debug=1` paths are unchanged and pass.
+- A host bundled by esbuild with splitting that imports `debug-capture/angular` statically
+  still loads the core chunk at start (it holds esbuild's shared helpers; the Angular entry
+  re-exports the core). The shipped `dist/activate.mjs` has no static import (checked by the
+  build). The real app (webpack) is measured in S-13c.

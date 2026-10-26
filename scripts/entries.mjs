@@ -13,6 +13,7 @@ export const ENTRIES = [
   { name: 'angular', source: 'src/angular/index.ts' },
   { name: 'react', source: 'src/react/index.ts' },
   { name: 'panel', source: 'src/panel/index.ts' },
+  { name: 'activate', source: 'src/activate/index.ts' },
 ];
 
 /** Packages the prebuilt bundles leave to the host (peer dependencies). */

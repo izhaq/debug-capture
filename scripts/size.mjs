@@ -4,9 +4,11 @@
  * (minified, ES2020), gzips it (level 6 — see GZIP_LEVEL) and compares with
  * `scripts/size-budgets.json`. Sizes are bytes, min+gzip; 1 kB = 1024 B.
  *
- *   core          src/index.ts, everything it pulls in   ≤ baseline + 2 kB
+ *   core          src/index.ts, everything it pulls in   ≤ baseline + 3.5 kB (D-43)
  *   panel-loader  src/panel/index.ts + its static imports ≤ 5.5 kB (D-34)
  *   panel-ui      what only its dynamic import() loads    ≤ 44 kB (D-25, D-34)
+ *   activate      src/activate/index.ts + its static imports, nothing external:
+ *                 all a station loads before switch-on (D-43)
  *   angular       src/angular/index.ts                   recorded only
  *   react         src/react/index.ts                     recorded only
  *
@@ -40,6 +42,11 @@ for (const [name, source] of [
 }
 if (has('panel')) rows.push(...(await measurePanel()));
 else rows.push(skipped('panel-loader', 'src/panel/index.ts'), skipped('panel-ui', 'src/panel/index.ts'));
+rows.push(
+  has('activate')
+    ? await measureStatic('activate', 'src/activate/index.ts')
+    : skipped('activate', 'src/activate/index.ts'),
+);
 
 print(rows);
 const over = rows.filter((r) => r.status === 'OVER');
@@ -54,6 +61,22 @@ async function measure(name, source, coreExternal) {
   const outputs = await bundle(source, coreExternal, false);
   const entry = outputs.find((o) => o.entryPoint);
   return row(name, entry.raw, entry.gzip);
+}
+
+/** An entry plus its static imports, with nothing external: what loads before any import() runs. */
+async function measureStatic(name, source) {
+  const outputs = await bundle(source, false, true);
+  const byPath = new Map(outputs.map((o) => [o.path, o]));
+  const seen = new Set();
+  const stack = [outputs.find((o) => o.entryPoint).path];
+  while (stack.length > 0) {
+    const p = stack.pop();
+    if (seen.has(p) || !byPath.has(p)) continue;
+    seen.add(p);
+    for (const i of byPath.get(p).imports) if (i.kind === 'import-statement' && !i.external) stack.push(i.path);
+  }
+  const sum = (key) => [...seen].reduce((n, p) => n + byPath.get(p)[key], 0);
+  return row(name, sum('raw'), sum('gzip'), `${seen.size} file(s)`);
 }
 
 /** The loader is the entry plus its static imports; the UI chunk is what only import() reaches. */

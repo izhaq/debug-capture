@@ -1,4 +1,4 @@
-import { CaptureSession } from '..';
+import { CaptureSessionSource } from '..';
 
 /**
  * React's error callbacks, without React. This repo has no React and this
@@ -54,7 +54,7 @@ const HANDLING_LABELS: Readonly<Record<ReactErrorHandling, string>> = Object.fre
  * With a `null` or inactive session the callbacks only delegate.
  */
 export function createReactRootErrorOptions(
-  session: CaptureSession | null,
+  session: CaptureSessionSource,
   next: Partial<ReactRootErrorOptions> = {},
   defaults: ReactErrorDefaults = reactDefaultErrorBehaviour(),
 ): ReactRootErrorOptions {
@@ -94,20 +94,22 @@ export function createReactRootErrorOptions(
  * active, and never throws — a debug tool must not turn one error into two.
  */
 export function recordReactError(
-  session: CaptureSession | null,
+  session: CaptureSessionSource,
   error: unknown,
   errorInfo?: ReactErrorInfo,
   handling: 'uncaught' | 'caught' | 'recoverable' = 'caught',
 ): void {
   try {
-    if (!session?.active) {
+    // 2.2 (FR-BG-10): a getter, read now, for a session switched on after the root was created.
+    const current = typeof session === 'function' ? session() : session;
+    if (!current?.active) {
       return;
     }
     const { message, stack } = describeError(error);
-    session.recorder.record({
+    current.recorder.record({
       kind: 'error',
       source: 'react',
-      t: session.clock.now(),
+      t: current.clock.now(),
       message,
       stack: withComponentStack(stack, errorInfo?.componentStack, handling),
     });

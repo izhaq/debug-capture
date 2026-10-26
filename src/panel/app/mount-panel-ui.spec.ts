@@ -39,6 +39,8 @@ function emptyController(): { controller: CaptureController; listeners: () => nu
     start: () => undefined,
     stop: () => undefined,
     onChange: add(sets[3] as Set<unknown>) as CaptureController['onChange'],
+    shortcuts: null,
+    dispose: () => undefined,
   };
   return { controller, listeners: () => sets.reduce((n, set) => n + set.size, 0) };
 }

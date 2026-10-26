@@ -7,24 +7,22 @@
   <body>
     <h1>Plain host</h1>
     <p id="framework">
-      Plain page: no framework, no bundler. Loads the prebuilt <code>index.mjs</code> and <code>panel.mjs</code> from a
-      copy of <code>dist/</code> in <code>vendor/debug-capture/</code>.
+      Plain page: no framework, no bundler. Loads the prebuilt <code>activate.mjs</code> from a copy of
+      <code>dist/</code> in <code>vendor/debug-capture/</code>; it loads <code>index.mjs</code> and
+      <code>panel.mjs</code> when switched on.
     </p>
     <input id="host-input" aria-label="Host input" />
     <button id="host-request" type="button">Request</button>
     <button id="host-fail" type="button">Fail</button>
     <p id="host-reply">none</p>
-    <!-- HLD §6.6, word for word (S10-03). -->
+    <!-- HLD §6.6, word for word (S10-03, 2.2). -->
     <script type="module">
-      import { createCaptureController, isDebugRequested } from './vendor/debug-capture/index.mjs';
-      import { installDebugPanel } from './vendor/debug-capture/panel.mjs';
-      if (isDebugRequested()) installDebugPanel(createCaptureController());
+      import { installDebugActivation } from './vendor/debug-capture/activate.mjs';
+      window.debugReady = installDebugActivation().ready; // the page's own code awaits it before its first request
     </script>
-    <!-- The page's own code. Module scripts run in order, so capture is on before this fetch. -->
+    <!-- The page's own code. It waits for debugReady, so with ?debug=1 capture is on before this fetch. -->
     <script type="module">
-      import { getActiveCaptureSession } from './vendor/debug-capture/index.mjs';
-      import { PANEL_ELEMENT_NAME } from './vendor/debug-capture/panel.mjs';
-
+      await window.debugReady;
       const reply = document.getElementById('host-reply');
       const load = () =>
         fetch('/api/ping')
@@ -34,9 +32,16 @@
       document.getElementById('host-fail').addEventListener('click', () => {
         throw new Error('plain host failure');
       });
-      // For the e2e tests only: null when the flag is off.
-      window.__hostSession = getActiveCaptureSession();
-      window.panelElementName = PANEL_ELEMENT_NAME;
+      // For the e2e tests only: the active session (null while off), and the panel's tag once it is switched on.
+      // index.mjs and panel.mjs are already loaded then (activate.mjs imported them), so this loads nothing new.
+      const switchedOn = document.documentElement.querySelector(':scope > debug-capture-panel-v2') !== null;
+      Object.defineProperty(window, '__hostSession', {
+        get: () => window.__core?.getActiveCaptureSession() ?? null,
+      });
+      if (switchedOn) window.__core = await import('./vendor/debug-capture/index.mjs');
+      window.panelElementName = switchedOn
+        ? (await import('./vendor/debug-capture/panel.mjs')).PANEL_ELEMENT_NAME
+        : null;
       window.hostDone = fetch('/api/ping').then((response) => response.json());
       window.__hostReady = true;
     </script>

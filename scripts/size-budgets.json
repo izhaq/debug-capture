@@ -1,11 +1,12 @@
 {
   "core": {
     "baseline": 10320,
-    "max": 12368,
-    "note": "v1 seed baseline 10320 B (gzip level 6, measured in S-00) + 2 kB"
+    "max": 13904,
+    "note": "v1 seed baseline 10320 B (gzip level 6, measured in S-00) + 3.5 kB (D-43; was + 2 kB)"
   },
   "panel-loader": { "max": 5632, "note": "5.5 kB (D-34): 4,717 B measured in S-11b, raise ~2.5x the S-11 growth" },
   "panel-ui": { "max": 45056, "note": "44 kB (D-34): 40,577 B measured in S-11b, raise ~2.5x the S-11 growth" },
+  "activate": { "max": 1536, "note": "1.5 kB (D-43): 1,130 B measured in S-13a, all a station loads before switch-on" },
   "angular": { "recorded": 527 },
   "react": { "recorded": 717 }
 }

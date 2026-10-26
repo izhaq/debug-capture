@@ -1,6 +1,6 @@
 import { ErrorHandler, Provider, StaticProvider } from '@angular/core';
 
-import { CaptureSession } from '..';
+import { CaptureSessionSource } from '..';
 import { DebugCaptureErrorHandler } from './debug-capture.error-handler';
 import { DEBUG_CAPTURE_SESSION } from './debug-capture.tokens';
 
@@ -25,8 +25,8 @@ export function provideDebugCapture(): Provider[] {
  * Hands the session main.ts created to Angular. Meant for the PLATFORM
  * providers — `platformBrowserDynamic([provideDebugCaptureSession(session)])`
  * — so it exists before bootstrap; hence a StaticProvider. Pass `null` when
- * capture is off.
+ * capture is off, or (2.2) `() => debug.session` when it may start later.
  */
-export function provideDebugCaptureSession(session: CaptureSession | null): StaticProvider {
+export function provideDebugCaptureSession(session: CaptureSessionSource): StaticProvider {
   return { provide: DEBUG_CAPTURE_SESSION, useValue: session };
 }

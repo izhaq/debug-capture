@@ -65,6 +65,22 @@ const result = await esbuild.build({
 const outputs = Object.entries(result.metafile.outputs).filter(([file]) => file.endsWith('.mjs'));
 for (const [file, info] of outputs) console.log(`${file.padEnd(40)} ${String(info.bytes).padStart(7)} B`);
 
+// D-43: dist/activate.mjs is all a station loads before switch-on — it may import nothing statically.
+const activate = result.metafile.outputs['dist/activate.mjs'];
+const staticImports = activate ? activate.imports.filter((i) => i.kind === 'import-statement') : [];
+if (staticImports.length > 0) {
+  throw new Error(`dist/activate.mjs imports ${staticImports.map((i) => i.path).join(', ')} statically (D-43, rule 9)`);
+}
+
+// D-42: Settings › About shows DEBUG_CAPTURE_VERSION; it must be the version that ships.
+const pkgVersion = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
+const contract = fs.readFileSync(path.join(root, 'src', 'contract', 'capture-contract.ts'), 'utf8');
+const codeVersion = /export const DEBUG_CAPTURE_VERSION = '([^']+)'/.exec(contract)?.[1];
+if (codeVersion !== pkgVersion) {
+  throw new Error(`DEBUG_CAPTURE_VERSION is ${codeVersion}, package.json says ${pkgVersion} (D-42)`);
+}
+console.log(`version ${pkgVersion}; dist/activate.mjs has no static import`);
+
 /**
  * Rewrites each relative module specifier in dist/**\/*.d.ts to the `.js`
  * name of the file it means (`x.d.ts` → `x.js`, `x/index.d.ts` →

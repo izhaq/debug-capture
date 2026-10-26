@@ -6,8 +6,12 @@ import {
   ConsoleHost,
   CaptureController,
   CreateCaptureController,
+  DEBUG_CAPTURE_VERSION,
+  DEFAULT_NOTE,
+  DEFAULT_SHORTCUTS,
   DebugCaptureOptions,
   DownloadHost,
+  NoteEntry,
   FetchHost,
   ProbeRecorder,
   RecorderChange,
@@ -440,7 +444,8 @@ describe('createCaptureController', () => {
     expect(kinds(controller.session)).toEqual(['log']);
   });
 
-  it('stop() removes probes and shortcuts and keeps the buffer; start() reinstalls on the same recorder', () => {
+  // 2.2 (C-11, D-37): stop() removes the probes only; the chords stay bound (was: probes and shortcuts).
+  it('stop() removes the probes and keeps the buffer and the chords; start() reinstalls on the same recorder', () => {
     const consoleBefore = { ...fake.consoleHost };
     const controller = createCaptureController({}, fake.env);
     const { session } = controller;
@@ -457,7 +462,7 @@ describe('createCaptureController', () => {
     expect(fake.webSocketHost.WebSocket).toBe(FakeWebSocket as unknown as typeof WebSocket);
     fake.consoleHost.log('while off');
     fake.keyboard.dispatchEvent(chord('KeyD'));
-    expect(fake.anchors.length).toBe(0);
+    expect(fake.anchors.length).toBe(1);
     expect(entries(session).length).toBe(1);
 
     controller.start();
@@ -469,7 +474,7 @@ describe('createCaptureController', () => {
     fake.consoleHost.log('after');
     expect(entries(session).map((e) => e.seq)).toEqual([1, 2]);
     fake.keyboard.dispatchEvent(chord('KeyD'));
-    expect(fake.anchors.length).toBe(1);
+    expect(fake.anchors.length).toBe(2);
   });
 
   it('start() and stop() are no-ops in the matching state; onChange fires on real changes only', () => {
@@ -762,5 +767,150 @@ describe('session.addNote — 2.1 (C-10, FR-NOTE-03, FR-NOTE-04)', () => {
   it('never throws, whatever it is given', () => {
     const controller = createCaptureController({}, fake.env);
     expect(() => controller.session.addNote(null as unknown as string, 5 as unknown as string)).not.toThrow();
+  });
+});
+
+describe('chords for the controller\u2019s life — 2.2 (C-11, FR-BG-05…07)', () => {
+  let fake: Fake;
+
+  beforeEach(() => {
+    fake = fakeEnvironment();
+  });
+
+  afterEach(() => {
+    getActiveCaptureSession()?.dispose();
+  });
+
+  function notes(session: CaptureSession): Array<Pick<NoteEntry, 'title' | 'text'>> {
+    return entries(session)
+      .filter((e): e is NoteEntry => e.kind === 'note')
+      .map(({ title, text }) => ({ title, text }));
+  }
+
+  it('defaults: record is Ctrl+Alt+Shift+S, note is Ctrl+Alt+Shift+M; the note text has defaults', () => {
+    expect({ ...DEFAULT_SHORTCUTS }).toEqual({
+      download: 'ctrl+alt+shift+d',
+      copy: 'ctrl+alt+shift+c',
+      clear: 'ctrl+alt+shift+x',
+      record: 'ctrl+alt+shift+s',
+      note: 'ctrl+alt+shift+m',
+    });
+    expect({ ...DEFAULT_NOTE }).toEqual({ title: 'Mark', text: 'Added with the keyboard shortcut.' });
+    expect(Object.isFrozen(DEFAULT_SHORTCUTS)).toBeTrue();
+    expect(Object.isFrozen(DEFAULT_NOTE)).toBeTrue();
+  });
+
+  it('the record chord turns capture off and on, and onChange follows', () => {
+    const controller = createCaptureController({}, fake.env);
+    const seen: boolean[] = [];
+    controller.onChange((on) => seen.push(on));
+
+    const off = chord('KeyS');
+    fake.keyboard.dispatchEvent(off);
+    expect(off.defaultPrevented).toBeTrue();
+    expect(controller.on).toBeFalse();
+    expect(fake.consoleHost.log).toBe(fake.originalLog);
+
+    fake.keyboard.dispatchEvent(chord('KeyS'));
+    expect(controller.on).toBeTrue();
+    expect(seen).toEqual([false, true]);
+  });
+
+  it('download, copy and clear chords work while capture is off', async () => {
+    const controller = createCaptureController({}, fake.env);
+    fake.consoleHost.log('kept');
+    controller.stop();
+
+    fake.keyboard.dispatchEvent(chord('KeyD'));
+    expect(fake.anchors.length).toBe(1);
+    fake.keyboard.dispatchEvent(chord('KeyC'));
+    await until(() => fake.writeText.calls.count() > 0);
+    expect(fake.writeText).toHaveBeenCalledTimes(1);
+    fake.keyboard.dispatchEvent(chord('KeyX'));
+    expect(entries(controller.session)).toEqual([]);
+  });
+
+  it('the note chord adds the default note, also while capture is off', () => {
+    const controller = createCaptureController({}, fake.env);
+    fake.keyboard.dispatchEvent(chord('KeyM'));
+    controller.stop();
+    const key = chord('KeyM');
+    fake.keyboard.dispatchEvent(key);
+
+    expect(key.defaultPrevented).toBeTrue();
+    expect(notes(controller.session)).toEqual([
+      { title: 'Mark', text: 'Added with the keyboard shortcut.' },
+      { title: 'Mark', text: 'Added with the keyboard shortcut.' },
+    ]);
+  });
+
+  it('the note option sets its title and text; a missing or non-string field takes the default', () => {
+    const controller = createCaptureController(
+      { note: { title: 'Station 4', text: 42 as unknown as string }, shortcuts: { note: 'ctrl+alt+shift+9' } },
+      fake.env,
+    );
+    fake.keyboard.dispatchEvent(chord('KeyM'));
+    fake.keyboard.dispatchEvent(chord('Digit9'));
+
+    expect(notes(controller.session)).toEqual([{ title: 'Station 4', text: 'Added with the keyboard shortcut.' }]);
+  });
+
+  it('controller.shortcuts is the resolved config, null with shortcuts: false', () => {
+    const custom = createCaptureController({ shortcuts: { record: 'ctrl+alt+shift+r' } }, fake.env);
+    expect(custom.shortcuts).toEqual({ ...DEFAULT_SHORTCUTS, record: 'ctrl+alt+shift+r' });
+    custom.dispose();
+
+    const none = createCaptureController({ shortcuts: false }, fake.env);
+    expect(none.shortcuts).toBeNull();
+  });
+
+  it('dispose() stops capture and unbinds every chord, for good; it is idempotent', () => {
+    const controller = createCaptureController({}, fake.env);
+    const seen: boolean[] = [];
+    controller.onChange((on) => seen.push(on));
+    fake.consoleHost.log('kept');
+
+    controller.dispose();
+    controller.dispose();
+
+    expect(controller.on).toBeFalse();
+    expect(getActiveCaptureSession()).toBeNull();
+    expect(fake.consoleHost.log).toBe(fake.originalLog);
+    expect(seen).toEqual([false]);
+    for (const code of ['KeyD', 'KeyX', 'KeyS', 'KeyM']) {
+      const key = chord(code);
+      fake.keyboard.dispatchEvent(key);
+      expect(key.defaultPrevented).withContext(code).toBeFalse();
+    }
+    expect(fake.anchors.length).toBe(0);
+    expect(controller.on).toBeFalse();
+    controller.start();
+    expect(controller.on).toBeFalse();
+    expect(kinds(controller.session)).toEqual(['log']);
+  });
+
+  it('a controller that stays off (another capture is on) still binds its chords', () => {
+    const first = installDebugCapture({ shortcuts: false }, fake.env);
+    const second = createCaptureController({}, fake.env);
+    expect(second.on).toBeFalse();
+
+    fake.keyboard.dispatchEvent(chord('KeyM'));
+    expect(notes(second.session).length).toBe(1);
+    first.dispose();
+  });
+
+  it('installDebugCapture(): session.dispose() is a full dispose — the chords go too (v1)', () => {
+    const session = installDebugCapture({}, fake.env);
+    session.dispose();
+
+    const key = chord('KeyS');
+    fake.keyboard.dispatchEvent(key);
+    expect(key.defaultPrevented).toBeFalse();
+    expect(session.active).toBeFalse();
+    expect(getActiveCaptureSession()).toBeNull();
+  });
+
+  it('DEBUG_CAPTURE_VERSION is a semver string (the build checks it against package.json)', () => {
+    expect(DEBUG_CAPTURE_VERSION).toMatch(/^\d+\.\d+\.\d+(-[\w.]+)?$/);
   });
 });

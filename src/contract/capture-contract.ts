@@ -12,6 +12,9 @@
  */
 export const CAPTURE_SCHEMA_VERSION = 2;
 
+/** The package version (HLD `D-42`), shown in Settings › About. `npm run build` checks it equals package.json. */
+export const DEBUG_CAPTURE_VERSION = '2.2.0-alpha.0';
+
 export type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
 
 /** The console methods the console probe wraps, in a stable order. */
@@ -301,19 +304,41 @@ export interface ShortcutConfig {
   readonly download: string;
   readonly copy: string;
   readonly clear: string;
+  /** 2.2 (`FR-BG-05`): capture on / off. */
+  readonly record: string;
+  /** 2.2 (`FR-BG-07`): adds the `note` option's note. */
+  readonly note: string;
 }
 
-/** Three modifiers, to stay clear of browser and OS shortcuts (Ctrl+Shift+D bookmarks all tabs in Chrome). */
+/**
+ * Three modifiers, to stay clear of browser and OS shortcuts (Ctrl+Shift+D bookmarks all tabs in Chrome).
+ * Not R or N (`D-37`): with Alt missed, Ctrl+Shift+R hard-reloads and Ctrl+Shift+N opens an incognito window.
+ */
 export const DEFAULT_SHORTCUTS: ShortcutConfig = Object.freeze({
   download: 'ctrl+alt+shift+d',
   copy: 'ctrl+alt+shift+c',
   clear: 'ctrl+alt+shift+x',
+  record: 'ctrl+alt+shift+s',
+  note: 'ctrl+alt+shift+m',
+});
+
+/** 2.2 (`D-38`): the note the note chord adds. */
+export interface NoteTemplate {
+  readonly title?: string;
+  readonly text?: string;
+}
+
+export const DEFAULT_NOTE: Required<NoteTemplate> = Object.freeze({
+  title: 'Mark',
+  text: 'Added with the keyboard shortcut.',
 });
 
 export interface DebugCaptureOptions {
   readonly policy?: Partial<CapturePolicy>;
   /** `false` disables keyboard shortcuts. */
   readonly shortcuts?: Partial<ShortcutConfig> | false;
+  /** 2.2: the note chord's title and text; each defaults to `DEFAULT_NOTE`'s. */
+  readonly note?: NoteTemplate;
 }
 
 /** What installDebugCapture() returns — the handle the app and the Angular layer hold. */
@@ -508,15 +533,26 @@ export interface ControlledCaptureSession extends CaptureSession {
 export interface CaptureController {
   /** The same object for the controller's whole life. */
   readonly session: ControlledCaptureSession;
-  /** `true` while probes and shortcuts are installed. */
+  /** `true` while the probes are installed. */
   readonly on: boolean;
-  /** Reinstalls probes and shortcuts on the same recorder. No-op when on. */
+  /** Reinstalls the probes on the same recorder. No-op when on or disposed. */
   start(): void;
-  /** Removes probes and shortcuts; the buffer is kept. No-op when off. */
+  /** Removes the probes; the buffer and (2.2, `D-37`) the chords stay. No-op when off. */
   stop(): void;
   /** Called with the new `on` after each real change. */
   onChange(listener: (on: boolean) => void): Unsubscribe;
+  /** 2.2 (`C-11`): the chords in use, for Settings › About; `null` with `shortcuts: false`. */
+  readonly shortcuts: ShortcutConfig | null;
+  /** 2.2 (`C-11`): `stop()` and unbinds the chords, for good. Idempotent. */
+  dispose(): void;
 }
+
+/**
+ * 2.2 (`FR-BG-10`): what the Angular and React seams take — a session, `null`
+ * (capture off), or a function read on each error, for a session that starts
+ * after bootstrap (`installDebugActivation`: `() => debug.session`).
+ */
+export type CaptureSessionSource = CaptureSession | null | (() => CaptureSession | null);
 
 /** C-2 — `createCaptureController(options)`; installs capture at once (HLD §6.6). */
 export type CreateCaptureController = (options?: DebugCaptureOptions) => CaptureController;

@@ -255,6 +255,32 @@ describe('React error handlers', () => {
     expect(defaults.logError).toHaveBeenCalledOnceWith(error);
   });
 
+  it('2.2 (FR-BG-10): takes a session getter, read on each error', () => {
+    let current: CaptureSession | null = null;
+    const options = createReactRootErrorOptions(() => current, {}, defaults);
+
+    options.onUncaughtError(renderError(), { componentStack });
+    current = fakeSession();
+    options.onCaughtError(renderError(), { componentStack });
+    recordReactError(() => current, renderError());
+
+    expect(recorded().length).toBe(2);
+    expect(defaults.reportError).toHaveBeenCalledTimes(1);
+    expect(defaults.logError).toHaveBeenCalledTimes(1);
+  });
+
+  it('2.2: a throwing session getter records nothing and still delegates', () => {
+    const error = renderError();
+    const broken = (): CaptureSession | null => {
+      throw new Error('getter broke');
+    };
+
+    createReactRootErrorOptions(broken, {}, defaults).onUncaughtError(error, { componentStack });
+
+    expect(drafts).toEqual([]);
+    expect(defaults.reportError).toHaveBeenCalledOnceWith(error);
+  });
+
   it('recordReactError defaults to caught and never throws', () => {
     // React 18: an error boundary's componentDidCatch(error, info) calls this.
     recordReactError(fakeSession(), renderError(), { componentStack });

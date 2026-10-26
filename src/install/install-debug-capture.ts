@@ -2,6 +2,7 @@ import {
   CaptureController,
   CaptureSession,
   ControlledCaptureSession,
+  DEFAULT_NOTE,
   DEFAULT_SHORTCUTS,
   DebugCaptureOptions,
   LiveRecorder,
@@ -50,13 +51,13 @@ export function getActiveCaptureSession(): CaptureSession | null {
  * other probes still run and the exported file says what is missing.
  *
  * It is a controller's session: `dispose()` turns that capture off for good,
- * since nobody else holds the controller (C-2).
+ * chords included (v1), since nobody else holds the controller (C-2, C-11).
  */
 export function installDebugCapture(
   options: DebugCaptureOptions = {},
   env: CaptureEnvironment = browserEnvironment(),
 ): CaptureSession {
-  return activeSession ?? createCaptureController(options, env).session;
+  return activeSession ?? createController(options, env, true).session;
 }
 
 /**
@@ -66,10 +67,23 @@ export function installDebugCapture(
  * object, so the Angular and React seams that hold it (and check `active`)
  * keep working. Installs at once, unless another capture is already on —
  * then it stays off and records why.
+ *
+ * 2.2 (C-11, `D-37`): the chords are bound here, once, not with the probes,
+ * so capture on / off, the note and the exports work while capture is off.
+ * `dispose()` unbinds them.
  */
 export function createCaptureController(
   options: DebugCaptureOptions = {},
   env: CaptureEnvironment = browserEnvironment(),
+): CaptureController {
+  return createController(options, env, false);
+}
+
+/** `disposeIsFinal`: `session.dispose()` is `controller.dispose()` — the v1 path, where nobody holds the controller. */
+function createController(
+  options: DebugCaptureOptions,
+  env: CaptureEnvironment,
+  disposeIsFinal: boolean,
 ): CaptureController {
   // Before anything is patched: a bad config fails loudly.
   const policy = resolvePolicy(options.policy);
@@ -80,8 +94,10 @@ export function createCaptureController(
   /** Changes made by a listener wait for the current one, so every listener sees them in order. */
   const queue: boolean[] = [];
   let notifying = false;
-  /** Set while on: removes the probes and shortcuts. */
+  /** Set while on: removes the probes. */
   let uninstall: (() => void) | null = null;
+  let disposed = false;
+  let unbind = (): void => undefined;
 
   const toJson = (): string =>
     serializeCaptureFile(
@@ -124,7 +140,8 @@ export function createCaptureController(
       recorder.record({ kind: 'note', t: clock.now(), title: String(title), text: String(text) });
     },
     dispose(): void {
-      controller.stop();
+      if (disposeIsFinal) controller.dispose();
+      else controller.stop();
     },
   };
 
@@ -155,7 +172,7 @@ export function createCaptureController(
       return uninstall !== null;
     },
     start(): void {
-      if (uninstall) {
+      if (uninstall || disposed) {
         return;
       }
       if (activeSession) {
@@ -165,7 +182,7 @@ export function createCaptureController(
       // Claimed first: a listener that calls installDebugCapture() while the
       // probes go in gets this session instead of patching everything twice.
       activeSession = session;
-      uninstall = installCapture(recorder, env, options.shortcuts, session);
+      uninstall = installCapture(recorder, env);
       changed(true);
     },
     stop(): void {
@@ -204,23 +221,41 @@ export function createCaptureController(
         }
       };
     },
+    shortcuts: null,
+    dispose(): void {
+      disposed = true;
+      controller.stop();
+      unbind();
+    },
   };
+
+  if (options.shortcuts !== false) {
+    const keys: ShortcutConfig = Object.freeze({ ...DEFAULT_SHORTCUTS, ...options.shortcuts });
+    const note = options.note ?? {};
+    const text = (value: unknown, fallback: string): string => (typeof value === 'string' ? value : fallback);
+    (controller as { shortcuts: ShortcutConfig | null }).shortcuts = keys;
+    try {
+      unbind = bindShortcuts(env.keyboard, [
+        [keys.download, () => session.download()],
+        [keys.copy, () => void session.copy()],
+        [keys.clear, () => session.clear()],
+        [keys.record, () => (controller.on ? controller.stop() : controller.start())],
+        [keys.note, () => session.addNote(text(note.title, DEFAULT_NOTE.title), text(note.text, DEFAULT_NOTE.text))],
+      ]);
+    } catch (error) {
+      reportFailure(recorder, clock, 'shortcuts failed to bind', error);
+    }
+  }
 
   controller.start();
   return controller;
 }
 
 /**
- * Installs every probe on `recorder` and binds the export shortcuts; returns
- * the function that takes them all off again (shortcuts first, then the
- * probes in reverse order).
+ * Installs every probe on `recorder`; returns the function that takes them
+ * all off again, in reverse order.
  */
-function installCapture(
-  recorder: LiveRecorder & ProbeRecorder,
-  env: CaptureEnvironment,
-  shortcuts: DebugCaptureOptions['shortcuts'],
-  session: CaptureSession,
-): () => void {
+function installCapture(recorder: LiveRecorder & ProbeRecorder, env: CaptureEnvironment): () => void {
   const { clock } = env;
   const report = (message: string, error: unknown) => reportFailure(recorder, clock, message, error);
 
@@ -240,22 +275,7 @@ function installCapture(
     }
   }
 
-  let unbind = (): void => undefined;
-  if (shortcuts !== false) {
-    const keys: ShortcutConfig = { ...DEFAULT_SHORTCUTS, ...shortcuts };
-    try {
-      unbind = bindShortcuts(env.keyboard, [
-        [keys.download, () => session.download()],
-        [keys.copy, () => void session.copy()],
-        [keys.clear, () => session.clear()],
-      ]);
-    } catch (error) {
-      report('shortcuts failed to bind', error);
-    }
-  }
-
   return () => {
-    unbind();
     // Reverse order: the last patch applied is the first taken off.
     for (const probe of probes.slice().reverse()) {
       try {

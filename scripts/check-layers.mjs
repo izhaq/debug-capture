@@ -15,6 +15,8 @@
  *   L5 public       src/*.ts               → L4 barrel
  *   L6 angular      src/angular/           → L5 barrel + @angular/*, rxjs
  *   L6 react        src/react/             → L5 barrel (no packages, not even React)
+ *   L6 activate     src/activate/          → L5 barrel and src/panel/index.ts ONLY by
+ *                                            `import type` or dynamic `import()` (rule 9)
  *   L6 panel:
  *     P1 model      src/panel/model/       → L5 barrel
  *     P2 ui         src/panel/ui/          → P1 barrel
@@ -40,6 +42,9 @@
  *   rule 6  src/angular/ may import only @angular/*, rxjs and rxjs/*
  *   rule 8  P5 → P4 only as types or through one dynamic import(), so the UI
  *           chunk stays lazy (a static value import would pull it into the loader)
+ *   rule 9  L6 activate (src/activate/, 2.2) → the L5 barrel and the panel entry
+ *           only as types or by dynamic import(), so a station that never
+ *           switches the tool on loads neither
  *   (v1's rule 7 was about the host app's other code; a package has none.)
  *
  * Usage:
@@ -95,9 +100,10 @@ export const LAYERS = {
   'panel/views': { id: 'P3', barrel: `${SRC}/panel/views/index.ts`, above: 'panel/ui', panel: true },
   'panel/app': { id: 'P4', barrel: `${SRC}/panel/app/index.ts`, above: 'panel/views', panel: true },
   panel: { id: 'P5', barrel: `${SRC}/panel/index.ts`, above: 'public', lazy: 'panel/app', panel: true },
+  activate: { id: 'L6', barrel: `${SRC}/activate/index.ts`, above: null, typesOrImport: ['public', 'panel'] },
 };
 
-const TOP_LAYERS = ['contract', 'core', 'adapters', 'install', 'angular', 'react'];
+const TOP_LAYERS = ['contract', 'core', 'adapters', 'install', 'angular', 'react', 'activate'];
 const PANEL_LAYERS = ['model', 'ui', 'views', 'app'];
 const UNCLASSIFIED = 'unclassified';
 const OUTSIDE = 'outside';
@@ -135,7 +141,7 @@ export function checkImport(from, specifier, exists, kind = 'value') {
   const layer = classify(from);
   if (layer === OUTSIDE) return null;
   if (layer === UNCLASSIFIED) {
-    return `fits no layer — files under ${SRC}/ belong in contract/, core/, adapters/, install/, angular/, react/, panel/{model,ui,views,app}/, panel/ or directly in ${SRC}/`;
+    return `fits no layer — files under ${SRC}/ belong in contract/, core/, adapters/, install/, angular/, react/, activate/, panel/{model,ui,views,app}/, panel/ or directly in ${SRC}/`;
   }
   if (specifier === null) {
     return `${kind === 'dynamic' ? 'import()' : 'require()'} needs a string literal, or it cannot be checked (rule 4)`;
@@ -150,7 +156,7 @@ export function checkImport(from, specifier, exists, kind = 'value') {
     }
   }
 
-  const { id, above, lazy, packages } = LAYERS[layer];
+  const { id, above, lazy, packages, typesOrImport } = LAYERS[layer];
   const target = resolveSpecifier(from, specifier, exists);
 
   if (target === null) {
@@ -167,6 +173,14 @@ export function checkImport(from, specifier, exists, kind = 'value') {
   const targetDir = path.posix.dirname(target);
 
   if (targetDir === fromDir) return null; // (a) own directory
+  if (typesOrImport) {
+    if (!typesOrImport.some((key) => target === LAYERS[key].barrel)) {
+      return `${id} activate may import only its own directory, and the L5 barrel or the panel entry as types or by import() (rule 9)`;
+    }
+    return kind === 'type' || kind === 'dynamic'
+      ? null
+      : `${id} activate may import the L5 barrel and the panel entry only by \`import type\` or a dynamic import() — a value import would load them before switch-on (rule 9)`;
+  }
   // (b) child barrel — of the same layer only: the L5 barrel's children are
   // other layers, and reaching ./core from there would skip install.
   if (isIndex(from) && isIndex(target) && path.posix.dirname(targetDir) === fromDir && classify(target) === layer) {
@@ -376,6 +390,8 @@ const VIRTUAL_FILES = new Set([
   'src/panel/app/index.ts',
   'src/panel/app/frame.ts',
   'src/panel/misc/stray.ts',
+  'src/activate/index.ts',
+  'src/activate/activate.ts',
 ]);
 
 /** [importing file, specifier, kind, null when allowed | the rule the violation must cite]. */
@@ -413,6 +429,19 @@ const SELF_TEST_CASES = [
   ['src/core/recorder.ts', 'rxjs', 'value', 'rule 5'],
   ['src/core/recorder.ts', '@angular/core', 'type', 'rule 5'],
   ['src/misc/stray.ts', '.', 'value', 'fits no layer'],
+  // L6 activate (2.2): L5 and the panel entry only as types or by import(), so neither loads before switch-on.
+  ['src/activate/index.ts', './activate', 'value', null],
+  ['src/activate/index.ts', '..', 'dynamic', null],
+  ['src/activate/index.ts', '../panel', 'dynamic', null],
+  ['src/activate/activate.ts', '..', 'type', null],
+  ['src/activate/activate.ts', '../panel', 'type', null],
+  ['src/activate/index.ts', '..', 'value', 'rule 9'],
+  ['src/activate/index.ts', '../panel', 'value', 'rule 9'],
+  ['src/activate/activate.ts', '../install', 'type', 'rule 9'],
+  ['src/activate/activate.ts', '../panel/app', 'dynamic', 'rule 9'],
+  ['src/activate/activate.ts', '../angular', 'type', 'rule 9'],
+  ['src/panel/element.ts', '../activate', 'value', 'rule 4'],
+  ['src/index.ts', './activate', 'value', 'rule 4'],
   // L6 angular.
   ['src/angular/providers.ts', '@angular/core', 'value', null],
   ['src/angular/providers.ts', 'rxjs/operators', 'value', null],

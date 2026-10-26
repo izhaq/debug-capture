@@ -118,6 +118,8 @@ const createFakeController: CreateCaptureController = (_options?: DebugCaptureOp
       return on;
     },
     start: () => set(true),
+    shortcuts: null,
+    dispose: () => set(false),
     stop: () => set(false),
     onChange(listener: (on: boolean) => void): Unsubscribe {
       listeners.push(listener);
@@ -354,8 +356,8 @@ describe('capture contract v2 (HLD §6.4, §6.5)', () => {
     expect(v1).toBe(probeSide);
   });
 
-  it('C-2: DebugCaptureOptions keeps only the v1 fields — the controller owns its recorder (review 4)', () => {
-    assertType<Equals<keyof DebugCaptureOptions, 'policy' | 'shortcuts'>>();
+  it('C-2: DebugCaptureOptions keeps only the v1 fields (+ note, 2.2) — the controller owns its recorder (review 4)', () => {
+    assertType<Equals<keyof DebugCaptureOptions, 'policy' | 'shortcuts' | 'note'>>();
     const v1Options: DebugCaptureOptions = { policy: { maxEntries: 10 }, shortcuts: false };
     expect(Object.keys(v1Options)).toEqual(['policy', 'shortcuts']);
   });

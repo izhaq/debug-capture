@@ -1,20 +1,20 @@
 /**
  * React 19 test host (S10-02, NFR-PORT-01). It starts debug capture exactly
- * as HLD §6.6 shows, then creates the root with the React seam, so errors
- * React catches reach the recorder. Plain `createElement`, no JSX: the host
+ * as HLD §6.6 shows (2.2: the activation piece), waits for it, then creates
+ * the root with the React seam (a session getter, FR-BG-10), so errors React
+ * catches reach the recorder. Plain `createElement`, no JSX: the host
  * needs no compile step beyond the bundle.
  */
 import { Component, createElement as h, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { createCaptureController, isDebugRequested } from 'debug-capture';
-import { installDebugPanel } from 'debug-capture/panel';
+import { installDebugActivation } from 'debug-capture/activate';
 import { createReactRootErrorOptions } from 'debug-capture/react';
 
-const controller = isDebugRequested() ? createCaptureController() : null;
-installDebugPanel(controller);
-// For the e2e test only: null when the flag is off.
-window.__hostSession = controller?.session ?? null;
+const debug = installDebugActivation();
+// For the e2e tests only: the session (null while off) and the handle.
+Object.defineProperty(window, '__hostSession', { get: () => debug.session });
+window.__debug = debug;
 
 /** Shows a fallback instead of the child that threw; React then calls the root's `onCaughtError`. */
 class Boundary extends Component {
@@ -53,6 +53,11 @@ function App() {
   );
 }
 
-const root = createRoot(document.getElementById('root'), createReactRootErrorOptions(controller?.session ?? null));
-flushSync(() => root.render(h(App)));
-window.__hostReady = true;
+debug.ready.then(() => {
+  const root = createRoot(
+    document.getElementById('root'),
+    createReactRootErrorOptions(() => debug.session),
+  );
+  flushSync(() => root.render(h(App)));
+  window.__hostReady = true;
+});

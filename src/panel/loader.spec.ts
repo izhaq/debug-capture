@@ -97,6 +97,8 @@ function fakeController(recorder: FakeRecorder): CaptureController & { setOn(nex
       on = next;
       listeners.forEach((l) => l(next));
     },
+    shortcuts: null,
+    dispose: () => undefined,
   };
   return controller;
 }

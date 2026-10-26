@@ -27,20 +27,22 @@ export class DebugCaptureErrorHandler extends ErrorHandler {
   private readonly session = inject(DEBUG_CAPTURE_SESSION, { optional: true });
 
   override handleError(error: unknown): void {
-    const session = this.session;
-    if (session?.active) {
-      // A debug tool must never turn one error into two: any failure while
-      // recording is swallowed and Angular's handling still runs.
-      try {
+    // A debug tool must never turn one error into two: any failure while
+    // recording (a throwing session getter included) is swallowed and
+    // Angular's handling still runs.
+    try {
+      const source = this.session;
+      const session = typeof source === 'function' ? source() : source;
+      if (session?.active) {
         session.recorder.record({
           kind: 'error',
           source: 'angular',
           t: session.clock.now(),
           ...describeError(unwrapZoneRejection(error)),
         });
-      } catch {
-        // Intentionally ignored — see above.
       }
+    } catch {
+      // Intentionally ignored — see above.
     }
     super.handleError(error);
   }

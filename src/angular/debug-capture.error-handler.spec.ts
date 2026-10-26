@@ -44,7 +44,7 @@ describe('DebugCaptureErrorHandler', () => {
   }
 
   /** `session` undefined = no provider at all (capture never installed). */
-  function setup(session?: CaptureSession | null): ErrorHandler {
+  function setup(session?: CaptureSession | null | (() => CaptureSession | null)): ErrorHandler {
     TestBed.configureTestingModule({
       providers: [
         DebugCaptureErrorHandler,
@@ -129,6 +129,32 @@ describe('DebugCaptureErrorHandler', () => {
     // main.ts provides null when capture is switched off.
     const handler = setup(null);
     const error = new Error('capture off');
+
+    handler.handleError(error);
+
+    expect(drafts).toEqual([]);
+    expect(consoleError).toHaveBeenCalledOnceWith('ERROR', error);
+  });
+
+  it('2.2 (FR-BG-10): a session getter is read on each error, so a session started after bootstrap records', () => {
+    let current: CaptureSession | null = null;
+    const handler = setup(() => current);
+
+    handler.handleError(new Error('before switch-on'));
+    current = fakeSession();
+    handler.handleError(new Error('after switch-on'));
+    current = null;
+    handler.handleError(new Error('after switch-off'));
+
+    expect(drafts.map((d) => (d.kind === 'error' ? d.message : d.kind))).toEqual(['after switch-on']);
+    expect(consoleError).toHaveBeenCalledTimes(3);
+  });
+
+  it('2.2: a throwing session getter records nothing and still delegates', () => {
+    const handler = setup(() => {
+      throw new Error('getter broke');
+    });
+    const error = new Error('app error');
 
     handler.handleError(error);
 

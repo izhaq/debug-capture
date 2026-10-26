@@ -39,7 +39,8 @@ and the HLD disagree, the HLD wins — or change the HLD first, in its own PR.
    and never patch `window`. Time comes only from `src/core/clock.ts`: no
    `Date.now()` anywhere else.
 9. Each entry point has one wiring call: `installDebugCapture()` (core),
-   `provideDebugCapture()` (Angular), `installDebugPanel()` (panel).
+   `provideDebugCapture()` (Angular), `installDebugPanel()` (panel),
+   `installDebugActivation()` (activate, 2.2).
 10. Import a layer only through its barrel (`index.ts`), and only the layer
     allowed (see Layers). `npm run lint:layers` enforces it.
 11. The panel has no framework. Build DOM safely (views use the P2 safe
@@ -59,21 +60,22 @@ and the HLD disagree, the HLD wins — or change the HLD first, in its own PR.
 Each layer imports only the barrel of the layer directly above it (the
 "May import" column).
 
-| Layer       | Path                 | May import                                                      |
-| ----------- | -------------------- | --------------------------------------------------------------- |
-| L1 contract | `src/contract/`      | nothing                                                         |
-| L2 core     | `src/core/`          | L1                                                              |
-| L3 adapters | `src/adapters/`      | L2                                                              |
-| L4 install  | `src/install/`       | L3                                                              |
-| L5 public   | `src/index.ts`       | L4                                                              |
-| L6 angular  | `src/angular/`       | L5 (as `'..'`), `@angular/*`, `rxjs`                            |
-| L6 react    | `src/react/`         | L5 only (no packages, not even React)                           |
-| L6 panel    | `src/panel/`         | see P1–P5                                                       |
-| P1 model    | `src/panel/model/`   | L5 (as `'../..'`). Pure: no DOM, no timers, no globals          |
-| P2 ui       | `src/panel/ui/`      | P1, and the `document` passed in                                |
-| P3 views    | `src/panel/views/`   | P2                                                              |
-| P4 app      | `src/panel/app/`     | P3                                                              |
-| P5 loader   | `src/panel/index.ts` | L5; P4 **only** by `import type` and **one** dynamic `import()` |
+| Layer       | Path                 | May import                                                         |
+| ----------- | -------------------- | ------------------------------------------------------------------ |
+| L1 contract | `src/contract/`      | nothing                                                            |
+| L2 core     | `src/core/`          | L1                                                                 |
+| L3 adapters | `src/adapters/`      | L2                                                                 |
+| L4 install  | `src/install/`       | L3                                                                 |
+| L5 public   | `src/index.ts`       | L4                                                                 |
+| L6 angular  | `src/angular/`       | L5 (as `'..'`), `@angular/*`, `rxjs`                               |
+| L6 react    | `src/react/`         | L5 only (no packages, not even React)                              |
+| L6 activate | `src/activate/`      | L5 and `src/panel/index.ts` **only** by `import type` / `import()` |
+| L6 panel    | `src/panel/`         | see P1–P5                                                          |
+| P1 model    | `src/panel/model/`   | L5 (as `'../..'`). Pure: no DOM, no timers, no globals             |
+| P2 ui       | `src/panel/ui/`      | P1, and the `document` passed in                                   |
+| P3 views    | `src/panel/views/`   | P2                                                                 |
+| P4 app      | `src/panel/app/`     | P3                                                                 |
+| P5 loader   | `src/panel/index.ts` | L5; P4 **only** by `import type` and **one** dynamic `import()`    |
 
 - L6 seams never import each other. No packages anywhere in `src/panel/`.
 - The P5 rule keeps the UI chunk lazy: a static value import of P4 would pull

@@ -238,6 +238,8 @@ export function fakeCapture(policy: Partial<CapturePolicy> = {}): FakeCapture {
       setOn(false);
     },
     onChange: (listener) => subscribe(controllerListeners, listener),
+    shortcuts: null,
+    dispose: () => setOn(false),
   };
   return { controller, recorder, controllerListeners, calls };
 }
