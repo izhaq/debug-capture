@@ -31,7 +31,7 @@ The package ships as one file. Build it once on a machine with access to the
 source, carry the tarball in, and install it like any other package:
 
 ```bash
-npm install ./debug-capture-2.1.0-alpha.0.tgz
+npm install ./debug-capture-2.1.0-alpha.1.tgz
 ```
 
 ESM only, with type declarations. Entry points:

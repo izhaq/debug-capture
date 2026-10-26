@@ -521,3 +521,13 @@ describe('FRAME_CSS forced colours (S09-02, §5.7)', () => {
     expect(rule).toContain('border-inline-start:2px solid CanvasText');
   });
 });
+
+describe('FRAME_CSS No limit warning (FR-BUF-03)', () => {
+  it('wraps on its own line inside the Settings popover (the toolbar sets nowrap)', () => {
+    const start = FRAME_CSS.indexOf('.dcp-setting-note{');
+    const rule = FRAME_CSS.slice(start, FRAME_CSS.indexOf('}', start));
+    expect(rule).toContain('white-space:normal');
+    expect(rule).toContain('flex:0 0 100%');
+    expect(rule).toContain('contain:inline-size');
+  });
+});

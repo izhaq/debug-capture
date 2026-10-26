@@ -50,7 +50,10 @@ export const FRAME_CSS = [
   '.dcp-setting>label{display:inline-flex;align-items:center;gap:4px;cursor:pointer}',
   '.dcp-setting input{margin:0;accent-color:var(--dcp-accent)}',
   // The No limit warning (FR-BUF-03): under the Buffer choices, in the warning colour, never by colour alone (it is words).
-  '.dcp-setting-note{flex:1 0 100%;max-width:360px;margin:0 0 0 80px;color:var(--dcp-warning)}',
+  // Its own line, wrapped (the toolbar's nowrap reaches the popover); `contain:inline-size` keeps
+  // the sentence from widening the popover, so it wraps to the width the choices set.
+  '.dcp-setting-note{flex:0 0 100%;box-sizing:border-box;contain:inline-size;margin:0;padding-left:80px;' +
+    'white-space:normal;color:var(--dcp-warning)}',
   // Add note form (FR-NOTE-01): controls as §5.7.
   '.dcp-note{display:flex;flex-direction:column;gap:8px;width:320px;max-width:calc(100vw - 32px);padding:4px}',
   '.dcp-note__field{display:flex;flex-direction:column;gap:2px;color:var(--dcp-text-muted)}',

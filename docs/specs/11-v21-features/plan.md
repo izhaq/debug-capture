@@ -41,7 +41,10 @@ All paths are under `packages/debug-capture/` unless they start with `/`.
 
 ## Status
 
-Docs PR open (#102).
+**Merged** (2026-10-26): docs #102, S-11a #103, S-11b #104, S-11c #105. Follow-up after an
+owner check in the real app: the No limit warning ran past the Settings popover (the toolbar's
+`nowrap` reached it); fixed with an e2e and a CSS unit lock, package **2.1.0-alpha.1**, the app
+takes the new tarball in the same PR.
 
 S-11a — done, in review. Numbers:
 

@@ -87,6 +87,39 @@ test('FR-BUF-01/02/03: Buffer in Settings — live, kept across a reload before 
   expect((await usage(page)).entries).toBeGreaterThan(1000);
 });
 
+test('FR-BUF-03: the No limit warning wraps inside the Settings box, on its own line, at 1280 × 720', async ({
+  page,
+}) => {
+  // Owner report (2026-10-26): the warning ran past the box's right edge, cut off by the
+  // window, because the toolbar's nowrap reached it.
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await load(page);
+  await open(page);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await settings(page).getByRole('radio', { name: 'No limit' }).check();
+  const boxes = await page.evaluate((tag) => {
+    const root = document.querySelector(tag).shadowRoot;
+    const rect = (el) => {
+      const r = el.getBoundingClientRect();
+      return { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+    };
+    const note = root.querySelector('.dcp-setting-note');
+    const radio = [...root.querySelectorAll('.dcp-pop[aria-label="Settings"] label')].find(
+      (l) => l.textContent === 'No limit',
+    );
+    return {
+      pop: rect(root.querySelector('.dcp-pop[aria-label="Settings"]')),
+      note: rect(note),
+      radio: rect(radio),
+      vw: innerWidth,
+    };
+  }, PANEL);
+  expect(boxes.note.right, 'inside the Settings box').toBeLessThanOrEqual(boxes.pop.right + 0.5);
+  expect(boxes.note.left).toBeGreaterThanOrEqual(boxes.pop.left - 0.5);
+  expect(boxes.pop.right, 'the box stays in the window').toBeLessThanOrEqual(boxes.vw + 0.5);
+  expect(boxes.note.top, 'below the Buffer choices, not beside them').toBeGreaterThanOrEqual(boxes.radio.bottom - 0.5);
+});
+
 test('FR-BUF-04: near-full banner — Download all, Raise the limit, Dismiss; back after Clear', async ({ page }) => {
   await load(page, { nearFullAt: 0.5 });
   await page.evaluate(() => window.__dc.controller.session.recorder.setCapacity(1000));
