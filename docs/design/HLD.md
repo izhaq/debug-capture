@@ -251,7 +251,7 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 | FR-BAR-01 | **Pause / Resume** the view. Pause freezes **rendering only**: capture continues, and Clear and buffer evictions still apply at once (rows that left the buffer disappear even while paused). The toolbar shows `Paused · N new`, N = min(arrived since pause, capacity). | MUST |
 | FR-BAR-02 | **Follow**: when scrolled to the bottom, the list follows new entries. Scrolling up stops following; a "↓ N new" button jumps back. | MUST |
 | FR-BAR-03 | **Clear** empties the capture buffer (same as v1 `Ctrl+Alt+Shift+X`, all tabs) and closes every open detail; focus inside a detail moves to its list (or, when the list is empty, its search box). | MUST |
-| FR-BAR-04 | **Export** menu: Download all (JSON file, v1 format), Copy all. Export always takes the **whole buffer** — paused or not, whatever the filters. | MUST |
+| FR-BAR-04 | **Export** menu: Download all (JSON file, schema 2 — `D-36`), Copy all. Export always takes the **whole buffer** — paused or not, whatever the filters. | MUST |
 | FR-BAR-05 | Export the current view only. | COULD (2.x) |
 | FR-BAR-06 | **Status bar:** entries shown / total, problems in the buffer (rule in `FR-ACT-04`), buffer use (`4,812 / 5,000`; `4,812 / no limit` from 2.1, `FR-BUF-02`), dropped and evicted counts, capture on/off. Counts update on every entry, clear and stats change (`C-6`). | MUST |
 | FR-BAR-07 | **Settings** (§4.10). | MUST |
@@ -304,7 +304,7 @@ Cut from `D-28` … `D-33` (owner, 2026-10-25). Behaviour in §4.4, §4.9 – §
 | FR-ACT-10 | **"Show DBG button"** setting (`D-32`): Show / Hide, remembered per browser, applied live and by the loader at install. Code `launcher: false` removes the launcher and hides the switch: the host wins. The toggle shortcut stays code-only (`shortcut` option). | MUST (2.1) |
 | FR-NOTE-01 | **Add note** (`D-33`): a toolbar button opens a small form — Title, Text, **Add note**. Adding records an entry of the new kind `note` (`C-10`), stamped at the moment of the click; with both fields empty nothing is added. Enter in Title, or Ctrl+Enter in Text, adds too; Escape closes the form. | MUST (2.1) |
 | FR-NOTE-02 | Notes show in **Console** in time order, with the icon and the word `note`. Level chips never hide them; the search looks in title and text; the detail shows the title, the time and the whole text. They count in `N / M shown` and are never problems. | MUST (2.1) |
-| FR-NOTE-03 | Notes are exported like any entry (`kind: 'note'`, `title`, `text`) in the `entries` list, so equal titles never clash. `schemaVersion` stays 1; a reader that does not know `note` skips it. | MUST (2.1) |
+| FR-NOTE-03 | Notes are exported like any entry (`kind: 'note'`, `title`, `text`) in the `entries` list, so equal titles never clash. A reader that does not know `note` skips it (the file is schema 2 since `D-36`). | MUST (2.1) |
 | FR-NOTE-04 | A host adds a note from code: `controller.session.addNote(title, text?)`. It records while capture is off too (a note is the user's own act, not a probe). Title and text are redacted and truncated by the policy, like an error message. | MUST (2.1) |
 
 ---
@@ -478,8 +478,9 @@ a close `✕`. `↑` / `↓` in the list moves the selection and updates the det
 - **Clear** asks nothing and is not undoable — like v1's `X` shortcut. It
   clears the capture buffer, so it also empties the next export.
 - **Export ▾:** "Download all (JSON)" and "Copy all (JSON)". The whole
-  buffer, always. The file is v1's format, `schemaVersion` 1, with two new
-  optional fields (`pending`, `requestId` — `C-1`, §6.5).
+  buffer, always. The file is `schemaVersion` 2 (`D-36`): v1's shape, with
+  each entry's `seq` written as `sequence`, a readable `time` next to `t`, and
+  the optional fields `pending`, `requestId` (`C-1`, §6.5).
 - **Problems** count: the rule in `FR-ACT-04`, over the buffer.
 - **`N / M shown`**: N = entries the current list shows after filters; M =
   entries that list has before filters (not the whole buffer — that is the
@@ -1202,6 +1203,7 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-33 | **User notes**: an **Add note** action (title + text) records a new entry kind `note` at that moment; it shows in Console and in the export. The file keeps entries as a list, so equal titles never clash (no `title_date` key needed). `schemaVersion` stays 1 (additive); a reader that does not know `note` skips it. A host can also add one from code. | Decided (owner, 2026-10-25); details in `FR-NOTE-01`…`04`, `C-10` |
 | D-34 | **Budgets for 2.1**: the owner allows raising the **UI chunk** budget (40 kB, `D-25`). The new value is set in S-11 from a measurement (several times above the measured size growth, as the margin rule). The **loader** (4 kB, 12 B left) also needs a raise for `D-31` / `D-32`; S-11 proposes the number. | Decided (owner, 2026-10-25; the loader raise accepted with #99). Set in S-11b: loader 5.5 kB, UI chunk 44 kB (`NFR-SIZE-01`) |
 | D-35 | **AI as a separate package** `debug-capture-ai`, in the same family as the panel. Without it nothing about AI is shown or shipped. With it, the host adds it in code and the panel shows an **AI** section. The user connects it to a **local or company on-prem model** by entering its **URL and a token** in the AI settings. Only this package makes network requests — only to that URL and only on a user action; the panel itself keeps `NFR-SEC-03`. It sends only what the recorder stored (redacted) plus a trimmed page snapshot. Phase 1: read-only insights. Phase 2: it **proposes** DOM / style changes; the user clicks **Apply**, with **Undo**; it never runs code (CSP and Trusted Types stay intact). The host's CSP must allow the model URL in `connect-src`. | Decided (owner, 2026-10-25); the API shape (`OPEN-08`) and token storage (`OPEN-07`) are open |
+| D-36 | **Readable export** (owner, 2026-10-26): in the exported file each entry leads with **`sequence`** (its `seq`, renamed in the file only) and **`time`** — `t` as the station's local wall-clock time with its UTC offset (`2026-10-25T15:08:56.618+03:00`, exact: it parses back to `t`). `t` stays. Pending requests get `time` too. Because a field was renamed, the file is **`schemaVersion` 2**. The code API keeps `seq` (`CaptureEntry`, `recorder.snapshot()`), so host code does not change. Supersedes the "schemaVersion stays 1" notes in `D-05`, `D-33`. | Decided |
 
 ---
 

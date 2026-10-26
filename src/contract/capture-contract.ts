@@ -5,8 +5,12 @@
  * specs/4-debug-capture — update the plan with it.
  */
 
-/** Bumped on any breaking change to the exported file shape. */
-export const CAPTURE_SCHEMA_VERSION = 1;
+/**
+ * Bumped on any breaking change to the exported file shape. 2 (D-36): each
+ * entry's `seq` is written as `sequence`, and a readable `time` sits next to
+ * `t`. Only the file changed; `CaptureEntry` in code keeps `seq`.
+ */
+export const CAPTURE_SCHEMA_VERSION = 2;
 
 export type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
 
@@ -266,13 +270,31 @@ export interface CaptureFile {
   readonly page: string;
   readonly userAgent: string;
   readonly stats: CaptureStats;
-  readonly entries: readonly CaptureEntry[];
+  readonly entries: readonly ExportedEntry[];
   /**
    * C-1 (HLD §6.5): requests still in flight at export time, oldest first.
-   * Optional, so `schemaVersion` stays 1 and v1 readers keep working.
+   * Written only when something is in flight.
    */
-  readonly pending?: readonly PendingRequest[];
+  readonly pending?: readonly ExportedPendingRequest[];
 }
+
+/** Written next to `t` in the file: `t` as the station's wall clock, with its UTC offset (`2026-10-25T15:08:56.618+03:00`). */
+interface ReadableTime {
+  readonly time: string;
+}
+
+/**
+ * A `CaptureEntry` as the file writes it (schema 2, D-36): `seq` is spelled
+ * `sequence`, plus `time`. Every other field is the entry's own.
+ */
+export type ExportedEntry = CaptureEntry extends infer E
+  ? E extends CaptureEntry
+    ? Omit<E, 'seq'> & ReadableTime & { readonly sequence: number }
+    : never
+  : never;
+
+/** A `PendingRequest` as the file writes it: plus `time`. */
+export type ExportedPendingRequest = PendingRequest & ReadableTime;
 
 /** Chords like `ctrl+alt+shift+d`. Matched on `KeyboardEvent.code`, so keyboard layout does not matter. */
 export interface ShortcutConfig {

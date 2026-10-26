@@ -230,7 +230,13 @@ test('FR-NOTE-01…04: Add note and session.addNote — rows in Console, entries
     page.getByRole('menuitem', { name: 'Download all (JSON)' }).click(),
   ]);
   const file = JSON.parse(Buffer.concat(await (await download.createReadStream()).toArray()).toString('utf8'));
-  expect(file.schemaVersion).toBe(1);
+  expect(file.schemaVersion).toBe(2);
+  // D-36: each entry leads with `sequence` and a readable local `time`; no `seq`.
+  for (const entry of file.entries) {
+    expect(Object.keys(entry).slice(0, 2)).toEqual(['sequence', 'time']);
+    expect('seq' in entry).toBe(false);
+    expect(new Date(entry.time).getTime()).toBe(entry.t);
+  }
   const notes = file.entries.filter((e) => e.kind === 'note').map((e) => [e.title, e.text]);
   expect(notes).toEqual([
     ['From code', 'the host wrote this'],

@@ -248,13 +248,21 @@ describe('installDebugCapture', () => {
 
     const file = JSON.parse(session.toJson()) as CaptureFile;
 
-    expect(file.schemaVersion).toBe(1);
+    expect(file.schemaVersion).toBe(2);
     expect(file.capturedAt).toBe(new Date(NOW).toISOString());
     expect(file.page).toBe(PAGE);
     expect(file.userAgent).toBe(USER_AGENT);
     expect(file.stats).toEqual({ recorded: 1, dropped: 0, evicted: 0, failed: 0 });
     expect(file.entries.length).toBe(1);
-    expect(file.entries[0] as unknown).toEqual({ kind: 'log', seq: 1, t: NOW, level: 'warn', args: ['careful'] });
+    expect(file.entries[0] as unknown).toEqual({
+      sequence: 1,
+      time: jasmine.any(String),
+      kind: 'log',
+      t: NOW,
+      level: 'warn',
+      args: ['careful'],
+    });
+    expect(new Date(file.entries[0]?.time ?? '').getTime()).toBe(NOW);
   });
 
   it('download and copy hand the JSON to the sinks', async () => {
@@ -729,16 +737,18 @@ describe('session.addNote — 2.1 (C-10, FR-NOTE-03, FR-NOTE-04)', () => {
     getActiveCaptureSession()?.dispose();
   });
 
-  it('records a note with the session clock time; the file keeps it in entries, schemaVersion 1', () => {
+  it('records a note with the session clock time; the file keeps it in entries (schema 2)', () => {
     const controller = createCaptureController({}, fake.env);
     controller.session.addNote('Login', 'clicked Sign in');
     controller.session.addNote('Login');
 
     const file = JSON.parse(controller.session.toJson()) as CaptureFile;
-    expect(file.schemaVersion).toBe(1);
+    expect(file.schemaVersion).toBe(2);
+    const t = controller.session.clock.now();
+    const time = jasmine.any(String);
     expect(file.entries as unknown[]).toEqual([
-      { kind: 'note', seq: 1, t: controller.session.clock.now(), title: 'Login', text: 'clicked Sign in' },
-      { kind: 'note', seq: 2, t: controller.session.clock.now(), title: 'Login', text: '' },
+      { sequence: 1, time, kind: 'note', t, title: 'Login', text: 'clicked Sign in' },
+      { sequence: 2, time, kind: 'note', t, title: 'Login', text: '' },
     ]);
   });
 

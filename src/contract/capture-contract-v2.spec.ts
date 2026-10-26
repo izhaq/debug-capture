@@ -11,6 +11,8 @@ import {
   DEFAULT_CAPTURE_POLICY,
   DebugCaptureOptions,
   EntryDraft,
+  ExportedEntry,
+  ExportedPendingRequest,
   HeaderMap,
   HttpEntry,
   IsProblemEntry,
@@ -141,9 +143,10 @@ const HTTP_DRAFT: Omit<HttpEntry, 'seq' | 'requestId' | 'resBodyCapped'> = {
 };
 
 describe('capture contract v2 (HLD §6.4, §6.5)', () => {
-  it('keeps the v1 file format and default policy unchanged', () => {
-    // Every v2 change is additive: schemaVersion stays 1 (C-1, C-7).
-    expect(CAPTURE_SCHEMA_VERSION).toBe(1);
+  it('file schema 2 (D-36); the default policy is unchanged', () => {
+    // The file renamed `seq` → `sequence` and added `time`: a breaking change to the file
+    // shape, so 2. The entry contract in code is unchanged (it keeps `seq`).
+    expect(CAPTURE_SCHEMA_VERSION).toBe(2);
     expect(DEFAULT_CAPTURE_POLICY).toEqual({
       maxEntries: 5000,
       maxBodyLength: 32_768,
@@ -234,20 +237,25 @@ describe('capture contract v2 (HLD §6.4, §6.5)', () => {
     expect(notFalse.kind).toBe('http');
   });
 
-  it('C-1: the exported file may list pending requests', () => {
-    assertType<Equals<CaptureFile['pending'], readonly PendingRequest[] | undefined>>();
+  it('C-1, D-36: the exported file may list pending requests; entries and pending carry `time`', () => {
+    assertType<Equals<CaptureFile['pending'], readonly ExportedPendingRequest[] | undefined>>();
+    assertType<Equals<CaptureFile['entries'], readonly ExportedEntry[]>>();
+    assertType<Equals<Extract<ExportedEntry, { kind: 'log' }>['sequence'], number>>();
+    // @ts-expect-error — the file spells it `sequence`; `seq` is gone from exported entries.
+    const noSeq: Extract<ExportedEntry, { kind: 'log' }>['seq'] = 1;
 
     const v1File: CaptureFile = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       capturedAt: '2026-01-01T00:00:00.000Z',
       page: 'http://localhost/',
       userAgent: 'test',
       stats: NO_STATS,
       entries: [],
     };
-    const v2File: CaptureFile = { ...v1File, pending: [REQUEST] };
+    const v2File: CaptureFile = { ...v1File, pending: [{ ...REQUEST, time: '2023-11-14T22:13:20.000Z' }] };
 
     expect(v2File.pending?.[0]?.id).toBe(7);
+    expect(noSeq).toBe(1);
   });
 
   it('C-6: RecorderChange and LiveRecorder.onChange', () => {

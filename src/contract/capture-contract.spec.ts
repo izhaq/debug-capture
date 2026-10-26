@@ -9,8 +9,8 @@ import {
 } from './capture-contract';
 
 describe('capture contract', () => {
-  it('CAPTURE_SCHEMA_VERSION is 1', () => {
-    expect(CAPTURE_SCHEMA_VERSION).toBe(1);
+  it('CAPTURE_SCHEMA_VERSION is 2 (D-36: the file writes `sequence` and `time`)', () => {
+    expect(CAPTURE_SCHEMA_VERSION).toBe(2);
   });
 
   it('LOG_LEVELS lists the five console methods in order', () => {

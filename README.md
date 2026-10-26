@@ -31,7 +31,7 @@ The package ships as one file. Build it once on a machine with access to the
 source, carry the tarball in, and install it like any other package:
 
 ```bash
-npm install ./debug-capture-2.1.0-alpha.1.tgz
+npm install ./debug-capture-2.1.0-alpha.2.tgz
 ```
 
 ESM only, with type declarations. Entry points:
@@ -196,9 +196,14 @@ capture is off): `controller.session.addNote('Login', 'clicked Sign in')`.
   another 25 MB (an estimate). Dismiss either; it comes back at the next step.
 - Dock bottom or right, resize, maximize.
 
-The exported file is plain JSON (`schemaVersion` 1, the same format as v1): you
-can read it without the panel. Notes are entries with `kind: "note"`, `title`
-and `text`; a reader that does not know them can skip them.
+The exported file is plain JSON (`schemaVersion` 2): you can read it without
+the panel. Each entry starts with `sequence` (1, 2, 3… in the order things were
+recorded) and `time`, the station's local time with its UTC offset
+(`"2026-10-25T15:08:56.618+03:00"`); `t` is the same moment in epoch
+milliseconds. For `http` entries the time is when the request started. Notes
+are entries with `kind: "note"`, `title` and `text`; a reader that does not
+know them can skip them. (Schema 1, before 2.1.0-alpha.2, wrote `seq` and had
+no `time`. In code, entries keep `seq`.)
 
 ### Keyboard
 
