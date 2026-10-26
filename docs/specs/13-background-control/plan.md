@@ -109,3 +109,9 @@ S-13c — done, in review. The app takes `vendor/debug-capture-2.2.0-alpha.1.tgz
   and takes notes; the activation chord again → no file, flag gone. About lists the chords.
 - Chrome 146 (`NFR-COMP-01`): `npm run check` passed on Chrome for Testing 146.0.7680.72 —
   Karma 1249 specs, Playwright 63 (warm open 60 ms).
+
+Review pass before merge (no outside review or CI on this repo): read the whole S-13 diff.
+One gap found and closed: no browser test turned the tool on, off and on again in one page
+(the second panel install depends on the loader clearing its "live" mark on dispose). New e2e
+in `background.spec.mjs` on S-13a (shown red by removing that reset), merged forward; e2e
+floor 64.
