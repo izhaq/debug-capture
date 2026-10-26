@@ -40,3 +40,9 @@ S-14b — done, in review. Unit specs 1259 → **1267** (+8: model 3, Console vi
 S-14b gives them rows). e2e 65 → **66** (`panel-v23.spec.mjs`). Every new spec failed once (two
 unit mutation rounds, one e2e round). Changed existing specs on purpose: the Console chip list
 has **App**; the inert-handle spec calls `message()`. Version 2.3.0-alpha.1.
+
+S-14c — done, in review. The app takes `vendor/debug-capture-2.3.0-alpha.1.tgz` and exports
+`debugMessage(type, data?, level?)` from `src/app/features/debug-panel/` (forwards to the
+activation handle; a no-op before `startDebugPanel()` and while off). App spec +1 (604),
+shown red once by a mutation. `tsc`, `lint:layers`, `ng build` (main 728.59 kB / 163.73 kB),
+`ng test` pass. `docs/debug-panel.md`: "Send the app's own messages".
