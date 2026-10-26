@@ -12,7 +12,7 @@ export interface DebugActivationOptions {
   readonly storageKey?: string | false;
   /** Passed to `createCaptureController()`. */
   readonly capture?: DebugCaptureOptions;
-  /** Passed to `installDebugPanel()` (`launcher` defaults to `'hidden'` here, `D-41`); `false` starts capture with no panel. */
+  /** Passed to `installDebugPanel()` (`launcher` defaults to `true` on a `?debug=1` page, else `'hidden'`, `D-41`); `false`: no panel. */
   readonly panel?: DebugPanelOptions | false;
 }
 
@@ -110,7 +110,8 @@ function build(options: DebugActivationOptions, deps: ActivationDeps): DebugActi
     }
   };
 
-  const on = (): Promise<void> => {
+  /** `launcher`: the DBG button's default for this switch-on (D-41). */
+  const on = (launcher: true | 'hidden'): Promise<void> => {
     if (active) return Promise.resolve();
     active = true;
     loadError = null;
@@ -122,11 +123,11 @@ function build(options: DebugActivationOptions, deps: ActivationDeps): DebugActi
           if (mine !== generation) return;
           const controller = modules.createCaptureController(options.capture);
           try {
-            // D-41: no visible sign — the DBG button starts hidden unless the host says otherwise.
+            // D-41: shown on a ?debug=1 page; otherwise no visible sign — unless the host says otherwise.
             const panel =
               options.panel === false
                 ? null
-                : modules.installDebugPanel(controller, { launcher: 'hidden', ...options.panel, activation: chord });
+                : modules.installDebugPanel(controller, { launcher, ...options.panel, activation: chord });
             loaded = { controller, panel };
           } catch (error) {
             controller.dispose();
@@ -161,7 +162,7 @@ function build(options: DebugActivationOptions, deps: ActivationDeps): DebugActi
   const toggle = (): void => {
     remember(!active);
     if (active) off();
-    else void on();
+    else void on('hidden');
   };
 
   const onKeyDown = (event: Event): void => {
@@ -176,7 +177,7 @@ function build(options: DebugActivationOptions, deps: ActivationDeps): DebugActi
   };
   if (matches) inRoot(() => scope.addEventListener('keydown', onKeyDown));
 
-  const ready = flagged(scope, key) ? on() : Promise.resolve();
+  const ready = urlFlag(scope) ? on(true) : storedFlag(scope, key) ? on('hidden') : Promise.resolve();
 
   return {
     get active(): boolean {
@@ -197,7 +198,7 @@ function build(options: DebugActivationOptions, deps: ActivationDeps): DebugActi
     ready,
     activate(): void {
       remember(true);
-      void on();
+      void on('hidden');
     },
     deactivate(): void {
       remember(false);
@@ -211,13 +212,16 @@ function build(options: DebugActivationOptions, deps: ActivationDeps): DebugActi
 }
 
 /** A copy of `isDebugRequested()`'s rules (`D-45`): this piece may not import the core statically. */
-function flagged(scope: ActivationScope, key: string | false): boolean {
+function urlFlag(scope: ActivationScope): boolean {
   try {
     const value = new URLSearchParams(scope.location?.search ?? '').get('debug');
-    if (value === '1' || value === 'true') return true;
+    return value === '1' || value === 'true';
   } catch {
-    // Not set.
+    return false;
   }
+}
+
+function storedFlag(scope: ActivationScope, key: string | false): boolean {
   try {
     return key !== false && scope.localStorage?.getItem(key) === '1';
   } catch {

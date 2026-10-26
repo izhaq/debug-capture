@@ -63,10 +63,9 @@ for (const [name, host] of Object.entries(HOSTS)) {
     await openHost(page, name, '?debug=1');
     const view = (section) => page.locator(`${PANEL} .dcp-${section}`);
 
-    // FR-ACT-02/03: the loader is there; the UI chunk is not loaded yet. 2.2 (D-41): the activation
-    // piece starts the DBG button hidden — no visible sign until Settings says Show.
-    await page.waitForFunction((tag) => document.querySelector(tag) !== null, PANEL);
-    await expect(page.locator(`${PANEL} .dcp-launcher`)).toBeHidden();
+    // FR-ACT-02/03: the launcher is there; the UI chunk is not loaded yet. D-41: a ?debug=1 page
+    // shows the DBG button (the shortcut and the stored flag keep it hidden: background.spec.mjs).
+    await expect(page.getByRole('button', { name: /open debug panel/ })).toBeVisible();
     expect(uiChunkRequests).toEqual([]);
 
     // FR-ACT-05/07: the chord opens the panel and moves focus in; the chunk loads once.

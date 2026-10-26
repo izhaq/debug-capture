@@ -13,10 +13,9 @@ merge into the integration branch yourself — only the owner merges.
   2.1.0-alpha.2) is open; S-13 is stacked on it.
 - S-13 spec: [`13-background-control/`](13-background-control/spec.md). HLD rows §3.11
   (`FR-BG-01…10`), `C-11`, decisions `D-37` … `D-45`.
-- PRs, all open, in merge order: #107 → #108 docs → #109 S-13a (core chords,
-  `debug-capture/activate`, seams) → #110 S-13b (hidden DBG button, About) → S-13c (the app,
-  2.2.0-alpha.1). Numbers and notes in [`13-background-control/plan.md`](13-background-control/plan.md).
-  After each merge, merge the integration branch into the later branches (no rebase).
+- S-13 is **merged** (#107 → #108 → #109 → #110 → #111). Follow-up: the DBG button shows
+  on `?debug=1` pages (2.2.0-alpha.2). Numbers and notes in
+  [`13-background-control/plan.md`](13-background-control/plan.md). Next: S-12.
 - Numbers on #107's head: 1202 unit specs, 55 e2e + perf; core 12,294 B (budget becomes
   13,904 B, `D-43`), loader 4,717 / 5,632 B, UI chunk 40,581 / 45,056 B; warm open 52–67 ms.
 

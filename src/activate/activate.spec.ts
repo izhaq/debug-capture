@@ -267,6 +267,31 @@ describe('installDebugActivation — 2.2 (FR-BG-01…03)', () => {
     expect(panels[2].options).toEqual({ launcher: 'hidden', activation: false });
   });
 
+  it('?debug=1 shows the DBG button; the stored flag and the chord keep it hidden (D-41)', async () => {
+    search = '?debug=1';
+    stored.set('debug-capture', '1');
+    const byUrl = createActivation({}, { scope: scope(), load });
+    await byUrl.ready;
+    expect(panels[0].options?.launcher).toBeTrue();
+    // Turned off and on again by the chord in the same page: the chord's rule.
+    chord();
+    chord();
+    await settle();
+    expect(panels[1].options?.launcher).toBe('hidden');
+    byUrl.dispose();
+
+    search = '';
+    const byStore = createActivation({}, { scope: scope(), load });
+    await byStore.ready;
+    expect(panels[2].options?.launcher).toBe('hidden');
+    byStore.dispose();
+
+    search = '?debug=true';
+    const custom = createActivation({ panel: { launcher: false } }, { scope: scope(), load });
+    await custom.ready;
+    expect(panels[3].options?.launcher).toBeFalse();
+  });
+
   it('panel: false starts capture with no panel', async () => {
     const debug = createActivation({ panel: false }, { scope: scope(), load });
     debug.activate();

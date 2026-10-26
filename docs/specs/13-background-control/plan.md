@@ -115,3 +115,11 @@ One gap found and closed: no browser test turned the tool on, off and on again i
 (the second panel install depends on the loader clearing its "live" mark on dispose). New e2e
 in `background.spec.mjs` on S-13a (shown red by removing that reset), merged forward; e2e
 floor 64.
+
+**Merged** (2026-10-26): #107, docs #108, S-13a #109, S-13b #110, S-13c #111.
+
+Follow-up (owner, 2026-10-26): on a `?debug=1` page the DBG button **shows** again (`D-41`
+amended); the shortcut and the stored flag keep it hidden. Package **2.2.0-alpha.2**, the app
+takes the new tarball in the same PR. +1 unit spec (`activate.spec.ts`), +1 e2e
+(`background.spec.mjs`); the host e2e expects the button visible on `?debug=1` again (it
+expected hidden since S-13b). Floors 1250 / 65.

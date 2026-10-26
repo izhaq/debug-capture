@@ -274,3 +274,22 @@ test('FR-BG-09, D-42: Settings › About lists the version and every chord in us
   const host = await page.evaluate(() => window.__host);
   expect(host.violations).toEqual([]);
 });
+
+test('D-41: the DBG button shows on a ?debug=1 page; the chord and the stored flag keep it hidden', async ({
+  page,
+}) => {
+  const launcher = page.locator(`${PANEL} .dcp-launcher`);
+  const mounted = () => page.evaluate((tag) => document.querySelector(tag) !== null, PANEL);
+
+  await openHost(page, 'plain');
+  await page.keyboard.press(ACTIVATE);
+  await expect.poll(mounted).toBe(true);
+  await expect(launcher).toBeHidden();
+
+  await openHost(page, 'plain', '?debug=1');
+  await expect(launcher).toBeVisible();
+
+  await openHost(page, 'plain');
+  await expect.poll(mounted).toBe(true);
+  await expect(launcher).toBeHidden();
+});

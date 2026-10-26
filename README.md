@@ -31,6 +31,8 @@ a reload capture starts with the page and records its first requests. Press
 goes and the browser forgets it. (On a `?debug=1` page this turns it off for
 that page; the next load follows the URL again.)
 
+On a `?debug=1` page the DBG button shows in the corner, as before.
+
 Once it is on, press **`Ctrl+Alt+Shift+P`** to open the panel. Every other
 shortcut is under [Keyboard](#keyboard), and in the panel under **Settings ›
 About**.
@@ -41,7 +43,7 @@ The package ships as one file. Build it once on a machine with access to the
 source, carry the tarball in, and install it like any other package:
 
 ```bash
-npm install ./debug-capture-2.2.0-alpha.1.tgz
+npm install ./debug-capture-2.2.0-alpha.2.tgz
 ```
 
 ESM only, with type declarations. Entry points:
@@ -232,8 +234,8 @@ back on. `controller.dispose()` stops capture and unbinds them for good.
 - **Settings:** theme, dock, text size, time, **Buffer** (1,000 · 5,000 · 10,000 ·
   50,000 · No limit; a smaller size drops the oldest entries at once; No limit
   may make the page slow and use a lot of memory), **DBG button** (show or hide
-  the corner button; hidden at first when the tool was turned on by
-  `installDebugActivation`) and capture on / off. Settings are remembered per
+  the corner button; hidden at first when the tool was turned on by the shortcut
+  or the stored flag, shown on a `?debug=1` page) and capture on / off. Settings are remembered per
   browser (capture always starts on). At the end, **About** shows the package
   version and every shortcut with the keys set in code.
 - **Warnings:** a banner when the buffer is almost full (it offers **Download
