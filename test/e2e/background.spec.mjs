@@ -107,6 +107,32 @@ test('FR-BG-03: the chord again turns it off for good — flag gone, globals nat
   expect(await page.evaluate((tag) => document.querySelector(tag) !== null, PANEL)).toBe(false);
 });
 
+test('FR-BG-03: on, off, on again in one page — a fresh capture and a working panel', async ({ page }) => {
+  const pageErrors = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await openHost(page, 'plain');
+  const mounted = () => page.evaluate((tag) => document.querySelector(tag) !== null, PANEL);
+
+  await page.keyboard.press(ACTIVATE);
+  await expect.poll(mounted).toBe(true);
+  await page.evaluate(() => fetch('/api/ping').then((r) => r.json()));
+  await expect.poll(async () => (await plainEntries(page, 'http'))?.length).toBe(1);
+  await page.keyboard.press(ACTIVATE);
+  await expect.poll(mounted).toBe(false);
+
+  await page.keyboard.press(ACTIVATE);
+  await expect.poll(mounted).toBe(true);
+  expect(await stored(page)).toBe('1');
+  // A new, empty buffer; capture works again.
+  expect(await plainEntries(page, 'http')).toEqual([]);
+  await page.evaluate(() => fetch('/api/ping').then((r) => r.json()));
+  await expect.poll(async () => (await plainEntries(page, 'http'))?.length).toBe(1);
+  // The second panel opens.
+  await page.keyboard.press('Control+Alt+Shift+KeyP');
+  await expect(page.locator(`${PANEL} .dcp-frame`)).toBeVisible();
+  expect(pageErrors).toEqual([]);
+});
+
 test('D-45: ?debug=1 never stores the flag, and the chord turns that page off too', async ({ page }) => {
   await openHost(page, 'plain', '?debug=1');
   expect(await stored(page)).toBeNull();
