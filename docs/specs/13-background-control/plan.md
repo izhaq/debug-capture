@@ -43,7 +43,7 @@ All paths are under `packages/debug-capture/` unless they start with `/`.
 
 ## Status
 
-Docs PR #108 open.
+PRs, in merge order: #107 (export schema 2) → #108 docs → #109 S-13a → #110 S-13b → S-13c.
 
 S-13a — done, in review. Numbers:
 
@@ -94,3 +94,18 @@ Deviations and notes:
   choice on every save (spec in `frame-v22.spec.ts`).
 - About is a scroll box (160 px) at the end of the Settings popover, focusable for keyboard
   scrolling.
+
+S-13c — done, in review. The app takes `vendor/debug-capture-2.2.0-alpha.1.tgz`:
+
+- `startDebugPanel()` returns `{ providers, ready, activation }`; `main.ts` bootstraps after
+  `ready`. The app spec was rewritten for the new shape (shown red once by a mutation).
+- `tsc`, `lint:layers`, `ng build` and `ng test` (603 specs) pass.
+- Start bundle (webpack, production): main 769.94 → **728.53 kB** raw, 177.03 → **163.74 kB**
+  transfer. The core is a lazy chunk (`index-mjs`, 32.98 kB raw / 11.08 kB), with the loader
+  (`panel-mjs`, 9.22 / 3.85 kB) and the UI (`chunks-app`, 117.07 / 34.75 kB).
+- In the real app, driven by Playwright: off → the download chord makes no file; after the
+  activation chord and a reload, the file holds the startup request
+  (`/api/system-experiments/get`) and the note chord's note; capture off (`S`) still exports
+  and takes notes; the activation chord again → no file, flag gone. About lists the chords.
+- Chrome 146 (`NFR-COMP-01`): `npm run check` passed on Chrome for Testing 146.0.7680.72 —
+  Karma 1249 specs, Playwright 63 (warm open 60 ms).
