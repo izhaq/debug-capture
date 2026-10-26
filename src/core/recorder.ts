@@ -1,4 +1,5 @@
 import {
+  APP_MESSAGE_LEVELS,
   BufferUsage,
   CaptureEntry,
   CapturePolicy,
@@ -216,6 +217,16 @@ export function createRecorder(policy: CapturePolicy): LiveRecorder & ProbeRecor
           t: draft.t,
           title: redactFreeText(draft.title, secrets, hidden, max).text,
           text: redactFreeText(draft.text, secrets, hidden, max).text,
+        };
+      case 'app':
+        // The host's own message (C-12): data like a log argument, the type like a note title.
+        return {
+          kind: 'app',
+          seq,
+          t: draft.t,
+          type: redactFreeText(String(draft.type), secrets, hidden, max).text,
+          level: APP_MESSAGE_LEVELS.indexOf(draft.level) === -1 ? 'info' : draft.level,
+          data: toJsonSafe([draft.data], policy)[0],
         };
       default: {
         const unknownDraft: never = draft;

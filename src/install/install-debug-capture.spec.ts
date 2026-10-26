@@ -11,6 +11,7 @@ import {
   DEFAULT_SHORTCUTS,
   DebugCaptureOptions,
   DownloadHost,
+  AppMessageEntry,
   NoteEntry,
   FetchHost,
   ProbeRecorder,
@@ -912,5 +913,86 @@ describe('chords for the controller\u2019s life — 2.2 (C-11, FR-BG-05…07)', 
 
   it('DEBUG_CAPTURE_VERSION is a semver string (the build checks it against package.json)', () => {
     expect(DEBUG_CAPTURE_VERSION).toMatch(/^\d+\.\d+\.\d+(-[\w.]+)?$/);
+  });
+});
+
+describe('session.addMessage — 2.3 (C-12, FR-MSG-01, 03, 04, 07)', () => {
+  let fake: Fake;
+
+  beforeEach(() => {
+    fake = fakeEnvironment();
+  });
+
+  afterEach(() => {
+    getActiveCaptureSession()?.dispose();
+  });
+
+  const apps = (session: CaptureSession): AppMessageEntry[] =>
+    entries(session).filter((e): e is AppMessageEntry => e.kind === 'app');
+
+  it('records type, level and data with the session clock; the file keeps it in entries (schema 2)', () => {
+    const controller = createCaptureController({}, fake.env);
+    controller.session.addMessage('order-saved', { id: 42, total: 99.5 }, 'warn');
+
+    const file = JSON.parse(controller.session.toJson()) as CaptureFile;
+    expect(file.schemaVersion).toBe(2);
+    expect(file.entries as unknown[]).toEqual([
+      {
+        sequence: 1,
+        time: jasmine.any(String),
+        kind: 'app',
+        t: controller.session.clock.now(),
+        type: 'order-saved',
+        level: 'warn',
+        data: { id: 42, total: 99.5 },
+      },
+    ]);
+  });
+
+  it('data defaults to null and level to info; an unknown level is info', () => {
+    const controller = createCaptureController({}, fake.env);
+    controller.session.addMessage('ping');
+    controller.session.addMessage('odd', 1, 'fatal' as unknown as 'error');
+    const seen: Array<{ data: unknown; level: string }> = apps(controller.session).map(({ data, level }) => ({
+      data,
+      level,
+    }));
+    expect(seen).toEqual([
+      { data: null, level: 'info' },
+      { data: 1, level: 'info' },
+    ]);
+  });
+
+  it('keeps a JSON-safe, redacted clone: later changes to the object do not reach it', () => {
+    const controller = createCaptureController({}, fake.env);
+    const data = { user: 'dana', password: 'hunter2', nested: { n: 1 } };
+    controller.session.addMessage('login see http://x/?token=abc', data);
+    data.nested.n = 2;
+
+    const [message] = apps(controller.session);
+    expect(message.data as unknown).toEqual({ user: 'dana', password: '[redacted]', nested: { n: 1 } });
+    expect(message.type).toContain('[redacted]');
+    expect(message.type).not.toContain('abc');
+  });
+
+  it('is dropped while capture is off (FR-MSG-03), and recorded again once on', () => {
+    const controller = createCaptureController({}, fake.env);
+    controller.stop();
+    controller.session.addMessage('while-off');
+    expect(apps(controller.session)).toEqual([]);
+
+    controller.start();
+    controller.session.addMessage('while-on');
+    expect(apps(controller.session).map((m) => m.type)).toEqual(['while-on']);
+  });
+
+  it('never throws, whatever it is given', () => {
+    const controller = createCaptureController({}, fake.env);
+    const cyclic: Record<string, unknown> = {};
+    cyclic['self'] = cyclic;
+    expect(() =>
+      controller.session.addMessage(null as unknown as string, cyclic, 5 as unknown as 'info'),
+    ).not.toThrow();
+    expect(apps(controller.session).length).toBe(1);
   });
 });

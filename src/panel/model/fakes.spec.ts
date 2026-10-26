@@ -218,6 +218,7 @@ export function fakeCapture(policy: Partial<CapturePolicy> = {}): FakeCapture {
       calls.push('session.clear');
       recorder.clear();
     },
+    addMessage: () => undefined,
     addNote: (title: string, text = ''): void => {
       calls.push(`session.addNote ${title} ${text}`);
     },

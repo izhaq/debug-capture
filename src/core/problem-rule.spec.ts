@@ -145,3 +145,19 @@ describe('isProblemEntry — 2.1 notes (C-10)', () => {
     expect(isProblemEntry({ kind: 'note', seq: 1, t: 0, title: 'error 500', text: 'boom' })).toBe(false);
   });
 });
+
+describe('isProblemEntry — 2.3 app messages (C-12, FR-MSG-06)', () => {
+  it('an app message is a problem only at level error', () => {
+    const app = (level: 'info' | 'warn' | 'error'): CaptureEntry => ({
+      kind: 'app',
+      seq: 1,
+      t: 0,
+      type: 'payment-failed',
+      level,
+      data: null,
+    });
+    expect(isProblemEntry(app('error'))).toBe(true);
+    expect(isProblemEntry(app('warn'))).toBe(false);
+    expect(isProblemEntry(app('info'))).toBe(false);
+  });
+});

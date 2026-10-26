@@ -1,4 +1,4 @@
-import type { CaptureController, CaptureSession, DebugCaptureOptions } from '..';
+import type { AppMessageLevel, CaptureController, CaptureSession, DebugCaptureOptions } from '..';
 import type { DebugPanelHandle, DebugPanelOptions } from '../panel';
 
 /** `localStorage[DEBUG_STORAGE_KEY] === '1'`: switched on for every page load in this browser (the key 2.0 already read). */
@@ -34,6 +34,11 @@ export interface DebugActivationHandle {
   deactivate(): void;
   /** Removes the key listener and turns off; the stored flag stays. */
   dispose(): void;
+  /**
+   * 2.3 (`FR-MSG-02`): the host's own message, recorded by the loaded session
+   * (`session.addMessage`); dropped while the tool is off or still loading. Never throws.
+   */
+  message(type: string, data?: unknown, level?: AppMessageLevel): void;
 }
 
 /** What a switch-on loads: the core and the panel entry. */
@@ -83,6 +88,7 @@ export function createActivation(options: DebugActivationOptions = {}, deps: Act
       activate: none,
       deactivate: none,
       dispose: none,
+      message: none,
     };
   }
 }
@@ -207,6 +213,14 @@ function build(options: DebugActivationOptions, deps: ActivationDeps): DebugActi
     dispose(): void {
       if (matches) scope.removeEventListener('keydown', onKeyDown);
       off();
+    },
+    message(type: string, data?: unknown, level?: AppMessageLevel): void {
+      // FR-MSG-03: before the load lands (or after off) there is no session — dropped.
+      try {
+        loaded?.controller.session.addMessage(type, data, level);
+      } catch {
+        // Never throws at the host (ISO-12).
+      }
     },
   };
 }

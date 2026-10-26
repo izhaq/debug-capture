@@ -24,6 +24,8 @@ export const isProblemEntry: IsProblemEntry = (entry: CaptureEntry): boolean => 
       return entry.error !== null || (entry.status !== null && entry.status >= 500);
     case 'ws':
       return entry.event === 'error';
+    case 'app':
+      return entry.level === 'error';
     case 'log':
     case 'note':
       return false;

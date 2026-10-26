@@ -250,3 +250,16 @@ describe('memoised selectors (S03-14)', () => {
     expect(Object.isFrozen(selectWsMessages(state))).toBe(true);
   });
 });
+
+describe('app messages before S-14b (S14-07)', () => {
+  it('an app message shows in no list yet and is not counted', () => {
+    const store = storeWith([
+      logEntry(1),
+      { kind: 'app', seq: 2, t: 2, type: 'order-saved', level: 'info', data: { id: 1 } },
+    ]);
+    expect(seqs(selectConsoleRows(store.getState()))).toEqual([1]);
+    expect(selectListCounts(store.getState(), 'console')).toEqual(
+      selectListCounts(storeWith([logEntry(1)]).getState(), 'console'),
+    );
+  });
+});

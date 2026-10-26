@@ -77,6 +77,7 @@ function fakeController(recorder: FakeRecorder): CaptureController & { setOn(nex
     download: () => undefined,
     copy: async () => true,
     clear: () => recorder.clear(),
+    addMessage: () => undefined,
     addNote: () => undefined,
     dispose: () => undefined,
   };

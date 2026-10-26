@@ -97,6 +97,7 @@ function fakeSession(recorder: LiveRecorder, isActive: () => boolean): Controlle
     download: (): void => undefined,
     copy: async () => false,
     clear: (): void => undefined,
+    addMessage: () => undefined,
     addNote: (): void => undefined,
     dispose: (): void => undefined,
   };

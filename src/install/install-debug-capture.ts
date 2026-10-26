@@ -1,4 +1,5 @@
 import {
+  AppMessageLevel,
   CaptureController,
   CaptureSession,
   ControlledCaptureSession,
@@ -138,6 +139,15 @@ function createController(
     addNote(title: string, text = ''): void {
       // record() never throws; String() keeps a careless caller's value from becoming a `failed` count.
       recorder.record({ kind: 'note', t: clock.now(), title: String(title), text: String(text) });
+    },
+    addMessage(type: string, data: unknown = null, level: AppMessageLevel = 'info'): void {
+      // FR-MSG-03: the host's messages are app activity, so capture off drops them (a note is kept).
+      if (uninstall === null) return;
+      try {
+        recorder.record({ kind: 'app', t: clock.now(), type: String(type), level, data });
+      } catch {
+        // A type whose String() throws: nothing to record, and nothing thrown at the host.
+      }
     },
     dispose(): void {
       if (disposeIsFinal) controller.dispose();

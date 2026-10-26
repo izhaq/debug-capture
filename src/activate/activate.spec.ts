@@ -19,7 +19,10 @@ describe('installDebugActivation — 2.2 (FR-BG-01…03)', () => {
   let panels: Array<{ options: DebugPanelOptions | undefined; handle: DebugPanelHandle }>;
 
   function fakeController(): CaptureController {
-    const session = { active: true } as unknown as CaptureController['session'];
+    const session = {
+      active: true,
+      addMessage: jasmine.createSpy('addMessage'),
+    } as unknown as CaptureController['session'];
     return jasmine.createSpyObj<CaptureController>('controller', ['start', 'stop', 'onChange', 'dispose'], {
       session,
       on: true,
@@ -290,6 +293,32 @@ describe('installDebugActivation — 2.2 (FR-BG-01…03)', () => {
     const custom = createActivation({ panel: { launcher: false } }, { scope: scope(), load });
     await custom.ready;
     expect(panels[3].options?.launcher).toBeFalse();
+  });
+
+  it('2.3 (FR-MSG-02, 03): message() forwards once loaded; dropped before, while loading and after off', async () => {
+    held = true;
+    const debug = createActivation({}, { scope: scope(), load });
+    debug.message('before');
+    debug.activate();
+    debug.message('loading');
+    release.forEach((go) => go());
+    await settle();
+
+    const session = created[0].controller.session as unknown as { addMessage: jasmine.Spy };
+    debug.message('order-saved', { id: 1 }, 'error');
+    expect(session.addMessage.calls.allArgs()).toEqual([['order-saved', { id: 1 }, 'error']]);
+
+    debug.deactivate();
+    debug.message('after');
+    expect(session.addMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('2.3: message() never throws, even when the session does', async () => {
+    const debug = createActivation({}, { scope: scope(), load });
+    debug.activate();
+    await settle();
+    (created[0].controller.session as unknown as { addMessage: jasmine.Spy }).addMessage.and.throwError('boom');
+    expect(() => debug.message('x')).not.toThrow();
   });
 
   it('panel: false starts capture with no panel', async () => {

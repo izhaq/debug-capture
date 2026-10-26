@@ -43,7 +43,7 @@ The package ships as one file. Build it once on a machine with access to the
 source, carry the tarball in, and install it like any other package:
 
 ```bash
-npm install ./debug-capture-2.2.0-alpha.2.tgz
+npm install ./debug-capture-2.3.0-alpha.0.tgz
 ```
 
 ESM only, with type declarations. Entry points:
@@ -203,6 +203,27 @@ error it throws is caught and ignored.
 
 To add a note from code (it shows in Console and in the export, also while
 capture is off): `controller.session.addNote('Login', 'clicked Sign in')`.
+
+### Send your own messages
+
+Your app can send its own messages into the capture — a type name, any JSON
+data, and a level (`'info'`, the default, `'warn'` or `'error'`). Keep the
+activation handle from start-up and call `message()` any time:
+
+```ts
+const debug = installDebugActivation();
+
+debug.message('order-saved', { id: 42, total: 99.5 });
+debug.message('payment-failed', { code: 'E17' }, 'error'); // counts as a problem
+```
+
+They are stored in the buffer and exported in the JSON file as entries with
+`kind: "app"`, `type`, `level` and `data`. The data is copied when you call
+(later changes to your object do not reach it), secrets in it are hidden like
+in logs, and long values are cut. While the tool is off (not turned on yet,
+turned off, or capture off) a message is **dropped** — calling `message()`
+then costs nothing. The same call is `controller.session.addMessage(type,
+data, level)` on a controller you made yourself.
 
 `createCaptureController(options)`:
 

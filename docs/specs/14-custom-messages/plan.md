@@ -27,4 +27,10 @@ work in by a merge, no rebase.
 
 ## Status
 
-Docs PR open. Code not started.
+Docs PR #113 open.
+
+S-14a — done, in review. Unit specs 1250 → **1259** (+9: `install-debug-capture.spec.ts` +5,
+`activate.spec.ts` +2, `problem-rule.spec.ts` +1, `selectors.spec.ts` +1). Every new spec
+failed once (against stubs, then a mutation round). Old specs changed only to compile: fake
+sessions gain `addMessage`, the contract's exhaustive draft switch gains `app`. Version
+2.3.0-alpha.0. Until S-14b the Console leaves app messages out (`S14-07`).

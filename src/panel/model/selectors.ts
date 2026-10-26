@@ -63,7 +63,8 @@ function byKind(entries: readonly CaptureEntry[]): ByKind {
     for (const entry of entries) {
       if (entry.kind === 'http') http.push(entry);
       else if (entry.kind === 'ws') ws.push(entry);
-      else consoleRows.push(entry);
+      // S-14a: app messages get their Console rows in S-14b; until then no list shows them.
+      else if (entry.kind !== 'app') consoleRows.push(entry);
     }
     split = Object.freeze({
       http: Object.freeze(http),

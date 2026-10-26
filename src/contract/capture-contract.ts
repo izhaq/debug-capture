@@ -13,7 +13,7 @@
 export const CAPTURE_SCHEMA_VERSION = 2;
 
 /** The package version (HLD `D-42`), shown in Settings › About. `npm run build` checks it equals package.json. */
-export const DEBUG_CAPTURE_VERSION = '2.2.0-alpha.2';
+export const DEBUG_CAPTURE_VERSION = '2.3.0-alpha.0';
 
 export type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
 
@@ -125,8 +125,23 @@ export interface NoteEntry extends CaptureEntryBase {
   readonly text: string;
 }
 
+/** 2.3 (`C-12`, `FR-MSG-01`): how loud an app message is; `error` makes it a problem (`FR-MSG-06`). */
+export type AppMessageLevel = 'info' | 'warn' | 'error';
+
+export const APP_MESSAGE_LEVELS: readonly AppMessageLevel[] = Object.freeze(['info', 'warn', 'error']);
+
+/** 2.3 (`C-12`): a message the host app sent itself (`session.addMessage`). */
+export interface AppMessageEntry extends CaptureEntryBase {
+  readonly kind: 'app';
+  /** The host's short name for it, e.g. `order-saved`. Redacted and cut like a note title. */
+  readonly type: string;
+  readonly level: AppMessageLevel;
+  /** A JSON-safe, redacted clone made at record time, like `LogEntry.args`. */
+  readonly data: JsonValue;
+}
+
 /** Discriminated on `kind`. Switch over it with a `never` default to stay exhaustive. */
-export type CaptureEntry = LogEntry | HttpEntry | WebSocketEntry | ErrorEntry | NoteEntry;
+export type CaptureEntry = LogEntry | HttpEntry | WebSocketEntry | ErrorEntry | NoteEntry | AppMessageEntry;
 
 export type CaptureKind = CaptureEntry['kind'];
 
@@ -140,7 +155,8 @@ export type EntryDraft =
   | Omit<HttpEntry, 'seq'>
   | Omit<WebSocketEntry, 'seq'>
   | Omit<ErrorEntry, 'seq'>
-  | Omit<NoteEntry, 'seq'>;
+  | Omit<NoteEntry, 'seq'>
+  | (Omit<AppMessageEntry, 'seq' | 'data'> & { readonly data: unknown });
 
 /**
  * Every rule about what gets kept and how, in one reviewable place. Applied
@@ -523,6 +539,12 @@ export interface ControlledCaptureSession extends CaptureSession {
    * Never throws.
    */
   addNote(title: string, text?: string): void;
+  /**
+   * C-12 (2.3): records the host's own message — only while capture is on;
+   * dropped while off (`FR-MSG-03`). `data` defaults to `null`, an unknown
+   * `level` is `info`. Never throws.
+   */
+  addMessage(type: string, data?: unknown, level?: AppMessageLevel): void;
 }
 
 /**
