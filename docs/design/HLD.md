@@ -5,7 +5,10 @@ fresh-context review (33 findings), a confirmation review (14 findings) and the
 mockup build (14 questions), all applied. 0.5 (2026-10-15): the P4 frame moves
 from S-02 to S-08, so wave 2 has no track waiting on another (§9). 0.6 (2026-10-25):
 release 2.1 (S-11) — scope §2.1a, requirement rows §3.10, core changes `C-9` / `C-10`,
-the 2.1 options, handle and data-source members (§6.4); `D-24` gives way to `D-32`.
+the 2.1 options, handle and data-source members (§6.4); `D-24` gives way to `D-32`. 0.7 (2026-10-26):
+release 2.2 (S-13, background control) — scope §2.1b, rows §3.11, core change `C-11`, the
+activation entry `debug-capture/activate` (§6.1, §6.4, §6.6), decisions `D-37` … `D-45`; the
+activation shortcut comes on top of the `?debug=1` URL switch, which stays (`D-40`, `D-45`).
 **Scope:** the whole of v2: the capture layer it inherits from v1, and the new
 on-screen **debug panel**.
 **This document is the source of truth.** Every v2 spec and plan is cut from
@@ -19,7 +22,8 @@ and looks. Section 6 is how it is built. Sections 7–8 are how we build and
 test it. Section 9 is the delivery plan. Section 10 holds every decision, and
 which ones still need the owner. Section 11 is open questions.
 
-Words used here: **MUST** = required for 2.0; **MUST (2.1)** = required for release 2.1 (S-11). **SHOULD** = wanted in 2.0, can
+Words used here: **MUST** = required for 2.0; **MUST (2.1)** = required for release 2.1 (S-11);
+**MUST (2.2)** = required for release 2.2 (S-13). **SHOULD** = wanted in 2.0, can
 slip. **COULD** = later (2.x) unless cheap. "**Host**" = the app the panel runs
 inside. "**Entry**" = one recorded item (a request, a frame, a log line, an
 error).
@@ -42,7 +46,10 @@ error).
   research (`docs/research/host-impact-edge-cases.md`).
 - **It costs almost nothing until used.** At start the page loads only a
   small **loader** (≤ 4 kB in 2.0, ≤ 5.5 kB in 2.1: launcher, toggle shortcut, problems
-  badge). The panel UI (≤ 40 kB in 2.0, ≤ 44 kB in 2.1) loads on first open.
+  badge). The panel UI (≤ 40 kB in 2.0, ≤ 44 kB in 2.1) loads on first open. From 2.2
+  (`D-40`) a station that has not switched it on loads only a tiny **activation** piece
+  (one key listener); the core and the loader come with dynamic `import()` when it is
+  switched on.
 - **It is a package.** v2 lives in `packages/debug-capture/` with entry points
   `core`, `angular`, `react` and `panel`, ready to become its own repository.
 - **Delivery.** 11 specs (S-00 … S-10), built in waves by parallel agents,
@@ -60,8 +67,10 @@ error).
 - **Air-gapped stations.** No internet. Internal network only. Browsers are
   locked down: no DevTools, often no extensions.
 - **Production builds.** The tool ships inside the real app and is switched
-  on per station or per session with a flag (`?debug=1`, or `localStorage`
-  key `debug-capture` = `1`). With the flag off, nothing is patched or shown.
+  on in one of two ways: the **URL flag** `?debug=1` (or `?debug=true`) for one page load,
+  from its very start; or, from 2.2, the **activation shortcut** (`Ctrl+Alt+Shift+A` by
+  default), which is remembered on that browser (`localStorage` key `debug-capture` = `1`)
+  until it is pressed again (`D-40`, `D-45`). Without either, nothing is patched or shown.
 - **Hosts.** Angular apps today (this repo: Angular 16). React apps next.
   Possibly plain pages.
 - **Browsers.** Chrome 146.0.7680.72 and later only; no Edge (`OPEN-01`,
@@ -120,7 +129,7 @@ error).
 | Panel effect on host change detection (Angular) | **0** extra cycles |
 | Host regressions in the "hostile host" test suite | **0** |
 | Panel open with 5,000 entries | first paint under 100 ms, warm (`NFR-PERF-02`) |
-| Bundle cost to a host that never opens the panel | ≤ 4 kB loader (5.5 kB in 2.1, `D-34`); **0 bytes** of panel UI code |
+| Bundle cost to a host that never opens the panel | ≤ 4 kB loader (5.5 kB in 2.1, `D-34`); **0 bytes** of panel UI code. From 2.2, a station that never switches it on runs only the activation piece (`NFR-SIZE-01`, `D-43`) |
 | Security review | approved, with no third-party runtime code |
 
 ---
@@ -152,6 +161,22 @@ error).
 
 Rows: §3.10. Release 2.1 changes nothing above unless a §3.10 row says so.
 
+### 2.1b Release 2.2 (S-13, background control — before S-12, `D-44`)
+
+Everything works **while the panel is closed**, by keyboard chords (`D-37` … `D-42`):
+
+- An **activation shortcut**, on top of the `?debug=1` URL switch (which stays, `D-45`): it
+  lazy-loads capture and the panel, runs them in the background with no visible sign, and
+  is remembered on the browser; pressing it again turns it off for good (`D-40`, `D-41`).
+- **Capture on / off** by a chord that works while capture is off; the download, copy and
+  clear chords work while off too (`D-37`).
+- A **pre-defined note** by a chord (`D-38`).
+- **Save to a pre-defined folder** through Chrome policy, no code (`D-39`).
+- **About** in Settings: the version and every shortcut in use (`D-42`).
+- Budgets: core v1 + 3.5 kB; the activation piece has its own small budget (`D-43`).
+
+Rows: §3.11. Release 2.2 changes nothing above unless a §3.11 row says so.
+
 ### 2.2 Later (2.x)
 
 - **Separate window** mode (the panel in its own browser window, fed over
@@ -178,18 +203,18 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 | ID | Requirement | Pri |
 |---|---|---|
 | BR-01 | Field engineers can see HTTP, WebSocket, console and error activity live on a station with no DevTools. | MUST |
-| BR-02 | The tool works in production builds, off by default, switched on per station or session by a flag. | MUST |
+| BR-02 | The tool works in production builds, off by default. It is switched on by the URL flag `?debug=1` (one page load, captured from its very start) or, from 2.2, by an activation shortcut that is remembered on that browser (`D-40`, `D-45`, `FR-BG-01`…`03`). | MUST |
 | BR-03 | The same package works in Angular, React and plain HTML apps. | MUST |
 | BR-04 | No third-party runtime code. Build and test tools may be third-party (they do not ship). | MUST |
 | BR-05 | Everything needed can be carried into an air-gapped network as one versioned file (`npm pack` tarball). | MUST |
 | BR-06 | A captured session can still be exported as one file and read without the panel. | MUST |
-| BR-07 | The operator's experience does not change: no visible change while the panel is closed, except the launcher (which can be turned off). | MUST |
+| BR-07 | The operator's experience does not change: no visible change while the panel is closed, except the launcher (which can be turned off; from 2.2 it is hidden when the tool is switched on by the activation shortcut, `D-41`). | MUST |
 
 ### 3.2 Functional — activation and lifecycle
 
 | ID | Requirement | Pri |
 |---|---|---|
-| FR-ACT-01 | The host installs the panel with one call after creating the capture controller: `installDebugPanel(controller, options?)` (§6.6). With the flag off the host has no controller and passes `null`: the call does nothing and returns an inert handle. | MUST |
+| FR-ACT-01 | The host installs the panel with one call after creating the capture controller: `installDebugPanel(controller, options?)` (§6.6). A host with no controller (capture not switched on) passes `null`: the call does nothing and returns an inert handle. From 2.2 the activation piece makes this call after it switches capture on (`FR-BG-01`). | MUST |
 | FR-ACT-02 | The panel **UI** is **loaded on first open** (dynamic import), not at app start. Before that only the **loader** exists: launcher, toggle shortcut and badge counter (§6.1). | MUST |
 | FR-ACT-03 | A **launcher** — a small button in a screen corner — opens the panel. It can be turned off with the `launcher: false` option; from 2.1 the user can also hide it in Settings (`FR-ACT-10`, `D-32`). | MUST |
 | FR-ACT-04 | The launcher shows how many **new problems** happened since the panel was last closed. A **problem** is: an `ErrorEntry`; an HTTP entry with `status ≥ 500` or `error ≠ null`; a WebSocket `error` event. Not counted: 4xx, and `console.error` lines (Angular and React errors already make an `ErrorEntry`; counting both would count twice). Opening the panel and **Clear** reset the badge. | SHOULD |
@@ -197,7 +222,7 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 | FR-ACT-06 | The panel never opens by itself. It opens only on a user click or key. `handle.open()` exists only for a host's own user action (a menu item, a button). | MUST |
 | FR-ACT-07 | Opening from the keyboard or launcher moves focus into the panel. Closing returns focus to where it was. | MUST |
 | FR-ACT-08 | Settings and panel size/position are remembered per browser (`localStorage`, best effort — §4.10). | SHOULD |
-| FR-ACT-09 | **Capture on/off** from the panel: *off* removes the probes and shortcuts (the page's `fetch`, XHR, WebSocket and console are back to native); *on* installs them again on the **same recorder** (`C-2`), so the buffer, `seq` and socket ids carry on and the Angular and React seams keep working. Capture state is **not remembered**: a reload with the flag on always starts with capture on. | MUST |
+| FR-ACT-09 | **Capture on/off** from the panel (and, from 2.2, by a chord, `FR-BG-05`): *off* removes the probes (the page's `fetch`, XHR, WebSocket and console are back to native); from 2.2 the chords stay bound, so they work while off (`D-37`; in 2.0 and 2.1 off removed them too); *on* installs the probes again on the **same recorder** (`C-2`), so the buffer, `seq` and socket ids carry on and the Angular and React seams keep working. Capture state is **not remembered**: a reload with the tool switched on always starts with capture on. | MUST |
 
 ### 3.3 Functional — panel window
 
@@ -271,13 +296,13 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 | ID | Requirement | Pri |
 |---|---|---|
 | NFR-ISO-01 | The 22 isolation rules in §6.7 (`ISO-01` … `ISO-22`) hold, and each has a test against the hostile-host fixture. | MUST |
-| NFR-PERF-01 | **Closed:** only the loader runs — no rows in the DOM, no timers, no `requestAnimationFrame`, no observers, no `matchMedia` listeners; one `keydown` listener for the toggle. The launcher badge counter costs O(1) per entry and at most one rAF per frame when its number changes. | MUST |
+| NFR-PERF-01 | **Not switched on (2.2):** only the activation piece runs — one `keydown` listener and one storage read at start; nothing else is loaded (`FR-BG-01`). **Closed:** only the loader runs — no rows in the DOM, no timers, no `requestAnimationFrame`, no observers, no `matchMedia` listeners; one `keydown` listener for the toggle. The launcher badge counter costs O(1) per entry and at most one rAF per frame when its number changes. | MUST |
 | NFR-PERF-02 | **Open:** first paint under 100 ms with 5,000 entries buffered, measured **warm** (UI chunk already loaded). The cold first open (chunk fetched from the host's server) is measured and reported, not gated. | MUST |
 | NFR-PERF-03 | **Live:** new entries are applied at most once per frame, within an 8 ms budget per frame; no long task over 50 ms caused by the panel, while 100 entries/second arrive. | MUST |
 | NFR-PERF-04 | **Scroll:** lists are virtualised — under 2,000 DOM nodes per tab **including the detail pane**, whatever the entry count, for a panel up to **1,080 px** tall; taller (a maximised panel on a 4K screen) adds at most ~23 nodes per extra visible row, because every visible row is drawn (`D-22`). No long task over 50 ms while scrolling. | MUST |
 | NFR-PERF-05 | **Angular host:** the panel causes **0** change-detection cycles (verified with an `NgZone` counter). | MUST |
 | NFR-PERF-06 | **Memory:** the panel adds under 10 MB on top of the capture buffer with 5,000 entries. | SHOULD |
-| NFR-SIZE-01 | **Loader** (`debug-capture/panel`, loaded at start): ≤ **4 kB** min+gzip. **UI chunk** (loaded on first open): ≤ **40 kB** min+gzip (raised from 25 kB, `D-25`); hosts that never open the panel load **0 bytes** of it. **Core:** within ± 2 kB of v1's size — the baseline is measured and recorded in S-00. **2.1** (`D-34`, measured in S-11b): **loader ≤ 5.5 kB** (5,632 B; 4,084 → 4,717 B, +633 B), **UI chunk ≤ 44 kB** (45,056 B; 39,006 → 40,577 B, +1,571 B) — each raise is about 2.5 × the S-11 growth. | MUST |
+| NFR-SIZE-01 | **Loader** (`debug-capture/panel`, loaded at start): ≤ **4 kB** min+gzip. **UI chunk** (loaded on first open): ≤ **40 kB** min+gzip (raised from 25 kB, `D-25`); hosts that never open the panel load **0 bytes** of it. **Core:** within ± 2 kB of v1's size — the baseline is measured and recorded in S-00. **2.1** (`D-34`, measured in S-11b): **loader ≤ 5.5 kB** (5,632 B; 4,084 → 4,717 B, +633 B), **UI chunk ≤ 44 kB** (45,056 B; 39,006 → 40,577 B, +1,571 B) — each raise is about 2.5 × the S-11 growth. **2.2** (`D-43`): **core ≤ v1 + 3.5 kB** (13,904 B = the 10,320 B baseline + 3,584 B; was v1 + 2 kB, 12,368 B); the **activation piece** (`debug-capture/activate`, the only part a station loads before it is switched on) has its own budget, set in S-13a from a measurement with the same margin rule; loader and UI chunk unchanged. | MUST |
 | NFR-SEC-01 | No `innerHTML` / `outerHTML` / `insertAdjacentHTML`, no `eval` / `new Function`, no inline handlers. Captured data enters the DOM only as text. No `href` / `src` built from captured data. | MUST |
 | NFR-SEC-02 | Works under a strict CSP (`default-src 'self'`, no `'unsafe-inline'`) and Trusted Types (`require-trusted-types-for 'script'`) with no violations. | MUST |
 | NFR-SEC-03 | The panel never makes network requests and never reads anything the recorder did not store (it sees only redacted data). | MUST |
@@ -307,6 +332,26 @@ Cut from `D-28` … `D-33` (owner, 2026-10-25). Behaviour in §4.4, §4.9 – §
 | FR-NOTE-03 | Notes are exported like any entry (`kind: 'note'`, `title`, `text`) in the `entries` list, so equal titles never clash. A reader that does not know `note` skips it (the file is schema 2 since `D-36`). | MUST (2.1) |
 | FR-NOTE-04 | A host adds a note from code: `controller.session.addNote(title, text?)`. It records while capture is off too (a note is the user's own act, not a probe). Title and text are redacted and truncated by the policy, like an error message. | MUST (2.1) |
 
+### 3.11 Functional — release 2.2, background control (S-13)
+
+Cut from `D-37` … `D-43` (owner, 2026-10-26). Everything here works **while the panel is
+closed**. Behaviour in §4.1, §4.10, §4.12; interfaces in §6.4; core change `C-11`; host
+wiring in §6.6. Every chord is configurable in code and matched on `KeyboardEvent.code`
+with all four modifiers exact (`ISO-08`).
+
+| ID | Requirement | Pri |
+|---|---|---|
+| FR-BG-01 | **Activation shortcut** (`D-40`): `installDebugActivation(options?)`, from the new entry `debug-capture/activate`, is the only piece a host loads at start: one `keydown` listener for the activation chord (default `Ctrl+Alt+Shift+A`, `shortcut` option; `false` binds none) and one read of the flags at start — the URL flag `?debug=1` / `?debug=true` and the stored flag, as `isDebugRequested()` reads them (`D-45`); either one activates at once. Activating loads the core and the panel loader with dynamic `import()`, creates the capture controller (`capture` option) and installs the panel (`panel` option) — **closed**. Nothing else runs before. | MUST (2.2) |
+| FR-BG-02 | **Remembered on this browser** (`D-40`): activating **by the chord** (or `activate()`) writes `'1'` under the `localStorage` key `debug-capture` (`storageKey` option; `false` remembers nothing). At start, with the flag set, it activates at once, so capture starts with the page and records its startup requests: `handle.ready` resolves when that start-time load has finished (or failed; at once when there is none) and never rejects, so a host that waits for it before bootstrap loses no startup request. The URL flag never writes it: `?debug=1` stays one page load. Storage that throws counts as "not set"; the chord still works for this page. | MUST (2.2) |
+| FR-BG-03 | **Turning off for good** (`D-40`, `D-45`): the activation chord while active removes the flag, disposes the panel (focus returns if it was open) and the controller (probes and chords off, `C-11`) — also when this page was switched on by `?debug=1`; the next load follows the URL again. A later press starts afresh (a new, empty buffer). A press while still loading wins: the load is turned off as soon as it lands. A failed load leaves it off with `loadError` set and keeps the flag, so a reload tries again. | MUST (2.2) |
+| FR-BG-04 | **No visible sign** (`D-41`): after activation the panel is closed and the DBG button is **hidden** — it exists, and shows only if the user picks Show in Settings › DBG button (remembered, `FR-ACT-10`). The panel opens only by its toggle chord. A host can pass its own `launcher` value through the `panel` option. | MUST (2.2) |
+| FR-BG-05 | **Capture on / off chord** (`D-37`): `Ctrl+Alt+Shift+S` (`shortcuts.record`) turns capture off and on (`controller.stop()` / `start()`), panel closed or open; the panel's switch and banner follow (`FR-ACT-09`). | MUST (2.2) |
+| FR-BG-06 | **Chords live while capture is off** (`D-37`, `C-11`): the controller binds its chords — download, copy, clear, record, note — when it is created and keeps them until `controller.dispose()`; capture off removes only the probes. Download and copy then export the buffer as it is. `installDebugCapture()` (the v1 path, no controller in hand): `session.dispose()` still removes everything, chords included. | MUST (2.2) |
+| FR-BG-07 | **Note chord** (`D-38`): `Ctrl+Alt+Shift+M` (`shortcuts.note`) adds a pre-defined note with `session.addNote(title, text)`; title and text come from the `note` option (`{ title?, text? }`; defaults `Mark` and `Added with the keyboard shortcut.`). Works with the panel closed and with capture off (`FR-NOTE-04`). | MUST (2.2) |
+| FR-BG-08 | **Save to a pre-defined folder** (`D-39`): no new code. `Ctrl+Alt+Shift+D` downloads; IT sets the Chrome policies `DownloadDirectory` (the folder) and `PromptForDownloadLocation` = false on the stations, so the file lands in that folder with no dialog. The user README and the app guide describe the station setup. `Ctrl+Alt+Shift+C` copies the same JSON to the clipboard, panel closed or open. | MUST (2.2) |
+| FR-BG-09 | **About** in Settings (`D-42`): the Settings popover ends with an **About** part — the package version and every shortcut, each with the chord **actually configured** (from the options; a disabled one reads "off"): the background chords (activation, when the panel was installed by it; panel toggle; download; copy; clear; capture on / off; note) and the in-panel keys of §4.12. | MUST (2.2) |
+| FR-BG-10 | **Seams find a later session** (`D-40`): `provideDebugCaptureSession()` and `createReactRootErrorOptions()` also take a function that returns the session (`() => debug.session`), read on each error, so the Angular `ErrorHandler` and the React callbacks record into a session that starts after bootstrap, and stop when it is turned off. | MUST (2.2) |
+
 ---
 
 ## 4. Behaviour
@@ -314,11 +359,13 @@ Cut from `D-28` … `D-33` (owner, 2026-10-25). Behaviour in §4.4, §4.9 – §
 ### 4.1 Lifecycle
 
 ```
-            flag off ─────────────► nothing installed, nothing shown
+   NOT SWITCHED ON  ── only the activation piece (2.2): 1 keydown listener, 1 storage read
                 │
-            flag on
+   ?debug=1 or the stored flag at start, or the activation chord (remembered; again: off)
                 ▼
-createCaptureController()  ──►  installDebugPanel(controller)   (loader)
+   import() core + loader ──► createCaptureController() + chords (C-11)
+                ▼
+createCaptureController()  ──►  installDebugPanel(controller)   (loader; DBG button hidden, D-41)
                                    │
                                    ▼
                   ┌────────────── CLOSED ◄─────────────────┐
@@ -338,6 +385,8 @@ createCaptureController()  ──►  installDebugPanel(controller)   (loader)
 - **Capture off** (`FR-ACT-09`) is a separate switch. With capture off, the
   panel stays usable on what was recorded, and shows a banner: "Capture is
   off — nothing new is recorded. [Turn on]".
+- **Turning off for good** (2.2, `FR-BG-03`): the activation chord again removes the flag,
+  disposes the panel and the controller (`controller.dispose()`: probes and chords off).
 - **`handle.dispose()`** (also while open): closes the panel (focus returns),
   unsubscribes, removes the launcher, the key listener and the host element.
   Capture is not touched — that is the controller's job.
@@ -501,7 +550,8 @@ A popover under the gear button.
 | Time | Clock · Relative | Clock |
 | Capture | On · Off (`FR-ACT-09`) — **not remembered**; every reload starts On | On |
 | Buffer (2.1) | 1,000 · 5,000 · 10,000 · 50,000 · No limit (with its warning) — `FR-BUF-01` | the policy's `maxEntries` |
-| DBG button (2.1) | Show · Hide — `FR-ACT-10`; not shown when the host passes `launcher: false` | Show |
+| DBG button (2.1) | Show · Hide — `FR-ACT-10`; not shown when the host passes `launcher: false` | Show (Hide when switched on by the activation shortcut, `D-41`) |
+| About (2.2) | Not a setting: the package version and every shortcut in use, read from the options — `FR-BG-09` | — |
 
 From 2.1 the loader reads two of these at install — `buffer` and `launcher` —
 so a reload keeps them before the first open (`D-32`, `D-34`).
@@ -529,8 +579,11 @@ storage is blocked the panel uses defaults and works the same.
 
 | Keys | Where | Action |
 |---|---|---|
+| `Ctrl+Alt+Shift+A` | anywhere (2.2) | Switch the tool on (and remember it); again: off for good (`FR-BG-01`…`03`) |
 | `Ctrl+Alt+Shift+P` | anywhere | Open / close the panel |
-| `Ctrl+Alt+Shift+D` / `C` / `X` | anywhere | Download / copy / clear (v1, unchanged; inactive while capture is off) |
+| `Ctrl+Alt+Shift+D` / `C` / `X` | anywhere | Download / copy / clear (v1; from 2.2 also while capture is off, `D-37`) |
+| `Ctrl+Alt+Shift+S` | anywhere (2.2) | Capture on / off (`FR-BG-05`) |
+| `Ctrl+Alt+Shift+M` | anywhere (2.2) | Add the pre-defined note (`FR-BG-07`) |
 | `Escape` | panel | Close the innermost open thing: a menu or popover (Export, Copy, Settings), else the detail, else the panel |
 | `↑` `↓` | list | Move selection (and the detail) |
 | `Home` `End` `PageUp` `PageDown` | list | Jump |
@@ -541,7 +594,9 @@ storage is blocked the panel uses defaults and works the same.
 | `←` `→` `Enter` `Space` | JSON tree | Collapse / expand |
 
 Keys pressed inside the panel never reach the host (`ISO-07`), except the
-global `Ctrl+Alt+Shift+…` chords.
+global `Ctrl+Alt+Shift+…` chords. Every chord is configurable in code (2.2: activation
+`shortcut`, panel `shortcut`, capture `shortcuts.*`); Settings › About lists the ones in use
+(`FR-BG-09`).
 
 ---
 
@@ -760,6 +815,8 @@ packages/debug-capture/                (becomes its own repository later — D-0
     react/                                        ← entry "debug-capture/react"    (L6)
     panel/                                        ← entry "debug-capture/panel"    (L6, new: loader)
                                                     + lazy chunk "panel UI" (P1–P4, loaded on first open)
+    activate/                                     ← entry "debug-capture/activate" (L6, 2.2: the activation
+                                                    piece — the only part loaded before switch-on, D-40)
   test/  hosts/ (angular, react, plain) · hostile-host/ · e2e/ · perf/
   dist/  *.mjs + *.d.ts per entry (prebuilt ESM — usable without a bundler)
 ```
@@ -772,6 +829,9 @@ packages/debug-capture/                (becomes its own repository later — D-0
   first open (`FR-ACT-02`, `NFR-SIZE-01`).
 - `debug-capture` (core) never imports `debug-capture/panel`, so the core does
   not grow.
+- `debug-capture/activate` (2.2) imports the core and the panel loader only as types and
+  by dynamic `import()` — no static value import, checked by the layer script — so a
+  station that never switches the tool on loads only this piece (`FR-BG-01`, `D-43`).
 
 ### 6.2 Layers
 
@@ -784,7 +844,7 @@ L1 contract ─► L2 core ─► L3 adapters ─► L4 install ─► L5 public
                                                           │
                      ┌────────────────────────┬───────────┴───────────┐
                      ▼                        ▼                       ▼
-                L6 angular               L6 react                L6 panel
+                L6 angular               L6 react                L6 panel      L6 activate (2.2)
                                                           ┌──────────┴──────────┐
                                                           P1 model     (pure: no DOM, no globals)      ┐
                                                           P2 ui        (DOM building blocks)           │ UI chunk,
@@ -799,6 +859,7 @@ L1 contract ─► L2 core ─► L3 adapters ─► L4 install ─► L5 public
 | P2 `panel/ui` | Safe element builder (`text` only, no HTML strings); virtual list (bidi-safe cells); JSON viewer (paged children); split pane; tabs; chips; buttons; empty/no-match block; icons (SVG builders); theme (tokens → one `CSSStyleSheet`) | P1 barrel; the `document` passed in |
 | P3 `panel/views` | Title bar, filter bars, HTTP list + detail, WebSocket view, Console view, settings popover, status bar | P2 barrel |
 | P4 `panel/app` | `mountPanelUi(shadowRoot, controller, options)`: the frame (top tabs, Network sub-tab routing, split, resize, dock, maximize), scheduler (rAF batching), settings storage, banners (capture off, host modal) | P3 barrel |
+| L6 `activate/` (2.2) | `installDebugActivation()`: the activation chord, the stored flag, the lazy start and stop (`FR-BG-01`…`03`) | L5 barrel and the panel entry (`src/panel/index.ts`) **only** by `import type` and dynamic `import()` |
 | P5 `panel/index.ts` | **Loader:** `installDebugPanel()`; the custom element; mount on `<html>`; top layer; host lockdown sheet; event wall; zone handling; toggle shortcut; launcher + badge (own tiny sheet, same tokens; badge uses core's `isProblemEntry`, `C-8`) | L5 barrel; P4 only by `import type` and **one** dynamic `import()` — the layer checker fails on any static value import of P4, so the chunk stays lazy. P5 passes the **controller** to `mountPanelUi`; P4 builds the data source from P1 |
 
 ### 6.3 Data flow
@@ -865,12 +926,13 @@ interface PendingRequest {
 }
 
 interface DebugPanelOptions {
-  launcher?: boolean;                      // default true
+  launcher?: boolean | 'hidden';           // default true; 2.2: 'hidden' = there, hidden until Settings says Show (D-41)
   shortcut?: string | false;               // default 'ctrl+alt+shift+p'
   defaultDock?: 'bottom' | 'right';        // default 'bottom'
   storageKey?: string | false;             // default 'debug-capture:panel'
   nearFullAt?: number;                     // 2.1, FR-BUF-04: share of the capacity, (0, 1]; default 0.9
   memoryStep?: number;                     // 2.1, FR-BUF-05: bytes; default 26,214,400 (25 MB)
+  activation?: string | false;             // 2.2, FR-BG-09: the activation chord, for About (set by installDebugActivation)
 }
 
 function installDebugPanel(controller: CaptureController | null, options?: DebugPanelOptions): DebugPanelHandle;  // null → inert handle
@@ -901,10 +963,44 @@ interface DebugPanelStatus {
 interface CaptureController {
   readonly session: ControlledCaptureSession;  // a CaptureSession + recorder: LiveRecorder + policy (C-3)
   readonly on: boolean;
-  start(): void;                           // reinstall probes + shortcuts on the same recorder
-  stop(): void;                            // remove probes + shortcuts; buffer kept
+  start(): void;                           // reinstall the probes on the same recorder
+  stop(): void;                            // remove the probes; buffer kept; 2.2: the chords stay (D-37)
   onChange(listener: (on: boolean) => void): Unsubscribe;
+  // 2.2 (C-11)
+  readonly shortcuts: ShortcutConfig | null;  // the chords in use (null: `shortcuts: false`), for About
+  dispose(): void;                         // stop() + unbind the chords, for good; start() then does nothing
 }
+
+// 2.2 (C-11, FR-BG-05…07)
+interface ShortcutConfig { download: string; copy: string; clear: string; record: string; note: string }
+// DEFAULT_SHORTCUTS: ctrl+alt+shift+ d / c / x / s / m
+interface DebugCaptureOptions {
+  policy?: Partial<CapturePolicy>;
+  shortcuts?: Partial<ShortcutConfig> | false;
+  note?: { title?: string; text?: string };  // the note chord's note; default 'Mark' / 'Added with the keyboard shortcut.'
+}
+const DEBUG_CAPTURE_VERSION: string;       // the package version, for About (FR-BG-09)
+
+// 2.2 — entry "debug-capture/activate" (FR-BG-01…03, D-40)
+interface DebugActivationOptions {
+  shortcut?: string | false;               // default 'ctrl+alt+shift+a'; false: only the stored flag switches it on
+  storageKey?: string | false;             // default 'debug-capture' (value '1'); false: nothing remembered
+  capture?: DebugCaptureOptions;           // for createCaptureController
+  panel?: DebugPanelOptions | false;       // for installDebugPanel (launcher 'hidden' unless given); false: no panel
+}
+interface DebugActivationHandle {
+  readonly active: boolean;                // from switch-on (also while loading) until off
+  readonly session: CaptureSession | null; // once loaded; for the seams: () => handle.session (FR-BG-10)
+  readonly controller: CaptureController | null;
+  readonly panel: DebugPanelHandle | null;
+  readonly loadError: unknown;             // why the last switch-on failed; null when it did not
+  readonly ready: Promise<void>;           // the start-time switch-on has loaded (or failed); never rejects
+  activate(): void;                        // as the chord: on, remembered
+  deactivate(): void;                      // as the chord again: off for good, flag removed
+  dispose(): void;                         // removes the key listener and turns off; the flag stays
+}
+function installDebugActivation(options?: DebugActivationOptions): DebugActivationHandle;
+const DEBUG_STORAGE_KEY = 'debug-capture';
 ```
 
 The exact contract types (S-00) live in `src/contract/capture-contract.ts`:
@@ -936,35 +1032,44 @@ panel is closed; it hands the UI `launcher`, `setLauncher`, `warnings()` and
 | C-8 | **Problem rule in core.** `isProblemEntry(entry)` (the `FR-ACT-04` rule), exported from L5, so the loader's badge and the panel model share one definition. | `FR-ACT-04`, `FR-BAR-06` | None |
 | C-9 | **Resizable buffer and usage** (2.1). `recorder.setCapacity(n)` takes an integer ≥ 1 or `Infinity` (No limit; anything else is ignored); a smaller size evicts the oldest entries at once (counted in `evicted`), then `onChange` fires `{ type: 'capacity' }`. `recorder.usage()` returns `{ entries, capacity, bytes, problems }`, kept up to date in O(1) per entry: `problems` by `isProblemEntry` (`C-8`), `bytes` = the size estimate — per entry, 160 B plus 2 B per character of every string and object key in it, at any depth (`D-30`; strings shared between entries count each time, so it errs high). `seq` and the ids never restart (`C-2`). | `FR-BUF-01`…`05`, `FR-STAT-01` | None |
 | C-10 | **Note entries** (2.1). A new entry kind `note` (`title`, `text`), policed like an error message (redacted, truncated). `session.addNote(title, text?)` records one with the session clock's time, also while capture is off. Never a problem (`C-8`). | `FR-NOTE-01`…`04` | One new entry kind; `schemaVersion` stays 1; readers skip unknown kinds |
+| C-11 | **Chords for the controller's life** (2.2). The controller binds its chords — download, copy, clear, plus the new **record** (`ctrl+alt+shift+s`: `stop()` / `start()`) and **note** (`ctrl+alt+shift+m`: `session.addNote()` with the `note` option's title and text) — when it is created, not with the probes; `stop()` / `start()` leave them. `controller.dispose()` stops capture and unbinds them for good; `controller.shortcuts` is the resolved config (or `null`). `installDebugCapture()` keeps v1's meaning: its `session.dispose()` is a full dispose. `isDebugRequested()` stays (`D-45`); `DEBUG_CAPTURE_VERSION` joins the core. | `FR-BG-05`…`07`, `FR-BG-09`, `D-37` | None |
 | C-6 | **Change events.** `recorder.onChange(listener)` fires on `clear()` (also from v1's `Ctrl+Alt+Shift+X`) and when only stats change (`dropped`, `failed`). The data source maps it to `cleared` / `stats`. | `FR-BAR-03`, `FR-BAR-06` | None |
 
 ### 6.6 Using it in a host
 
+From 2.2 (`D-40`, `D-45`) a host loads only the activation piece at start. Two ways switch it on:
+
+- **`?debug=1`** (or `?debug=true`) in the URL — this page load only, captured from its very
+  start;
+- **the activation chord** (`Ctrl+Alt+Shift+A`) — remembered on this browser, so every later
+  load starts capturing with the page; the chord again turns it off for good (also a
+  `?debug=1` page, for that load).
+
 ```ts
-// main.ts (Angular) or index.tsx (React) — same for both
-import { createCaptureController, isDebugRequested } from 'debug-capture';
-import { installDebugPanel } from 'debug-capture/panel';  // loader, ≤ 5.5 kB
+// main.ts (Angular) or index.tsx (React) — same for both, before bootstrap
+import { installDebugActivation } from 'debug-capture/activate';  // the only piece loaded at start
 
-const controller = isDebugRequested() ? createCaptureController() : null;  // installs capture now
-installDebugPanel(controller);  // launcher + shortcut; the UI loads on first open (null → does nothing)
+// With ?debug=1 or the stored flag it starts now, with the page; otherwise the chord starts it.
+// Capture and the panel load then (import()); the panel stays closed, the DBG button hidden.
+const debug = installDebugActivation();
+// Wait before bootstrap, so a page switched on at start records its startup requests too.
+debug.ready.then(() => bootstrap());
 ```
-
-To make even the loader cost 0 bytes with the flag off, `import()` it inside
-the `if` instead.
 
 Plain HTML page, no bundler (prebuilt files from `dist/`):
 
 ```html
 <script type="module">
-  import { createCaptureController, isDebugRequested } from './vendor/debug-capture/index.mjs';
-  import { installDebugPanel } from './vendor/debug-capture/panel.mjs';
-  if (isDebugRequested()) installDebugPanel(createCaptureController());
+  import { installDebugActivation } from './vendor/debug-capture/activate.mjs';
+  window.debugReady = installDebugActivation().ready;  // the page's own code awaits it before its first request
 </script>
 ```
 
-The Angular seam (`provideDebugCapture()` + `provideDebugCaptureSession(controller?.session ?? null)`)
-and the React seam (`createReactRootErrorOptions(controller?.session ?? null)`)
-stay as in v1. They hold `controller.session`, which never changes (`C-2`).
+The seams take a function, read on each error, because the session may start after
+bootstrap (`FR-BG-10`): Angular `provideDebugCapture()` + `provideDebugCaptureSession(() => debug.session)`
+(platform providers); React `createReactRootErrorOptions(() => debug.session)`. They still
+take a session (or `null`) as in v1. A host that wants capture without activation keeps
+calling `createCaptureController()` and `installDebugPanel(controller)` directly (§6.4).
 
 ### 6.7 Isolation rules (from tested research)
 
@@ -1110,6 +1215,7 @@ Each spec lives in `docs/specs/<nn>-<slug>/` with `spec.md`, `plan.md` and a
 | **S-09 Accessibility** | Keyboard map, focus, forced colours, reduced motion | S-05 … S-08 |
 | **S-10 Integration and verification** | Angular + React + plain hosts, end-to-end, performance, security, packaging (`npm pack`), README | all |
 | **S-11 v2.1 panel features** | Buffer size in Settings incl. "No limit" (`D-28`); buffer-near-full banner (`D-29`); memory warning (`D-30`); status observer (`D-31`); "Show DBG button" setting (`D-32`); user notes (`D-33`); budgets (`D-34`). HLD requirement rows first, in S-11's own spec | S-10 |
+| **S-13 Background control** | Activation shortcut on top of `?debug=1`, remembered per browser, hidden DBG button (`D-40`, `D-41`); chords for capture on/off and a pre-defined note, live while capture is off (`D-37`, `D-38`, `C-11`); save to a folder by Chrome policy (`D-39`); About in Settings (`D-42`); budgets (`D-43`). Before S-12 (`D-44`) | S-11 |
 | **S-12 AI add-on** | A separate package `debug-capture-ai` that plugs into the panel and talks to a local or on-prem model (`D-35`): read-only insights first, then proposed DOM / style changes with Apply and Undo | S-11 |
 
 ### 9.2 Waves
@@ -1119,7 +1225,8 @@ Wave 1:  S-00
 Wave 2:  S-01 ║ S-02 ║ S-03 ║ S-04            (parallel — they code against the S-00 contract)
 Wave 3:  S-05 ║ S-06 ║ S-07 ║ S-08            (parallel — one view each, plus the frame; a small contract PR first fixes the view interface the frame mounts)
 Wave 4:  S-09 ─► S-10                         (sequential — S-09 touches every view, after wave 3 is merged)
-Wave 5:  S-11 ─► S-12                         (v2.1, after 2.0 is closed by S-10b — owner, 2026-10-25)
+Wave 5:  S-11 ─► S-13 ─► S-12                 (v2.1, after 2.0 is closed by S-10b — owner, 2026-10-25;
+                                               S-13 before S-12 — owner, 2026-10-26, D-44)
 ```
 
 Every wave ends with the merged branch verified as a whole, and the security-
@@ -1158,6 +1265,7 @@ end to end that every `MUST` is covered.
 | NFR-COMP-02 | S-02 |
 | NFR-PORT-01 | S-10 (three hosts, `dist/` build from S-00) |
 | FR-BUF-01…05, FR-STAT-01, FR-ACT-10, FR-NOTE-01…04 (2.1) | S-11 (core `C-9`, `C-10` in S-11a; panel in S-11b) |
+| FR-BG-01…10 (2.2), BR-02 (2.2), NFR-SIZE-01 (2.2) | S-13 (core `C-11`, activation, seams in S-13a; panel About and hidden DBG button in S-13b; the app in S-13c) |
 
 ---
 
@@ -1204,6 +1312,15 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-34 | **Budgets for 2.1**: the owner allows raising the **UI chunk** budget (40 kB, `D-25`). The new value is set in S-11 from a measurement (several times above the measured size growth, as the margin rule). The **loader** (4 kB, 12 B left) also needs a raise for `D-31` / `D-32`; S-11 proposes the number. | Decided (owner, 2026-10-25; the loader raise accepted with #99). Set in S-11b: loader 5.5 kB, UI chunk 44 kB (`NFR-SIZE-01`) |
 | D-35 | **AI as a separate package** `debug-capture-ai`, in the same family as the panel. Without it nothing about AI is shown or shipped. With it, the host adds it in code and the panel shows an **AI** section. The user connects it to a **local or company on-prem model** by entering its **URL and a token** in the AI settings. Only this package makes network requests — only to that URL and only on a user action; the panel itself keeps `NFR-SEC-03`. It sends only what the recorder stored (redacted) plus a trimmed page snapshot. Phase 1: read-only insights. Phase 2: it **proposes** DOM / style changes; the user clicks **Apply**, with **Undo**; it never runs code (CSP and Trusted Types stay intact). The host's CSP must allow the model URL in `connect-src`. | Decided (owner, 2026-10-25); the API shape (`OPEN-08`) and token storage (`OPEN-07`) are open |
 | D-36 | **Readable export** (owner, 2026-10-26): in the exported file each entry leads with **`sequence`** (its `seq`, renamed in the file only) and **`time`** — `t` as the station's local wall-clock time with its UTC offset (`2026-10-25T15:08:56.618+03:00`, exact: it parses back to `t`). `t` stays. Pending requests get `time` too. Because a field was renamed, the file is **`schemaVersion` 2**. The code API keeps `seq` (`CaptureEntry`, `recorder.snapshot()`), so host code does not change. Supersedes the "schemaVersion stays 1" notes in `D-05`, `D-33`. | Decided |
+| D-37 | **Background chords** (owner, 2026-10-26): a chord turns **capture on / off** — default `Ctrl+Alt+Shift+S` — and must work while capture is off, so the controller binds all its chords (download, copy, clear, record, note) for its whole life; capture off removes only the probes (`C-11`; changes `FR-ACT-09` and §4.12). **Clear** stays `Ctrl+Alt+Shift+X`; **copy to the clipboard** stays `Ctrl+Alt+Shift+C` and works with the panel closed. Defaults were checked: `A`, `S` and `M` are used by no other chord (panel `P`; v1 and core `D` `C` `X`) and no in-panel key (§4.12). If Alt is missed, Chrome's `Ctrl+Shift+A` (tab search), `Ctrl+Shift+S` (nothing) and `Ctrl+Shift+M` (profile menu) are harmless; `R` (`Ctrl+Shift+R` hard-reloads, losing the buffer) and `N` (`Ctrl+Shift+N` opens an incognito window) were rejected for that reason. | Decided |
+| D-38 | **Pre-defined note by a chord** (owner, 2026-10-26): `Ctrl+Alt+Shift+M` ("mark") adds a note whose title and text are set in code (`note` option of `createCaptureController`; defaults `Mark` and `Added with the keyboard shortcut.`); stamped at the key press, like `FR-NOTE-01`. | Decided |
+| D-39 | **Save to a pre-defined folder through Chrome policy, no new code** (owner, 2026-10-26): the download chord (`Ctrl+Alt+Shift+D`) downloads; IT sets `DownloadDirectory` (the folder) and `PromptForDownloadLocation` = false on the stations, so the file lands there with no dialog. Documented in the user README and the app guide (also: `DownloadRestrictions` must allow it, and `AutomaticDownloadsAllowedForUrls` with the app's origin avoids Chrome's "download multiple files" question on a second save). | Decided |
+| D-40 | **Activation shortcut** (owner, 2026-10-26): a new entry `debug-capture/activate` is the only always-present piece — one `keydown` listener and one read of the flags (URL and stored). Its chord (default `Ctrl+Alt+Shift+A`) loads the core and the panel with dynamic `import()` and starts capture with the panel closed. It is **remembered on this browser** (`localStorage` key `debug-capture` = `1`, the key 2.0 already read), so after a reload capture starts with the page and records startup requests. Pressing it again turns it off for good: the flag is removed, capture and panel are disposed. Changes `BR-02` and §6.6; the URL switch stays (`D-45`). The framework seams take a function that returns the session, so the Angular `ErrorHandler` finds a session that starts after bootstrap (`FR-BG-10`). Security: anyone at the station who knows the chord can switch it on — see `OPEN-05`. | Decided |
+| D-41 | **No visible sign after activation** (S-13 proposal under the owner's rule "no visible sign"): the panel loader gets `launcher: 'hidden'` — the DBG button exists but is hidden until the user picks **Show** in Settings › DBG button (remembered, `D-32`); the toggle chord opens the panel. Not `launcher: false`, which would also remove the Settings switch. The host can override it through the `panel` option. | Decided (S-13 docs PR; the owner asked S-13 to choose and record it) |
+| D-42 | **About in Settings** (owner, 2026-10-26): the Settings popover ends with About — the package version (`DEBUG_CAPTURE_VERSION`, checked against `package.json` by the build) and every shortcut with the chord actually configured: activation, panel toggle, download, copy, clear, capture on / off, note, and the in-panel keys (§4.12). | Decided |
+| D-43 | **Budgets for 2.2** (owner, 2026-10-26): the core budget rises from v1 + 2 kB to **v1 + 3.5 kB** (13,904 B, `NFR-SIZE-01`). The activation piece is a new entry in `scripts/size-budgets.json` with its own small budget, set in S-13a from a measurement (margin rule as `D-34`). Loader 5.5 kB and UI chunk 44 kB stay; raising them needs the owner. | Decided |
+| D-44 | **S-13 before S-12** (owner, 2026-10-26): background control (S-13) ships as release 2.2 before the AI add-on (S-12). | Decided |
+| D-45 | **Keep `?debug=1`** (owner, 2026-10-26, a scope change during S-13): the URL flag (`?debug=1` / `?debug=true`) stays, beside the shortcut. With the shortcut alone nothing is recorded until someone presses it, so a fresh browser's first load (its startup requests) would be lost; the URL flag captures from the very start. `isDebugRequested()` keeps reading the URL and the stored flag; the activation piece reads both too. The URL flag is one page load and never writes the stored flag. **The activation chord also turns off a session started by `?debug=1`**, for the current page (S-13 proposal, accepted with the scope change): the user who pressed it wants it off now; the next load follows the URL again. | Decided |
 
 ---
 
@@ -1215,7 +1332,7 @@ owner confirms or changes it before the spec that depends on it starts.
 | OPEN-02 | How strict is the host apps' CSP in production (Trusted Types, `style-src`)? | Confirms `NFR-SEC-02` matters in practice. | Owner — pilot |
 | OPEN-03 | What does `bdi_W` do for rules, lint, CI, agents, structure? | Updates §7. Needs a session that can reach it. | Owner |
 | OPEN-04 | Do the copy fallback and the download link work from inside the panel's shadow root in the station browser? | `C-5`; otherwise copy or download from the panel adds a node to `<body>` for a moment. | S-01 spike |
-| OPEN-05 | Is "flag on" enough of a gate in production, or should opening the panel need more (a PIN, an allow-list of stations)? | Who can see captured data on a station. | Owner / security |
+| OPEN-05 | Is "flag on" enough of a gate in production, or should opening the panel need more (a PIN, an allow-list of stations)? From 2.2 (`D-40`) the gate is a chord: **anyone at the station who knows it** can switch capture on (and it stays on for that browser) and open the panel. Mitigations available today: a less obvious chord in code (`shortcut` option), or `shortcut: false` with the flag set by IT only. | Who can see captured data on a station. | Owner / security |
 | OPEN-06 | Where will the v2 repository live: GitHub or Azure DevOps? | CI system and pipeline format. | Owner |
 | OPEN-07 | Where does the AI add-on keep the model token: in memory for the page session only (safest; asked again after a reload), or remembered in `localStorage` (easier, but any script on the page can read it)? Proposed: memory only, with an opt-in "Remember on this browser". | The token is a secret on a shared station. | Owner / security |
 | OPEN-08 | Which API do the local / on-prem models speak? Proposed: the OpenAI-compatible chat API (`POST /v1/chat/completions`, `Authorization: Bearer <token>`), which vLLM, Ollama and most on-prem servers offer. | The add-on's one network call. | Owner |
