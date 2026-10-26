@@ -6,8 +6,11 @@ import type { CaptureController, Unsubscribe } from '..';
 
 /** Options for `installDebugPanel()` (HLD §6.4). Every field is optional. */
 export interface DebugPanelOptions {
-  /** Show the launcher button. Default `true`. */
-  readonly launcher?: boolean;
+  /**
+   * Show the launcher button. Default `true`. 2.2 (`D-41`): `'hidden'` — the
+   * button exists but stays hidden until Settings › DBG button says Show.
+   */
+  readonly launcher?: boolean | 'hidden';
   /** Toggle chord, matched on `KeyboardEvent.code`. Default `'ctrl+alt+shift+p'`; `false` binds none. */
   readonly shortcut?: string | false;
   /** Default `'bottom'`. */
@@ -18,6 +21,8 @@ export interface DebugPanelOptions {
   readonly nearFullAt?: number;
   /** 2.1 (`FR-BUF-05`): the memory warning repeats at each multiple of this many bytes. Default 26,214,400 (25 MB). */
   readonly memoryStep?: number;
+  /** 2.2 (`FR-BG-09`): the activation chord, listed in Settings › About. `installDebugActivation` sets it. */
+  readonly activation?: string | false;
 }
 
 /** 2.1 (`FR-STAT-01`, `D-31`): what `handle.onStatus` reports. A fresh object per call. */

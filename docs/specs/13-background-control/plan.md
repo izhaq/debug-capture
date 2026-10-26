@@ -71,3 +71,26 @@ Deviations and notes:
   still loads the core chunk at start (it holds esbuild's shared helpers; the Angular entry
   re-exports the core). The shipped `dist/activate.mjs` has no static import (checked by the
   build). The real app (webpack) is measured in S-13c.
+
+S-13b — done, in review. Numbers:
+
+- Unit specs: 1249 ran, floor 1249 (was 1235): +14 — `about.spec.ts` 6 (new), `frame-v22.spec.ts`
+  4 (new), `loader.spec.ts` +3, `activate.spec.ts` +1.
+- e2e: 63 ran, floor 63 (was 61): `background.spec.mjs` +2 (hidden DBG button across a reload;
+  About with custom chords on the hostile host).
+- Every new spec failed once (three unit mutation rounds: loader, frame and About, the "off"
+  rows; one e2e round: `'hidden'` acting as shown and a fixed toggle chord in About).
+- Sizes, min+gzip: loader 4,717 → **4,761** / 5,632; UI chunk 40,581 → **41,327** / 45,056;
+  activate 1,130 → **1,156** / 1,536; core 12,481 / 13,904. No budget changes.
+- Perf: warm open 61 ms (limit 100), cold 69 ms.
+
+Deviations and notes:
+
+- Changed existing specs, on purpose: the host e2e expects the DBG button **hidden** after a
+  `?debug=1` start (the activation piece always starts it hidden, `D-41`); the hostile host's
+  controller key list has `shortcuts` and `dispose`; fake mount options gain `shortcuts`.
+- Found while building: any settings save stored `launcher: true` (the default) and would
+  have shown a hidden button after a reload. The frame now stores the loader's live DBG
+  choice on every save (spec in `frame-v22.spec.ts`).
+- About is a scroll box (160 px) at the end of the Settings popover, focusable for keyboard
+  scrolling.

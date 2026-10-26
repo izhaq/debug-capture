@@ -12,7 +12,7 @@ export interface DebugActivationOptions {
   readonly storageKey?: string | false;
   /** Passed to `createCaptureController()`. */
   readonly capture?: DebugCaptureOptions;
-  /** Passed to `installDebugPanel()`; `false` starts capture with no panel. */
+  /** Passed to `installDebugPanel()` (`launcher` defaults to `'hidden'` here, `D-41`); `false` starts capture with no panel. */
   readonly panel?: DebugPanelOptions | false;
 }
 
@@ -90,7 +90,8 @@ export function createActivation(options: DebugActivationOptions = {}, deps: Act
 function build(options: DebugActivationOptions, deps: ActivationDeps): DebugActivationHandle {
   const { scope } = deps;
   const key = options.storageKey ?? DEBUG_STORAGE_KEY;
-  const matches = options.shortcut === false ? null : parseChord(options.shortcut ?? 'ctrl+alt+shift+a');
+  const chord = options.shortcut === false ? false : (options.shortcut ?? 'ctrl+alt+shift+a');
+  const matches = chord === false ? null : parseChord(chord);
   const inRoot = rootZone(scope.Zone);
   /** Bumped by every switch-on and off, so a load that lands after a later press is dropped. */
   let generation = 0;
@@ -121,7 +122,11 @@ function build(options: DebugActivationOptions, deps: ActivationDeps): DebugActi
           if (mine !== generation) return;
           const controller = modules.createCaptureController(options.capture);
           try {
-            const panel = options.panel === false ? null : modules.installDebugPanel(controller, options.panel);
+            // D-41: no visible sign — the DBG button starts hidden unless the host says otherwise.
+            const panel =
+              options.panel === false
+                ? null
+                : modules.installDebugPanel(controller, { launcher: 'hidden', ...options.panel, activation: chord });
             loaded = { controller, panel };
           } catch (error) {
             controller.dispose();

@@ -6,8 +6,11 @@
  * chords work with the panel closed and capture off (FR-BG-05…08); the
  * Angular seam finds a session that started after bootstrap (FR-BG-10).
  */
+import fs from 'node:fs';
 import { expect, test } from '@playwright/test';
 
+const HOSTILE_ORIGIN = process.env.E2E_HOSTILE_ORIGIN ?? `http://127.0.0.1:${process.env.E2E_HOSTILE_PORT ?? 4329}`;
+const VERSION = JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version;
 const ACTIVATE = 'Control+Alt+Shift+KeyA';
 const PANEL = 'debug-capture-panel-v2';
 const VENDOR = '/plain/vendor/debug-capture/';
@@ -188,4 +191,60 @@ test('FR-BG-10: switched on after bootstrap, the Angular ErrorHandler records in
       ),
     )
     .toEqual(['angular host failure']);
+});
+
+test('FR-BG-04, D-41: after the chord nothing shows; Settings › DBG button › Show brings the button back, also after a reload', async ({
+  page,
+}) => {
+  await openHost(page, 'plain');
+  await page.keyboard.press(ACTIVATE);
+  await expect.poll(() => page.evaluate((tag) => document.querySelector(tag) !== null, PANEL)).toBe(true);
+  const launcher = page.locator(`${PANEL} .dcp-launcher`);
+  await expect(launcher).toBeHidden();
+
+  await page.keyboard.press('Control+Alt+Shift+KeyP');
+  await expect(page.locator(`${PANEL} .dcp-frame`)).toBeVisible();
+  await page.locator(`${PANEL} button[aria-label="Settings"]`).click();
+  await expect(page.locator(`${PANEL} input[name="dcp-setting-launcher"][value="hide"]`)).toBeChecked();
+  await page.locator(`${PANEL} input[name="dcp-setting-launcher"][value="show"]`).check();
+  await page.keyboard.press('Control+Alt+Shift+KeyP');
+  await expect(launcher).toBeVisible();
+
+  await page.reload();
+  await page.waitForFunction(() => window.__hostReady === true);
+  await expect(page.locator(`${PANEL} .dcp-launcher`)).toBeVisible();
+});
+
+test('FR-BG-09, D-42: Settings › About lists the version and every chord in use, custom ones included', async ({
+  page,
+}) => {
+  await page.goto(`${HOSTILE_ORIGIN}/?nopanel`);
+  await page.waitForFunction(() => window.__ready === true);
+  await page.evaluate(() => window.__dc.install({ shortcut: 'ctrl+alt+shift+9', activation: 'ctrl+alt+shift+q' }));
+  await page.locator('#host-input').focus();
+  await page.keyboard.press('Control+Alt+Shift+Digit9');
+  await expect(page.locator(`${PANEL} .dcp-frame`)).toBeVisible();
+  await page.locator(`${PANEL} button[aria-label="Settings"]`).click();
+
+  const about = page.locator(`${PANEL} .dcp-about`);
+  await expect(about).toBeVisible();
+  await expect(about).toContainText(`debug-capture ${VERSION}`);
+  const rows = await about
+    .locator('tr')
+    .evaluateAll((trs) => trs.map((tr) => Array.from(tr.children).map((td) => td.textContent.trim())));
+  expect(rows.slice(0, 7)).toEqual([
+    ['Ctrl+Alt+Shift+Q', 'Turn the tool on (remembered); again: off for good'],
+    ['Ctrl+Alt+Shift+9', 'Open / close the panel'],
+    ['Ctrl+Alt+Shift+D', 'Download the capture (JSON file)'],
+    ['Ctrl+Alt+Shift+C', 'Copy the capture (JSON) to the clipboard'],
+    ['Ctrl+Alt+Shift+X', 'Clear the capture'],
+    ['Ctrl+Alt+Shift+S', 'Capture on / off'],
+    ['Ctrl+Alt+Shift+M', 'Add the pre-set note'],
+  ]);
+  expect(rows.map(([keys]) => keys)).toEqual(expect.arrayContaining(['Escape', 'Ctrl+F', 'Alt+1 / Alt+2']));
+  // The list scrolls inside the popover by keyboard too (a focusable region).
+  await about.focus();
+  await expect(about).toBeFocused();
+  const host = await page.evaluate(() => window.__host);
+  expect(host.violations).toEqual([]);
 });

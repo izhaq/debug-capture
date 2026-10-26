@@ -298,6 +298,7 @@ export function frameOptions(stage: Stage, extra: Partial<MountPanelUiOptions> =
     setLauncher: () => undefined,
     warnings: () => ({ nearFull: false, memoryBytes: 0 }),
     dismissWarning: () => undefined,
+    shortcuts: { toggle: 'ctrl+alt+shift+p', activation: false },
     ...extra,
   };
 }

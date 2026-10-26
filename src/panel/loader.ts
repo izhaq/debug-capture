@@ -123,7 +123,8 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
   if (buffer === 'none' || (Number.isSafeInteger(buffer) && (buffer as number) >= 1)) {
     recorder.setCapacity(buffer === 'none' ? Infinity : (buffer as number));
   }
-  let showLauncher = saved.launcher !== false;
+  // 2.2 (D-41): 'hidden' shows the button only when Settings stored Show.
+  let showLauncher = options.launcher === 'hidden' ? saved.launcher === true : saved.launcher !== false;
   const limit = (value: unknown, fallback: number, max: number): number =>
     typeof value === 'number' && value > 0 && value <= max ? value : fallback;
   const nearFullAt = limit(options.nearFullAt, 0.9, 1);
@@ -288,6 +289,10 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
       defaultDock: options.defaultDock ?? 'bottom',
       onRequestClose: guard(close),
       launcher: launcher ? showLauncher : null,
+      shortcuts: {
+        toggle: options.shortcut === false ? false : (options.shortcut ?? 'ctrl+alt+shift+p'),
+        activation: options.activation ?? false,
+      },
       setLauncher: guard((show: boolean) => {
         // Hidden while open anyway; close() applies it.
         showLauncher = show;

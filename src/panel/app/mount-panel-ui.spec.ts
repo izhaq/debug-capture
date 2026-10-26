@@ -76,6 +76,7 @@ describe('mountPanelUi (P4 entry, real window)', () => {
       setLauncher: () => undefined,
       warnings: () => ({ nearFull: false, memoryBytes: 0 }),
       dismissWarning: () => undefined,
+      shortcuts: { toggle: 'ctrl+alt+shift+p', activation: false },
     });
 
   it('builds the frame in the panelRoot it is given, never in one found by class (C3-2), and renders on a real frame', async () => {

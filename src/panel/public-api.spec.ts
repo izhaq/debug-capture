@@ -36,7 +36,9 @@ describe('debug-capture/panel public API (P5 loader)', () => {
     assertType<Equals<NonNullable<DebugPanelOptions['defaultDock']>, MountPanelUiOptions['defaultDock']>>();
     assertType<Equals<NonNullable<DebugPanelOptions['storageKey']>, MountPanelUiOptions['storageKey']>>();
     assertType<Equals<DebugPanelOptions['shortcut'], string | false | undefined>>();
-    assertType<Equals<DebugPanelOptions['launcher'], boolean | undefined>>();
+    // 2.2 (D-41): 'hidden' joins true / false.
+    assertType<Equals<DebugPanelOptions['launcher'], boolean | 'hidden' | undefined>>();
+    assertType<Equals<DebugPanelOptions['activation'], string | false | undefined>>();
     assertType<
       Equals<Parameters<MountPanelUi>, [root: ShadowRoot, controller: CaptureController, options: MountPanelUiOptions]>
     >();

@@ -245,6 +245,28 @@ describe('installDebugActivation — 2.2 (FR-BG-01…03)', () => {
     expect(debug.loadError).toBe(broken);
   });
 
+  it("2.2 (D-41, FR-BG-09): the panel starts with launcher 'hidden' and gets the activation chord for About", async () => {
+    const plain = createActivation({}, { scope: scope(), load });
+    plain.activate();
+    await settle();
+    expect(panels[0].options).toEqual({ launcher: 'hidden', activation: 'ctrl+alt+shift+a' });
+    plain.dispose();
+
+    const custom = createActivation(
+      { shortcut: 'ctrl+alt+shift+9', panel: { launcher: true, defaultDock: 'right' } },
+      { scope: scope(), load },
+    );
+    custom.activate();
+    await settle();
+    expect(panels[1].options).toEqual({ launcher: true, defaultDock: 'right', activation: 'ctrl+alt+shift+9' });
+    custom.dispose();
+
+    const keyless = createActivation({ shortcut: false }, { scope: scope(), load });
+    keyless.activate();
+    await settle();
+    expect(panels[2].options).toEqual({ launcher: 'hidden', activation: false });
+  });
+
   it('panel: false starts capture with no panel', async () => {
     const debug = createActivation({ panel: false }, { scope: scope(), load });
     debug.activate();

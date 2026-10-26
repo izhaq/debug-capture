@@ -6,7 +6,7 @@
  */
 import { createCaptureController, systemClock } from '/dist/index.mjs';
 
-export const CONTROLLER_KEYS = ['session', 'on', 'start', 'stop', 'onChange'];
+export const CONTROLLER_KEYS = ['session', 'on', 'start', 'stop', 'onChange', 'shortcuts', 'dispose'];
 export const SESSION_KEYS = ['recorder', 'policy', 'clock', 'active', 'toJson', 'download', 'copy', 'clear', 'dispose'];
 export const RECORDER_KEYS = ['record', 'snapshot', 'clear', 'stats', 'onEntry', 'onChange', 'pending', 'onPending'];
 

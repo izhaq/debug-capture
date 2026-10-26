@@ -41,7 +41,7 @@ The package ships as one file. Build it once on a machine with access to the
 source, carry the tarball in, and install it like any other package:
 
 ```bash
-npm install ./debug-capture-2.2.0-alpha.0.tgz
+npm install ./debug-capture-2.2.0-alpha.1.tgz
 ```
 
 ESM only, with type declarations. Entry points:
@@ -171,14 +171,15 @@ shortcut: on and remembered / off for good) and `dispose()`.
 
 `installDebugPanel(controller, options)`:
 
-| Option        | Default                 | What                                                                                                   |
-| ------------- | ----------------------- | ------------------------------------------------------------------------------------------------------ |
-| `launcher`    | `true`                  | Show the DBG button in the corner. `false` hides it and the Settings switch; the shortcut still works. |
-| `shortcut`    | `'ctrl+alt+shift+p'`    | The open / close chord, matched on the physical key. `false` binds none.                               |
-| `defaultDock` | `'bottom'`              | Where the panel opens the first time: `'bottom'` or `'right'`.                                         |
-| `storageKey`  | `'debug-capture:panel'` | `localStorage` key for the panel's settings and filter chips. `false` keeps nothing.                   |
-| `nearFullAt`  | `0.9`                   | Show the "buffer almost full" banner from this share of the buffer size (above 0, up to 1).            |
-| `memoryStep`  | `26214400` (25 MB)      | Show the memory banner each time the size estimate passes another multiple of this many bytes.         |
+| Option        | Default                 | What                                                                                                                                                                                                                          |
+| ------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `launcher`    | `true`                  | Show the DBG button in the corner. `false` hides it and the Settings switch; the shortcut still works. `'hidden'`: the button is there but hidden until Settings › DBG button says Show (what `installDebugActivation` uses). |
+| `activation`  | —                       | The activation chord, listed in Settings › About. `installDebugActivation` sets it.                                                                                                                                           |
+| `shortcut`    | `'ctrl+alt+shift+p'`    | The open / close chord, matched on the physical key. `false` binds none.                                                                                                                                                      |
+| `defaultDock` | `'bottom'`              | Where the panel opens the first time: `'bottom'` or `'right'`.                                                                                                                                                                |
+| `storageKey`  | `'debug-capture:panel'` | `localStorage` key for the panel's settings and filter chips. `false` keeps nothing.                                                                                                                                          |
+| `nearFullAt`  | `0.9`                   | Show the "buffer almost full" banner from this share of the buffer size (above 0, up to 1).                                                                                                                                   |
+| `memoryStep`  | `26214400` (25 MB)      | Show the memory banner each time the size estimate passes another multiple of this many bytes.                                                                                                                                |
 
 It returns a handle: `open()` (for your own menu item or button — the panel
 never opens by itself), `close()`, `isOpen`, `loadError` (why the UI failed to
@@ -231,8 +232,10 @@ back on. `controller.dispose()` stops capture and unbinds them for good.
 - **Settings:** theme, dock, text size, time, **Buffer** (1,000 · 5,000 · 10,000 ·
   50,000 · No limit; a smaller size drops the oldest entries at once; No limit
   may make the page slow and use a lot of memory), **DBG button** (show or hide
-  the corner button) and capture on / off. Settings are remembered per browser
-  (capture always starts on).
+  the corner button; hidden at first when the tool was turned on by
+  `installDebugActivation`) and capture on / off. Settings are remembered per
+  browser (capture always starts on). At the end, **About** shows the package
+  version and every shortcut with the keys set in code.
 - **Warnings:** a banner when the buffer is almost full (it offers **Download
   all** and **Raise the limit**) and one each time the captured data passes
   another 25 MB (an estimate). Dismiss either; it comes back at the next step.

@@ -45,6 +45,13 @@ export const FRAME_CSS = [
     'border-bottom:1px solid var(--dcp-divider);background-color:var(--dcp-bg-elevated)}',
   // Settings popover: one row per setting.
   '.dcp-settings{display:flex;flex-direction:column;gap:4px;padding:4px}',
+  '.dcp-about{max-height:160px;overflow:auto;margin:4px 0 0;padding:4px;border-top:1px solid var(--dcp-divider)}',
+  '.dcp-about>h3{margin:0 0 2px;font-size:inherit;font-weight:600}',
+  '.dcp-about>p{margin:0 0 4px;color:var(--dcp-text-muted)}',
+  '.dcp-about table{border-collapse:collapse}',
+  '.dcp-about td{padding:1px 8px 1px 0;vertical-align:top;white-space:nowrap}',
+  '.dcp-about td+td{white-space:normal}',
+  '.dcp-about kbd{font:inherit;font-family:var(--dcp-font-mono)}',
   '.dcp-setting{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;min-width:0;margin:0;padding:0;border:0}',
   '.dcp-setting>legend{float:left;width:72px;padding:0;color:var(--dcp-text-muted)}',
   '.dcp-setting>label{display:inline-flex;align-items:center;gap:4px;cursor:pointer}',

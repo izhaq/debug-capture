@@ -30,6 +30,8 @@ export interface MountPanelUiOptions {
   warnings(): PanelWarnings;
   /** The user dismissed a banner; it comes back only at the next crossing or step. */
   dismissWarning(kind: 'nearFull' | 'memory'): void;
+  /** 2.2 (`FR-BG-09`): the loader's chords, for Settings › About; `false` = none bound. */
+  readonly shortcuts: { readonly toggle: string | false; readonly activation: string | false };
 }
 
 /** The banners the loader says to show. */

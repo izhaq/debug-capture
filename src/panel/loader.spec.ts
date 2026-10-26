@@ -1322,6 +1322,49 @@ describe('panel loader — 2.1 (S-11b)', () => {
     });
   });
 
+  describe("launcher: 'hidden' and the About chords — 2.2 (S13-15, S13-17, FR-BG-04, FR-BG-09, D-41)", () => {
+    it("'hidden': the DBG button exists but stays hidden, also after a close, until Settings says Show", async () => {
+      const h = install({ launcher: 'hidden' });
+      expect(h.launcher()).not.toBeNull();
+      expect(h.launcher()?.hidden).toBeTrue();
+      pressToggle();
+      await settle();
+      expect(h.ui.lastOptions().launcher).toBeFalse();
+      h.handle.close();
+      expect(h.launcher()?.hidden).toBeTrue();
+
+      h.handle.open();
+      await settle();
+      h.ui.lastOptions().setLauncher(true);
+      h.handle.close();
+      expect(h.launcher()?.hidden).toBeFalse();
+    });
+
+    it("'hidden' with a stored Show shows it; a stored Hide or nothing stored keeps it hidden", () => {
+      const shown = install({ launcher: 'hidden' }, { scope: { localStorage: storage(stored({ launcher: true })) } });
+      const hidden = install({ launcher: 'hidden' }, { scope: { localStorage: storage(stored({ launcher: false })) } });
+      const broken = install(
+        { launcher: 'hidden' },
+        { scope: { localStorage: storage({ 'debug-capture:panel': '{oops' }) } },
+      );
+      expect(shown.launcher()?.hidden).toBeFalse();
+      expect(hidden.launcher()?.hidden).toBeTrue();
+      expect(broken.launcher()?.hidden).toBeTrue();
+    });
+
+    it('hands the UI the toggle and activation chords for About; false when off', async () => {
+      const plain = install();
+      const custom = install({ shortcut: 'ctrl+alt+shift+9', activation: 'ctrl+alt+shift+a' });
+      const none = install({ shortcut: false });
+      for (const h of [plain, custom, none]) h.handle.open();
+      await settle();
+
+      expect(plain.ui.lastOptions().shortcuts).toEqual({ toggle: 'ctrl+alt+shift+p', activation: false });
+      expect(custom.ui.lastOptions().shortcuts).toEqual({ toggle: 'ctrl+alt+shift+9', activation: 'ctrl+alt+shift+a' });
+      expect(none.ui.lastOptions().shortcuts).toEqual({ toggle: false, activation: false });
+    });
+  });
+
   describe('warnings (S11-11, S11-12, FR-BUF-04, FR-BUF-05)', () => {
     const opened = async (options: DebugPanelOptions = {}): Promise<Harness> => {
       const h = install(options);

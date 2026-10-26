@@ -16,6 +16,7 @@ import {
   createThemeSheet,
   createWsView,
   CreateView,
+  DEBUG_CAPTURE_VERSION,
   HTTP_VIEW_CSS,
   IconName,
   isProblemEntry,
@@ -33,6 +34,7 @@ import {
   VIRTUAL_LIST_CSS,
   WS_VIEW_CSS,
 } from '../views';
+import { createAbout } from './about';
 import { createEventQueue } from './event-queue';
 import { FRAME_CSS } from './frame-css';
 import { createLayout } from './layout';
@@ -198,6 +200,9 @@ function build(
   // Settings and data.
   const storage = createSettingsStore(deps.storage, options.storageKey, defaultSettings(options.defaultDock));
   let settings: PanelSettings = storage.load();
+  // 2.2 (D-41): every save stores the DBG choice the loader has, so a launcher
+  // started 'hidden' is not stored as Show by the default on an unrelated save.
+  if (options.launcher !== null) settings = { ...settings, launcher: options.launcher };
   const save = (): void => storage.save(settings);
 
   const source = deps.source(controller);
@@ -350,10 +355,17 @@ function build(
     launcher: options.launcher !== null,
   });
   controls.push(form);
+  // FR-BG-09: About lists the chords in use, read from the options.
+  const about = createAbout(dom, {
+    version: DEBUG_CAPTURE_VERSION,
+    toggle: options.shortcuts.toggle,
+    activation: options.shortcuts.activation,
+    capture: controller.shortcuts ?? null,
+  });
   const settingsPopover = createPopover(dom, {
     trigger: settingsButton.element,
     ariaLabel: 'Settings',
-    content: [form.element],
+    content: [form.element, about],
     onError: report,
   });
   controls.push(settingsPopover);
