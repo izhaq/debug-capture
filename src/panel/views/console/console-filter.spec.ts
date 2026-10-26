@@ -55,7 +55,7 @@ describe('S-07 Console view: filter bar and states', () => {
         error(6, { message: 'f' }),
       ],
     });
-    expect(chips(s).map((b) => b.textContent)).toEqual(['All', 'Errors', 'Warnings', 'Info', 'Log', 'Debug']);
+    expect(chips(s).map((b) => b.textContent)).toEqual(['All', 'Errors', 'Warnings', 'Info', 'Log', 'Debug', 'App']);
     expect(chip(s, 'All')?.getAttribute('aria-pressed')).toBe('true');
 
     s.click(chip(s, 'Errors'));

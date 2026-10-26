@@ -1,4 +1,4 @@
-import type { HttpStatusGroup, ListId, LogLevel, PanelFilters, TextSize, WsDirection } from '../views';
+import type { ConsoleChip, HttpStatusGroup, ListId, PanelFilters, TextSize, WsDirection } from '../views';
 
 export type ThemeSetting = 'auto' | 'dark' | 'light';
 export type Dock = 'bottom' | 'right';
@@ -8,7 +8,7 @@ export type TimeSetting = 'clock' | 'relative';
 export interface StoredChips {
   readonly http: { readonly status: readonly HttpStatusGroup[]; readonly type: readonly ('xhr' | 'fetch')[] };
   readonly ws: { readonly direction: readonly WsDirection[]; readonly data: readonly ('text' | 'binary')[] };
-  readonly console: { readonly levels: readonly LogLevel[] };
+  readonly console: { readonly levels: readonly ConsoleChip[] };
 }
 
 /**
@@ -46,7 +46,7 @@ const STATUS: readonly HttpStatusGroup[] = ['2xx', '3xx', '4xx', '5xx', 'failed'
 const TYPES: readonly ('xhr' | 'fetch')[] = ['xhr', 'fetch'];
 const DIRECTIONS: readonly WsDirection[] = ['sent', 'received'];
 const DATA: readonly ('text' | 'binary')[] = ['text', 'binary'];
-const LEVELS: readonly LogLevel[] = ['error', 'warn', 'info', 'log', 'debug'];
+const LEVELS: readonly ConsoleChip[] = ['error', 'warn', 'info', 'log', 'debug', 'app'];
 
 export const NO_CHIPS: StoredChips = {
   http: { status: [], type: [] },

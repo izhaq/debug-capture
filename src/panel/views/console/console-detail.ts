@@ -109,6 +109,19 @@ export function createConsoleDetail(dom: Dom, deps: ViewDeps, onClose: () => voi
       ];
     }
     const out: Child[] = [heading('Message'), pre(shown), cut && showAll.element];
+    // An app message (FR-MSG-05): its type, then its data as a tree.
+    if (r.kind === 'app') {
+      const viewer = createJsonViewer(deps.document, r.data, {
+        ariaLabel: 'Data',
+        redactedValue: redacted,
+        expandDepth: 0,
+        badgeIcon: (kind) => createIcon(dom, kind),
+        onError: report,
+      });
+      viewers = [viewer];
+      viewer.expandAll(OPEN_ITEMS);
+      return [heading('Type'), pre(r.type), heading('Data'), viewer.element];
+    }
     if (r.kind === 'error') {
       if (r.stack !== null) {
         stack.textContent = r.stack;

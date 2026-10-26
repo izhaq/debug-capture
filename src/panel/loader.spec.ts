@@ -1366,6 +1366,17 @@ describe('panel loader — 2.1 (S-11b)', () => {
     });
   });
 
+  describe('message() — 2.3 (S14-08, FR-MSG-02)', () => {
+    it('forwards to the session, closed or open, and never throws', () => {
+      const h = install();
+      const add = spyOn(h.controller.session, 'addMessage');
+      h.handle.message('order-saved', { id: 1 }, 'warn');
+      expect(add).toHaveBeenCalledOnceWith('order-saved', { id: 1 }, 'warn');
+      add.and.throwError('boom');
+      expect(() => h.handle.message('x')).not.toThrow();
+    });
+  });
+
   describe('warnings (S11-11, S11-12, FR-BUF-04, FR-BUF-05)', () => {
     const opened = async (options: DebugPanelOptions = {}): Promise<Harness> => {
       const h = install(options);

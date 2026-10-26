@@ -1,6 +1,6 @@
 {
   "name": "debug-capture",
-  "version": "2.3.0-alpha.0",
+  "version": "2.3.0-alpha.1",
   "private": true,
   "description": "Debug capture v2: framework-free recorder + on-screen panel for air-gapped apps. Seeded from v1 (src/debug-capture in the host app).",
   "type": "module",

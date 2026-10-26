@@ -43,7 +43,7 @@ The package ships as one file. Build it once on a machine with access to the
 source, carry the tarball in, and install it like any other package:
 
 ```bash
-npm install ./debug-capture-2.3.0-alpha.0.tgz
+npm install ./debug-capture-2.3.0-alpha.1.tgz
 ```
 
 ESM only, with type declarations. Entry points:
@@ -222,8 +222,14 @@ They are stored in the buffer and exported in the JSON file as entries with
 (later changes to your object do not reach it), secrets in it are hidden like
 in logs, and long values are cut. While the tool is off (not turned on yet,
 turned off, or capture off) a message is **dropped** — calling `message()`
-then costs nothing. The same call is `controller.session.addMessage(type,
-data, level)` on a controller you made yourself.
+then costs nothing. The same call is `message()` on the handle
+`installDebugPanel()` returns, and `controller.session.addMessage(type, data,
+level)` on a controller you made yourself.
+
+In the panel they show in **Console**: the level's icon, the word `app`, the
+type and a short preview of the data; the detail shows the data as a tree. The
+**App** chip (with the level chips) shows only them; the level chips never hide
+them. An `error` message counts as a problem (red badge, status bar).
 
 `createCaptureController(options)`:
 
@@ -248,7 +254,8 @@ back on. `controller.dispose()` stops capture and unbinds them for good.
   body (as a JSON tree when it is JSON), timing and **Copy as cURL**.
 - **Network › WebSocket:** each connection and its messages, text or binary.
 - **Console:** logs at every level, uncaught errors, unhandled rejections and
-  the errors your framework catches, with their stacks.
+  the errors your framework catches, with their stacks; your notes, and your
+  app's own messages (**App** chip).
 - **Toolbar:** pause the view, clear, export (**Download all (JSON)** or
   **Copy all (JSON)**), switch capture off and on, and **Note** — write a note
   (a title and some text) that lands in Console and in the export at that moment.

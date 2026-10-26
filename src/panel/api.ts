@@ -2,7 +2,7 @@
  * The loader's public types and its one constant (HLD §6.4). Kept apart from
  * `index.ts` so the loader's own files can import them without a cycle.
  */
-import type { CaptureController, Unsubscribe } from '..';
+import type { AppMessageLevel, CaptureController, Unsubscribe } from '..';
 
 /** Options for `installDebugPanel()` (HLD §6.4). Every field is optional. */
 export interface DebugPanelOptions {
@@ -66,6 +66,11 @@ export interface DebugPanelHandle {
    * listener is isolated. Returns the unsubscribe function.
    */
   onStatus(listener: (status: DebugPanelStatus) => void): Unsubscribe;
+  /**
+   * 2.3 (`FR-MSG-02`): the host's own message — `controller.session.addMessage`;
+   * dropped while capture is off. Never throws; the inert handle does nothing.
+   */
+  message(type: string, data?: unknown, level?: AppMessageLevel): void;
 }
 
 /**

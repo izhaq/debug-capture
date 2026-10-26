@@ -55,6 +55,7 @@ export type { PanelStore, PanelStoreOptions, SelectionMove } from './store';
 export { EMPTY_FILTERS, isPendingRow, rowKey } from './state';
 export type {
   BufferState,
+  ConsoleChip,
   ConsoleFilter,
   ConsoleLevel,
   ConsoleRow,

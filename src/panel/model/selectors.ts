@@ -63,8 +63,7 @@ function byKind(entries: readonly CaptureEntry[]): ByKind {
     for (const entry of entries) {
       if (entry.kind === 'http') http.push(entry);
       else if (entry.kind === 'ws') ws.push(entry);
-      // S-14a: app messages get their Console rows in S-14b; until then no list shows them.
-      else if (entry.kind !== 'app') consoleRows.push(entry);
+      else consoleRows.push(entry);
     }
     split = Object.freeze({
       http: Object.freeze(http),
@@ -312,13 +311,11 @@ const visibleConsoleRows = memo2((rows: readonly ConsoleRow[], filter: ConsoleFi
   const query = foldCase(filter.text);
   const active = query !== '' || filter.levels.length > 0;
   return filterRows(rows, active, (row) => {
-    // Notes mark the user's own steps: no level chip hides them (FR-NOTE-02).
-    if (
-      filter.levels.length > 0 &&
-      row.kind !== 'note' &&
-      filter.levels.indexOf(consoleLevel(row) as LogLevel) === -1
-    ) {
-      return false;
+    // Notes mark the user's own steps: no level chip hides them (FR-NOTE-02). App messages
+    // follow the App chip alone (FR-MSG-05).
+    if (filter.levels.length > 0 && row.kind !== 'note') {
+      const chip = row.kind === 'app' ? 'app' : (consoleLevel(row) as LogLevel);
+      if (filter.levels.indexOf(chip) === -1) return false;
     }
     if (query === '') return true;
     const text = haystack(row, () => (row.kind === 'error' ? `${row.message}\n${row.source}` : consoleText(row)));

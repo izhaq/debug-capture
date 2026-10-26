@@ -8,7 +8,7 @@ import {
   createSplitPane,
   createVirtualList,
   CreateView,
-  LogLevel,
+  ConsoleChip,
   PanelState,
   rowKey,
   selectConsoleRows,
@@ -29,7 +29,9 @@ const identity = (row: ConsoleRow): string =>
       ? [row.source, row.message, row.stack]
       : row.kind === 'note'
         ? [row.title, row.text]
-        : [row.level, row.args],
+        : row.kind === 'app'
+          ? ['app', row.type, row.level, row.data]
+          : [row.level, row.args],
   );
 
 /** Each entry's last comparison with the first entry of its run: entries never change, so a pair is compared once. */
@@ -155,9 +157,10 @@ export const createConsoleView: CreateView = (deps) => {
       { id: 'info', label: 'Info' },
       { id: 'log', label: 'Log' },
       { id: 'debug', label: 'Debug' },
+      { id: 'app', label: 'App' },
     ],
     selected: filters.levels,
-    onChange: (ids) => store.setFilter('console', { levels: ids as readonly LogLevel[] }),
+    onChange: (ids) => store.setFilter('console', { levels: ids as readonly ConsoleChip[] }),
     onError: report,
   });
   const search = createSearchBox(dom, {

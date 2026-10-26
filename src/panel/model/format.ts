@@ -242,7 +242,7 @@ export function wsEventLabel(entry: WebSocketEntry): Label {
   }
 }
 
-/** Error entries are level `error` (FR-CON-01); notes are `note` (FR-NOTE-02). */
+/** Error entries are level `error` (FR-CON-01); notes are `note` (FR-NOTE-02); app messages their own level (FR-MSG-05). */
 export function consoleLevel(row: ConsoleRow): ConsoleLevel {
   return row.kind === 'error' ? 'error' : row.kind === 'note' ? 'note' : row.level;
 }
@@ -268,6 +268,8 @@ export function consoleLevelLabel(level: ConsoleLevel): Label {
 export function consoleText(row: ConsoleRow): string {
   if (row.kind === 'error') return row.message;
   if (row.kind === 'note') return row.title && row.text ? `${row.title} — ${row.text}` : row.title || row.text;
+  // FR-MSG-05: the type, then the data as compact JSON (none for null).
+  if (row.kind === 'app') return row.data === null ? row.type : `${row.type} ${JSON.stringify(row.data)}`;
   return row.args.map((arg) => (typeof arg === 'string' ? arg : JSON.stringify(arg))).join(' ');
 }
 

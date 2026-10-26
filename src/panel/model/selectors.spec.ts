@@ -251,15 +251,38 @@ describe('memoised selectors (S03-14)', () => {
   });
 });
 
-describe('app messages before S-14b (S14-07)', () => {
-  it('an app message shows in no list yet and is not counted', () => {
-    const store = storeWith([
-      logEntry(1),
-      { kind: 'app', seq: 2, t: 2, type: 'order-saved', level: 'info', data: { id: 1 } },
-    ]);
+describe('app messages in Console — 2.3 (S14-09, S14-10, FR-MSG-05)', () => {
+  const app = (
+    seq: number,
+    level: 'info' | 'warn' | 'error',
+    type = 'order-saved',
+    data: unknown = { id: seq },
+  ): CaptureEntry => ({ kind: 'app', seq, t: seq, type, level, data }) as CaptureEntry;
+
+  it('app messages are Console rows in seq order and count in N / M', () => {
+    const store = storeWith([logEntry(1), app(2, 'info'), errorEntry(3)]);
+    expect(seqs(selectConsoleRows(store.getState()))).toEqual([1, 2, 3]);
+    expect(selectListCounts(store.getState(), 'console')).toEqual({ shown: 3, total: 3 });
+  });
+
+  it('the App chip shows only app messages among chosen chips; level chips never hide them', () => {
+    const store = storeWith([logEntry(1, { level: 'error' }), app(2, 'error'), logEntry(3, { level: 'warn' })]);
+    store.setFilter('console', { levels: ['error'] });
     expect(seqs(selectConsoleRows(store.getState()))).toEqual([1]);
-    expect(selectListCounts(store.getState(), 'console')).toEqual(
-      selectListCounts(storeWith([logEntry(1)]).getState(), 'console'),
-    );
+    store.setFilter('console', { levels: ['app'] });
+    expect(seqs(selectConsoleRows(store.getState()))).toEqual([2]);
+    store.setFilter('console', { levels: ['app', 'warn'] });
+    expect(seqs(selectConsoleRows(store.getState()))).toEqual([2, 3]);
+  });
+
+  it('search looks in the type and the data', () => {
+    const store = storeWith([
+      app(1, 'info', 'order-saved', { id: 7 }),
+      app(2, 'info', 'cart-cleared', { reason: 'timeout' }),
+    ]);
+    store.setFilter('console', { text: 'cart' });
+    expect(seqs(selectConsoleRows(store.getState()))).toEqual([2]);
+    store.setFilter('console', { text: 'timeout' });
+    expect(seqs(selectConsoleRows(store.getState()))).toEqual([2]);
   });
 });

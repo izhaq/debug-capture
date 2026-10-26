@@ -1,4 +1,5 @@
 import {
+  AppMessageEntry,
   CaptureEntry,
   ErrorEntry,
   HttpEntry,
@@ -18,8 +19,11 @@ export type ListId = 'http' | 'ws' | 'console';
  */
 export type HttpRow = HttpEntry | PendingRequest;
 
-/** One row of the Console list: a console call, an error (`FR-CON-01`) or a note (`FR-NOTE-02`). */
-export type ConsoleRow = LogEntry | ErrorEntry | NoteEntry;
+/** One row of the Console list: a console call, an error (`FR-CON-01`), a note (`FR-NOTE-02`) or an app message (`FR-MSG-05`). */
+export type ConsoleRow = LogEntry | ErrorEntry | NoteEntry | AppMessageEntry;
+
+/** A Console level chip: a log level, or `app` for the host's own messages (2.3, `FR-MSG-05`). */
+export type ConsoleChip = LogLevel | 'app';
 
 /** What the Console's level column shows: a log level, or `note` (never filtered by the level chips). */
 export type ConsoleLevel = LogLevel | 'note';
@@ -85,8 +89,8 @@ export interface WsFilter {
 export interface ConsoleFilter {
   /** Looks in the message text and the error source. */
   readonly text: string;
-  /** Error entries count as `error`. */
-  readonly levels: readonly LogLevel[];
+  /** Error entries count as `error`. `app` picks app messages, which the level chips never hide. */
+  readonly levels: readonly ConsoleChip[];
 }
 
 export interface PanelFilters {

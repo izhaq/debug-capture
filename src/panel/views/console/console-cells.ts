@@ -33,7 +33,8 @@ export function levelLabel(dom: Dom, row: ConsoleRow): HTMLElement {
   const label = consoleLevelLabel(level);
   return dom.el('span', { className: `dcp-console-level dcp-tone-${label.tone}` }, [
     createIcon(dom, level === 'warn' ? 'warning' : level),
-    label.text,
+    // FR-MSG-05: an app message shows its level's icon and colour, and the word app.
+    row.kind === 'app' ? 'app' : label.text,
   ]);
 }
 
@@ -42,7 +43,9 @@ function hasMore(row: ConsoleRow, text: string): boolean {
   const extra =
     row.kind === 'error'
       ? row.stack !== null
-      : row.kind === 'log' && row.args.some((arg) => arg !== null && typeof arg === 'object');
+      : row.kind === 'app'
+        ? row.data !== null && typeof row.data === 'object'
+        : row.kind === 'log' && row.args.some((arg) => arg !== null && typeof arg === 'object');
   return extra || preview(text) !== text;
 }
 

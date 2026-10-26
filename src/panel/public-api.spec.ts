@@ -64,6 +64,7 @@ describe('debug-capture/panel public API (P5 loader)', () => {
     // null → an inert handle (HLD §6.4): every method is safe to call.
     assertType<Equals<DebugPanelHandle['loadError'], unknown>>();
     const handle = installDebugPanel(null);
+    handle.message('ignored', { a: 1 }, 'error');
     handle.open();
     handle.close();
     handle.dispose();

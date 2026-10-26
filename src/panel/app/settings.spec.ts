@@ -147,3 +147,13 @@ describe('S-11 settings storage: buffer and DBG button (S11-08, S11-10, FR-BUF-0
     }
   });
 });
+
+describe('settings storage — 2.3 App chip (S14-10)', () => {
+  it('keeps the App chip among the Console chips (stored in the fixed chip order)', () => {
+    const parsed = parseSettings(
+      JSON.stringify({ chips: { console: { levels: ['app', 'error', 'nope'] } } }),
+      defaultSettings('bottom'),
+    );
+    expect(parsed.chips.console.levels).toEqual(['error', 'app']);
+  });
+});

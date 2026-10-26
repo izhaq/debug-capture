@@ -34,3 +34,9 @@ S-14a — done, in review. Unit specs 1250 → **1259** (+9: `install-debug-capt
 failed once (against stubs, then a mutation round). Old specs changed only to compile: fake
 sessions gain `addMessage`, the contract's exhaustive draft switch gains `app`. Version
 2.3.0-alpha.0. Until S-14b the Console leaves app messages out (`S14-07`).
+
+S-14b — done, in review. Unit specs 1259 → **1267** (+8: model 3, Console view 4 in
+`console-app.spec.ts`, settings 1, loader 1; S-14a's "no list shows them yet" spec removed, as
+S-14b gives them rows). e2e 65 → **66** (`panel-v23.spec.mjs`). Every new spec failed once (two
+unit mutation rounds, one e2e round). Changed existing specs on purpose: the Console chip list
+has **App**; the inert-handle spec calls `message()`. Version 2.3.0-alpha.1.

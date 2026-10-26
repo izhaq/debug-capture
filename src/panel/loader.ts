@@ -1,4 +1,4 @@
-import type { CaptureController, CaptureEntry, IsProblemEntry, RecorderChange, Unsubscribe } from '..';
+import type { AppMessageLevel, CaptureController, CaptureEntry, IsProblemEntry, RecorderChange, Unsubscribe } from '..';
 import type { MountPanelUi, PanelUiHandle } from './app';
 import { DebugPanelHandle, DebugPanelOptions, DebugPanelStatus, PANEL_ELEMENT_NAME } from './api';
 import { COUNT_CLASS, LAUNCHER_CLASS, LOADER_CSS, ROOT_CLASS } from './loader-styles';
@@ -64,7 +64,15 @@ type StatusListener = { readonly l: (status: DebugPanelStatus) => void; last: st
 
 export function inertHandle(): DebugPanelHandle {
   const none = (): void => undefined;
-  return { open: none, close: none, isOpen: false, loadError: null, dispose: none, onStatus: () => none };
+  return {
+    open: none,
+    close: none,
+    isOpen: false,
+    loadError: null,
+    dispose: none,
+    onStatus: () => none,
+    message: none,
+  };
 }
 
 /**
@@ -504,6 +512,9 @@ function build(controller: CaptureController, options: DebugPanelOptions, deps: 
       return loadError;
     },
     dispose: guard(dispose),
+    message: guard((type: string, data?: unknown, level?: AppMessageLevel) =>
+      controller.session.addMessage(type, data, level),
+    ),
     onStatus(l) {
       const listener: StatusListener = { l, last: '' };
       if (state !== DISPOSED) {
