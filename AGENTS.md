@@ -106,7 +106,8 @@ Each layer imports only the barrel of the layer directly above it (the
 ## Checks
 
 Run from the repository root after `npm ci`, with the Node in `.nvmrc`. All
-must pass before a commit.
+must pass before a commit. CI (`.github/workflows/ci.yml`) runs `npm run check`
+on every pull request and on `main`, on the pinned Chromium and on Chrome 146.
 
 | Command                | What it checks                                                                                                     |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------ |

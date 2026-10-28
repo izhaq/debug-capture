@@ -47,7 +47,7 @@ Also update the docs that name the version: the tarball name in `README.md`
   ```
 
 Open a PR `build(debug-capture v2): release 2.3.0` into `main` with the
-numbers (unit and e2e counts, the `npm run size` table, both browsers). The
+numbers; CI runs both browsers on it too (unit and e2e counts, the `npm run size` table, both browsers). The
 owner merges it.
 
 ## 3. Pack (from `main`, after the merge)

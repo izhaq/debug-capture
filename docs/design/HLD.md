@@ -835,6 +835,7 @@ illustration: **where it and this document differ, this document wins.**
 ```
 debug-capture/                         (the repository izhaq/debug-capture — D-02)
   README.md · CONTRIBUTING.md · RELEASING.md · AGENTS.md · package.json · tsconfig*.json
+  .github/workflows/ci.yml              CI (GitHub Actions, OPEN-06): npm run check, also on Chrome 146
   docs/  design/ (HLD, mockup) · specs/ (S-00…S-14) · host-setup.md · research/ · v1/
   scripts/  check-layers.mjs · contrast-check.mjs · build.mjs · size.mjs · …
   src/

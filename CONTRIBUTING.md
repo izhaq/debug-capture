@@ -17,7 +17,7 @@ version, see [`RELEASING.md`](RELEASING.md).
 ## Check
 
 ```bash
-npm run check   # everything below, in this order
+npm run check   # everything below, in this order — what CI runs
 ```
 
 | Command                | What it checks                                                                         |
@@ -50,7 +50,21 @@ npm run check
 ```
 
 The script downloads Chrome for Testing 146 and points `PLAYWRIGHT_BROWSERS_PATH`
-and `CHROME_BIN` at it.
+and `CHROME_BIN` at it. CI does the same in its `chrome-146` job.
+
+## CI
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) (GitHub Actions) runs on
+every pull request and every push to `main`:
+
+| Job          | What                                                                          |
+| ------------ | ----------------------------------------------------------------------------- |
+| `check`      | Node from `.nvmrc`, `npm ci`, the pinned Playwright Chromium, `npm run check` |
+| `chrome-146` | the same `npm run check` on Chrome for Testing 146.0.7680.72                  |
+
+npm packages and both browsers are cached. When a job fails, its
+`test-results/` folder is attached to the run. A PR is ready only when CI is
+green.
 
 ## How to work
 
