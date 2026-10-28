@@ -5,6 +5,14 @@ Each spec cuts one row of HLD §9.1 into work. The HLD
 and the HLD disagree, the HLD wins — or the HLD is changed first, in its own
 PR.
 
+**History.** S-00 … S-14 were written while the package was the folder
+`packages/debug-capture/` of the playground app
+[`izhaq/angular-13-playground`](https://github.com/izhaq/angular-13-playground).
+Their paths are now from this repository's root. The branches they name (the
+integration branch `claude/air-gapped-debug-logging-zkn1nr`, `claude/dc-v2-…`)
+and the PR numbers (#34 … #116) are in that repository. New specs branch from
+and merge into `main` here.
+
 ## The list (HLD §9.1)
 
 | Spec | In one line | Depends on |

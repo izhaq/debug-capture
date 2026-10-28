@@ -5,7 +5,7 @@ row **S-00** into work. Where they disagree, the HLD wins.
 
 ## Goal
 
-Make `packages/debug-capture/` a package that stands on its own, so the four
+Make `packages/debug-capture/` (then a folder of the playground app; now this repository) a package that stands on its own, so the four
 wave-2 specs (S-01 … S-04) can start **in parallel** against fixed contracts:
 
 1. **Tooling** (HLD §7.2): one install, one command per check, all green.
@@ -24,7 +24,7 @@ the page's life). The other Proposed decisions are not needed here.
 
 | ID | Requirement | Track |
 |---|---|---|
-| S00-01 | `cd packages/debug-capture && npm ci` installs everything; no use of the host app's `node_modules`. Exact versions, a lockfile, `engines.node`. | 00a |
+| S00-01 | `npm ci` installs everything; no use of the host app's `node_modules`. Exact versions, a lockfile, `engines.node`. | 00a |
 | S00-02 | `npm test` runs every `src/**/*.spec.ts` (framework-free and Angular) once, headless, and exits with the result. Baseline today: **312 specs, all green** — none lost. | 00a |
 | S00-03 | `npm run typecheck`, `npm run lint`, `npm run lint:layers`, `npm run format:check`, `npm run build`, `npm run size`, `npm run pack:check`, `npm run e2e`, `npm run contrast`, and `npm run check` (all of them, in that spirit) exist and pass. | 00a (+ 00d for `contrast`) |
 | S00-04 | `npm run build` emits `.d.ts` per entry point (plain `tsc`) **and** prebuilt ESM bundles `dist/*.mjs` (esbuild) — what ships, usable from a bundler, Node or a plain page with no bundler. `package.json` `exports` maps `.`, `./angular`, `./react`, `./panel` (and `./package.json`). *(Changed in the review round: tsc first emitted `.js` too, which only worked with bundler resolution.)* | 00a, 00e |
@@ -46,6 +46,6 @@ app (`src/debug-capture/`) — untouched.
 
 ## Acceptance
 
-On the foundation branch, from `packages/debug-capture/`: `npm ci && npm run
+On the foundation branch, from the package root: `npm ci && npm run
 check` exits 0, with the test count ≥ 312 and the numbers (tests, sizes) in the
 PR body. A fresh-context review found no open blocker.

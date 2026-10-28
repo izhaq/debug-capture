@@ -6,7 +6,7 @@
 // that the "Measured minimum ratios" paragraph still matches the numbers, so
 // the HLD can never drift from its own tokens.
 //
-// Usage (from packages/debug-capture/):
+// Usage (from the package root):
 //   node scripts/contrast-check.mjs               check docs/design/HLD.md
 //   node scripts/contrast-check.mjs --hld <path>  check another copy
 //   node scripts/contrast-check.mjs --self-test   check this script

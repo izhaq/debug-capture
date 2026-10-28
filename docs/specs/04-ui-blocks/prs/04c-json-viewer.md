@@ -40,7 +40,7 @@ not blow the stack; timing spec for a 2,000-key expand with honest margins;
 ## Verification
 
 ```bash
-cd packages/debug-capture && npm ci
+npm ci
 CHROME_BIN=/opt/pw-browsers/chromium-1194/chrome-linux/chrome npm run check
 ```
 

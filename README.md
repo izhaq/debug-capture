@@ -39,12 +39,17 @@ About**.
 
 ## Install
 
-The package ships as one file. Build it once on a machine with access to the
-source, carry the tarball in, and install it like any other package:
+The package ships as one file, `debug-capture-<version>.tgz`, attached to each
+[GitHub Release](https://github.com/izhaq/debug-capture/releases) with its
+SHA-256 checksum. Carry it in, put it in your app's `vendor/` folder and
+install it from there:
 
 ```bash
-npm install ./debug-capture-2.3.0-alpha.1.tgz
+npm install ./vendor/debug-capture-<version>.tgz   # a file: dependency
 ```
+
+Step by step — checksum, wiring for Angular, React and a plain page, the Chrome
+download policy, and updating to a new version: [`docs/host-setup.md`](docs/host-setup.md).
 
 ESM only, with type declarations. Entry points:
 
@@ -347,21 +352,22 @@ the folder, use `DefaultDownloadDirectory` instead. The file is named
 - URL user-info redaction misses URLs with a leading space and protocol-relative
   `//host` URLs.
 
-## Develop
-
-Everything runs from this folder, with its own install (Node
-`^20.19.0 || ^22.13.0 || >=24`):
+## Develop and release
 
 ```bash
-npm ci
+nvm use && npm ci
 npm run check   # typecheck, lint, layers, format, contrast, unit tests, build, size, pack check, e2e
 npm pack        # → debug-capture-<version>.tgz, the file to carry in
 ```
 
-`npm run e2e` uses the Chromium of the pinned `@playwright/test`; never run
-`playwright install` for another version. Rules for people and agents are in
-[`AGENTS.md`](AGENTS.md); the design is in [`docs/design/HLD.md`](docs/design/HLD.md);
-specs are in [`docs/specs/`](docs/specs/README.md).
+- How to work on it (set up, every check, tests, the Chrome 146 run):
+  [`CONTRIBUTING.md`](CONTRIBUTING.md).
+- How to cut and publish a version: [`RELEASING.md`](RELEASING.md).
+- Rules for people and agents: [`AGENTS.md`](AGENTS.md); the design:
+  [`docs/design/HLD.md`](docs/design/HLD.md); specs: [`docs/specs/`](docs/specs/README.md).
 
-v2 was seeded from v1, which lives in the host app at the repository root
+v2 was seeded from v1, which lives in the playground app
+[`izhaq/angular-13-playground`](https://github.com/izhaq/angular-13-playground)
 (`src/debug-capture/`, as of commit `8fb0a0d`) and keeps working there unchanged.
+This package lived there too, in `packages/debug-capture/`, until it moved to
+this repository with its history.

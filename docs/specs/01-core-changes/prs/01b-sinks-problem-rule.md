@@ -37,7 +37,7 @@ C-8, `src/adapters/sinks/`, the contract's `SinkOptions` and `IsProblemEntry`.
 ## Verification
 
 ```bash
-cd packages/debug-capture && npm ci
+npm ci
 CHROME_BIN=/opt/pw-browsers/chromium-1194/chrome-linux/chrome npm run check
 ```
 

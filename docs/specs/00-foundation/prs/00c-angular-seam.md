@@ -15,7 +15,7 @@ AOT host app, so it would fail at runtime there (or need the JIT compiler).
 Without the decorator, the package needs no Angular build step and no
 `experimentalDecorators`.
 
-## Owned paths (relative to `packages/debug-capture/`)
+## Owned paths (relative to the package root)
 
 `src/angular/**` only. Do not edit `tsconfig.json` (the orchestrator turns
 `experimentalDecorators` off after the merge).
@@ -47,7 +47,7 @@ Without the decorator, the package needs no Angular build step and no
 
 ```bash
 # from the repo root of your worktree
-npx tsc -p packages/debug-capture/tsconfig.json
+npx tsc -p tsconfig.json
 # prove it compiles WITHOUT decorators: a throwaway tsconfig in your scratch dir
 # that extends the package one with "experimentalDecorators": false — must pass
 node <pkg-test.cjs> . 'angular'

@@ -1,0 +1,74 @@
+# CI for debug-capture: every pull request and every push to main runs
+# `npm run check` (typecheck, lint, layers, format, contrast, unit, build,
+# size, pack check, e2e + perf) — the same command a contributor runs.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: npm run check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # The Chromium of the pinned @playwright/test (1.56.1); cached by lockfile.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npx playwright install --with-deps chromium
+      - run: npm run check
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/
+          if-no-files-found: ignore
+
+  # The station browser (NFR-COMP-01): the same checks on Chrome for Testing
+  # 146.0.7680.72. Not required for merging unless the owner makes it so.
+  chrome-146:
+    name: npm run check on Chrome 146
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/debug-capture-chrome-146
+          key: chrome-for-testing-146.0.7680.72-${{ runner.os }}
+      # Only the system libraries; the browser itself comes from the script.
+      - run: npx playwright install-deps chromium
+      - name: npm run check
+        run: |
+          eval "$(scripts/chrome-146.sh ~/.cache/debug-capture-chrome-146)"
+          "$CHROME_BIN" --version
+          npm run check
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-chrome-146
+          path: test-results/
+          if-no-files-found: ignore

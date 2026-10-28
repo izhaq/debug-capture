@@ -27,7 +27,7 @@ merged, the later branches take the integration branch in by a merge (no rebase)
 
 ## Owned paths
 
-All paths are under `packages/debug-capture/` unless they start with `/`.
+All paths are from the package root (this repository) unless they start with `/` (the playground app, `izhaq/angular-13-playground`).
 
 | Path | PR | Why |
 |---|---|---|

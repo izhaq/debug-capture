@@ -173,7 +173,7 @@ shows the number.
 
 ## Tracks
 
-| Track | Brief | Owns (paths under `packages/debug-capture/`) |
+| Track | Brief | Owns (paths from the package root) |
 |---|---|---|
 | 08 Frame | `08-frame/prs/08-frame.md` | `src/panel/app/**`; `src/panel/loader.ts`, `loader-styles.ts` (fullscreen re-raise only); `test/hostile-host/**` except `server.mjs`; `test/e2e/panel-frame.spec.mjs`; `test/e2e/panel-hostile-host.spec.mjs`, `panel-zone.spec.mjs` (switch to the real controller) |
 | 05 HTTP | `05-http-view/prs/05-http.md` | `src/panel/views/http/**`; `test/e2e/panel-http.spec.mjs` |

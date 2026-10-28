@@ -10,7 +10,7 @@ Write down, as **types only**, every shape the wave-2 specs share, so S-01
 (core), S-02 (shell), S-03 (model) and S-04 (UI) can work in parallel. Nothing
 existing may break: today's code must compile and its 312 specs pass unchanged.
 
-## Owned paths (relative to `packages/debug-capture/`)
+## Owned paths (relative to the package root)
 
 `src/contract/**`, `src/panel/**`.
 
@@ -102,7 +102,7 @@ scratch harness `<pkg-test.cjs>` (its path is in your task prompt; it uses the h
 
 ```bash
 # from the repo root of your worktree
-npx tsc -p packages/debug-capture/tsconfig.json
+npx tsc -p tsconfig.json
 node <pkg-test.cjs> . 
 # expect 312 + your new specs, all SUCCESS
 npx tsc -p tsconfig.app.json --noEmit && npm run lint:layers   # host app unaffected

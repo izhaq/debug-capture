@@ -24,7 +24,7 @@ in, and its PR goes to the integration branch.
 
 ## Tracks (all seven in parallel)
 
-| Track | Brief | Owns (paths under `packages/debug-capture/`) |
+| Track | Brief | Owns (paths from the package root) |
 |---|---|---|
 | 01a Core | `01-core-changes/prs/01a-recorder-probes-controller.md` | `src/contract/**`, `src/core/**` (except `problem-rule*`), `src/adapters/probes/**`, `src/install/**` |
 | 01b Sinks + problem rule | `01-core-changes/prs/01b-sinks-problem-rule.md` | `src/adapters/sinks/**`, `src/core/problem-rule.ts`, `src/core/problem-rule.spec.ts`, one export line in `src/core/index.ts` |
