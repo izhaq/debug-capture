@@ -22,8 +22,8 @@ into `main`. Ask only for real owner decisions.
 ## Status
 
 - Done: v2.0, 2.1 (S-11), 2.2 (S-13 background control), 2.3 (S-14 custom messages).
-  Package **2.3.0-alpha.1**. No planned spec.
-- Numbers: 1267 unit specs, 66 e2e + perf; core 12,607 / 13,904 B, activation 1,197 / 1,536 B,
+  Package **2.3.0**, released as `v2.3.0` (GitHub Release, `RELEASING.md`). No planned spec.
+- Numbers: 1267 unit specs, 66 e2e + perf; core 12,602 / 13,904 B, activation 1,198 / 1,536 B,
   loader 4,783 / 5,632 B, UI chunk 41,474 / 45,056 B (min + gzip); warm open about 60 ms
   (limit 100). The same on Chrome 146.0.7680.72.
 - Plans with all numbers and notes: [`13-background-control/plan.md`](13-background-control/plan.md),
@@ -31,11 +31,8 @@ into `main`. Ask only for real owner decisions.
 
 ## Next
 
-1. Make the repo self-explaining (`CONTRIBUTING.md`, `RELEASING.md`, `docs/host-setup.md`,
-   old paths fixed, HLD updated for the move).
-2. CI: GitHub Actions, `npm run check` on PRs and `main`, plus a Chrome 146 job.
-3. Release **2.3.0** (drop `-alpha.1`), as `RELEASING.md` says; the playground app then
-   switches to it.
+- Nothing planned. The playground app switches from 2.3.0-alpha.1 to the 2.3.0 tarball
+  (`docs/host-setup.md` › Update). A new version starts as `2.4.0-alpha.0` on a spec branch.
 
 ## The AI assistant is not here
 
