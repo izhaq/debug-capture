@@ -30,7 +30,7 @@ S-10a, in commits:
 
 ## Owned paths
 
-All paths are under `packages/debug-capture/`.
+All paths are from the package root (this repository).
 
 | Path | PR | Why |
 |---|---|---|
@@ -81,7 +81,7 @@ S-10a numbers:
   framework error in Console).
 - Sizes, min+gzip, unchanged: loader 4,084 / 4,096; UI chunk 38,926 / 40,960; core 11,743 / 12,368.
 - `npm run pack:check`: ok; `debug-capture-2.0.0-alpha.0.tgz`, 126 files, 329,217 B.
-- Nothing outside `packages/debug-capture/` changed.
+- Nothing outside `packages/debug-capture/` (the package's folder in the playground app then) changed.
 
 Deviations from the brief:
 

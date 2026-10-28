@@ -1,8 +1,9 @@
 # AGENTS.md — rules for debug-capture v2
 
 The single source of rules for anyone (person or agent) who changes this
-package. `CLAUDE.md` points here. Paths are relative to
-`packages/debug-capture/`.
+package. `CLAUDE.md` points here. Paths are relative to the repository root
+(`izhaq/debug-capture`). How to set up and work: [`CONTRIBUTING.md`](CONTRIBUTING.md);
+how to release: [`RELEASING.md`](RELEASING.md).
 
 **Source of truth:** [`docs/design/HLD.md`](docs/design/HLD.md). Every spec is
 cut from it and cites its IDs (`FR-NET-04`, `ISO-07`, `D-05`…). When a spec
@@ -104,8 +105,8 @@ Each layer imports only the barrel of the layer directly above it (the
 
 ## Checks
 
-Run from `packages/debug-capture/` after `npm ci`. All must pass before a
-commit.
+Run from the repository root after `npm ci`, with the Node in `.nvmrc`. All
+must pass before a commit.
 
 | Command                | What it checks                                                                                                     |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -131,11 +132,14 @@ count, so a lost spec file fails the run.
 ## Git and PRs
 
 22. Conventional commits: `type(scope): subject`, scope `debug-capture v2`.
-    Trailers as the session asks.
+    No trailer lines; never an AI model name in commits or PRs. Run
+    `npm run format` before each commit; push every commit before saying a PR
+    is ready.
 23. Change only the paths your brief owns. If another file must change, say
     so in the PR.
-24. Big work goes to a spec branch; track PRs merge into it with merge
-    commits; the spec branch then gets one PR into the integration branch.
+24. `main` is the integration branch; only the owner merges into it. Big
+    work goes to a spec branch; track PRs merge into it with merge commits;
+    the spec branch then gets one PR into `main`.
 25. PR body: What · Review notes · Checks (with numbers: tests, sizes).
 26. Never commit links to temp paths (`/tmp`, scratchpads). Put evidence in
     the repo or the PR body.
@@ -155,12 +159,15 @@ count, so a lost spec file fails the run.
 
 31. Put each thing where it belongs:
 
-| Path             | Holds                                                        |
-| ---------------- | ------------------------------------------------------------ |
-| `docs/design/`   | the HLD (why, what, and the decisions in §10) and the mockup |
-| `docs/specs/`    | specs, plans and PR briefs, one folder per spec              |
-| `docs/research/` | evidence behind the HLD (isolation cases, practices)         |
-| `docs/v1/`       | v1's guide and decision record, as they were                 |
-| `scripts/`       | check scripts (`lint:layers`, `contrast`, `size`…)           |
-| `src/`           | the code, with its specs next to it                          |
-| `test/`          | test hosts, the hostile host, end-to-end and perf tests      |
+| Path                 | Holds                                                        |
+| -------------------- | ------------------------------------------------------------ |
+| `CONTRIBUTING.md`    | how to set up, work, test and open a PR                      |
+| `RELEASING.md`       | how to cut, pack and publish a version                       |
+| `docs/host-setup.md` | how a host app installs, wires and updates the package       |
+| `docs/design/`       | the HLD (why, what, and the decisions in §10) and the mockup |
+| `docs/specs/`        | specs, plans and PR briefs, one folder per spec              |
+| `docs/research/`     | evidence behind the HLD (isolation cases, practices)         |
+| `docs/v1/`           | v1's guide and decision record, as they were                 |
+| `scripts/`           | check scripts (`lint:layers`, `contrast`, `size`…)           |
+| `src/`               | the code, with its specs next to it                          |
+| `test/`              | test hosts, the hostile host, end-to-end and perf tests      |

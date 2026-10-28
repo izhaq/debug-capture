@@ -44,7 +44,7 @@ every listener and observer.
 ## Verification
 
 ```bash
-cd packages/debug-capture && npm ci
+npm ci
 CHROME_BIN=/opt/pw-browsers/chromium-1194/chrome-linux/chrome npm run check
 ```
 

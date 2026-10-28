@@ -55,7 +55,7 @@ Outside APIs, read from the installed sources:
 
 ## Verification
 
-`npm run check` from `packages/debug-capture`. Report the spec and e2e counts, the size
+`npm run check` from the package root. Report the spec and e2e counts, the size
 table (unchanged), the tarball line, and `git diff --stat` outside the package (empty).
 
 ## Out of scope

@@ -61,7 +61,7 @@ the HLD §5.4 token **names** and **values** (dark and light). Track 04a's
 ## Verification
 
 ```bash
-cd packages/debug-capture && npm ci
+npm ci
 CHROME_BIN=/opt/pw-browsers/chromium-1194/chrome-linux/chrome npm run check
 ```
 

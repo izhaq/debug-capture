@@ -12,7 +12,8 @@ activation shortcut comes on top of the `?debug=1` URL switch, which stays (`D-4
 0.8 (2026-10-26): release 2.3 (S-14, custom messages) — scope §2.1c, rows §3.12, core change
 `C-12`, decisions `D-46`, `D-47`. 0.9 (2026-10-26): the AI moves out of this package — S-12 is
 dropped here; the AI assistant is its own product, a Chrome extension in its own repository
-(`D-48`, superseding `D-35`).
+(`D-48`, superseding `D-35`). 1.0 (2026-10-28): the package moves to its own repository,
+`izhaq/debug-capture` (`D-02` done, `OPEN-06` answered: GitHub; CI is GitHub Actions, §7.2).
 **Scope:** the whole of v2: the capture layer it inherits from v1, and the new
 on-screen **debug panel**.
 **This document is the source of truth.** Every v2 spec and plan is cut from
@@ -54,8 +55,10 @@ error).
   (`D-40`) a station that has not switched it on loads only a tiny **activation** piece
   (one key listener); the core and the loader come with dynamic `import()` when it is
   switched on.
-- **It is a package.** v2 lives in `packages/debug-capture/` with entry points
-  `core`, `angular`, `react` and `panel`, ready to become its own repository.
+- **It is a package.** v2 lives in its own repository, `izhaq/debug-capture` (`D-02`;
+  until 2026-10-28 in `packages/debug-capture/` of the playground app
+  `izhaq/angular-13-playground`), with entry points `core`, `angular`, `react`, `panel` and
+  `activate`. It ships as one tarball attached to a GitHub Release (`BR-05`).
 - **Delivery.** 11 specs (S-00 … S-10), built in waves by parallel agents,
   each reviewed, tested in a real browser and merged into an integration
   branch — the process that delivered v1.
@@ -830,9 +833,9 @@ illustration: **where it and this document differ, this document wins.**
 ### 6.1 Package and entry points
 
 ```
-packages/debug-capture/                (becomes its own repository later — D-02)
-  README.md · AGENTS.md · package.json · tsconfig*.json
-  docs/  design/ (HLD, mockup) · specs/ (S-00…S-10) · research/ · v1/
+debug-capture/                         (the repository izhaq/debug-capture — D-02)
+  README.md · CONTRIBUTING.md · RELEASING.md · AGENTS.md · package.json · tsconfig*.json
+  docs/  design/ (HLD, mockup) · specs/ (S-00…S-14) · host-setup.md · research/ · v1/
   scripts/  check-layers.mjs · contrast-check.mjs · build.mjs · size.mjs · …
   src/
     contract/ core/ adapters/ install/ index.ts   ← entry "debug-capture"         (from v1, L1–L5)
@@ -1189,7 +1192,7 @@ v2 adopts the v2 rule set in `docs/research/practices-baseline.md` §3 (31
 | Contrast | `contrast-check.mjs` reads the token table and fails under 4.5:1 / 3:1 | Proposed |
 | Size | A size check on the loader, the UI chunk and the core (`NFR-SIZE-01`) | Proposed |
 | `AGENTS.md` | At the package root; the single source for agent rules | Proposed |
-| CI | Once the repository's home is known (GitHub or Azure DevOps — `OPEN-06`) | Open |
+| CI | GitHub Actions (`.github/workflows/`): `npm run check` on every pull request and on `main` (`OPEN-06` answered) | Decided |
 
 `bdi_W` practices will be compared with this list when they are available
 (`OPEN-03`); the HLD is then updated.
@@ -1314,7 +1317,7 @@ owner confirms or changes it before the spec that depends on it starts.
 | ID | Decision | Status |
 |---|---|---|
 | D-01 | The panel is a framework-free Web Component (Shadow DOM), not an Angular or React component. | Decided |
-| D-02 | v2 lives in `packages/debug-capture/`, seeded from v1; v1 stays in the host app unchanged. Later its own repository. | Decided |
+| D-02 | v2 lives in `packages/debug-capture/`, seeded from v1; v1 stays in the host app unchanged. Later its own repository. **Done (2026-10-28):** split out with its history into `izhaq/debug-capture` on GitHub; hosts, the playground app too, install the release tarball from their `vendor/` folder. | Decided — done |
 | D-03 | Overlay docked **bottom** by default, **right** as an option; never changes host layout. | Decided |
 | D-04 | One shared **JSON tree viewer** for console args, HTTP bodies and WS frames (entries are already JSON-safe, so this is cheap). | Decided |
 | D-05 | Show **pending** requests (core change C-1). The export keeps `schemaVersion` 1 with optional new fields; readers ignore unknown fields. | Decided |
@@ -1373,7 +1376,7 @@ owner confirms or changes it before the spec that depends on it starts.
 | OPEN-03 | What does `bdi_W` do for rules, lint, CI, agents, structure? | Updates §7. Needs a session that can reach it. | Owner |
 | OPEN-04 | Do the copy fallback and the download link work from inside the panel's shadow root in the station browser? | `C-5`; otherwise copy or download from the panel adds a node to `<body>` for a moment. | S-01 spike |
 | OPEN-05 | Is "flag on" enough of a gate in production, or should opening the panel need more (a PIN, an allow-list of stations)? From 2.2 (`D-40`) the gate is a chord: **anyone at the station who knows it** can switch capture on (and it stays on for that browser) and open the panel. Mitigations available today: a less obvious chord in code (`shortcut` option), or `shortcut: false` with the flag set by IT only. | Who can see captured data on a station. | Owner / security |
-| OPEN-06 | Where will the v2 repository live: GitHub or Azure DevOps? | CI system and pipeline format. | Owner |
+| OPEN-06 | ~~Where will the v2 repository live: GitHub or Azure DevOps?~~ **Answered (owner, 2026-10-28): GitHub, `izhaq/debug-capture`**; CI is GitHub Actions (§7.2). | CI system and pipeline format. | Owner — answered |
 | OPEN-07 | ~~Where does the AI add-on keep the model token: in memory for the page session only (safest; asked again after a reload), or remembered in `localStorage` (easier, but any script on the page can read it)? Proposed: memory only, with an opt-in "Remember on this browser".~~ **Moved** to `devtools-ai-assistant` (`D-48`). | The token is a secret on a shared station. | Closed here |
 | OPEN-08 | ~~Which API do the local / on-prem models speak? Proposed: the OpenAI-compatible chat API (`POST /v1/chat/completions`, `Authorization: Bearer <token>`), which vLLM, Ollama and most on-prem servers offer.~~ **Moved** to `devtools-ai-assistant` (`D-48`). | The add-on's one network call. | Closed here |
 
@@ -1399,4 +1402,5 @@ owner confirms or changes it before the spec that depends on it starts.
 - `docs/research/practices-baseline.md` — what we do today, gaps, v2 rules,
   `bdi_W` comparison template.
 - `docs/v1/README.md`, `docs/v1/decision-record.md` — v1 usage and decisions.
-- Host-app PRs #34–#51 (branch `claude/air-gapped-debug-logging-zkn1nr`).
+- Host-app PRs #34–#51 (branch `claude/air-gapped-debug-logging-zkn1nr` of
+  `izhaq/angular-13-playground`; v2 PRs up to #116 are there too, before the move).

@@ -55,7 +55,7 @@ do not edit the last line of that file), `src/adapters/probes/**`,
 ## Verification
 
 ```bash
-cd packages/debug-capture && npm ci
+npm ci
 CHROME_BIN=/opt/pw-browsers/chromium-1194/chrome-linux/chrome npm run check
 # run the full suite 3× (timing specs) and report the numbers
 ```

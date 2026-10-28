@@ -33,7 +33,7 @@ raising one needs the owner.
 | S10-06 | **Flag off** on all three hosts: with no `?debug` and no storage flag there is no controller, no panel element, no launcher, the chord does nothing, and `fetch` / `WebSocket` / `console.log` are the page's own. | BR-02, BR-07, FR-ACT-01 |
 | S10-07 | **Packaging.** `npm run pack:check` passes on the final tree: the tarball holds only `package.json`, `README.md`, the bundles, their maps and the `.d.ts` files, and installs and type-checks in a scratch consumer. The PR reports the tarball name, file count and size. | BR-05, BR-04, NFR-PORT-01 |
 | S10-08 | **README for users** (package root). Leads with what it is and how to switch it on; install from the tarball; the three host set-ups, copied from the tested hosts; options; keyboard; what it records and what it redacts; sizes; security (CSP, no network, copy / export only on a click); known limits. Developer notes move to a short last section that points to `AGENTS.md`. | BR-05, §6.6, §6.8 |
-| S10-09 | The host app at the repo root is unaffected: the PR changes nothing outside `packages/debug-capture/`. | §1 (host app stays unaffected) |
+| S10-09 | The host app at the repo root is unaffected: the PR changes nothing outside `packages/debug-capture/` (the package's folder there then). | §1 (host app stays unaffected) |
 
 ## Requirements — S-10b
 

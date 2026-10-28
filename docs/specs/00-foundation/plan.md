@@ -26,7 +26,7 @@ opens **one PR: foundation → integration branch** for the owner.
 | 00c Angular seam | `prs/00c-angular-seam.md` | `src/angular/**` |
 | 00d Standards | `prs/00d-standards.md` | `AGENTS.md`, `CLAUDE.md`, `README.md`, `scripts/contrast-check*`, `docs/specs/README.md` |
 
-All paths are relative to `packages/debug-capture/`. No track touches another
+All paths are relative to the package root (this repository). No track touches another
 track's paths, so the merges cannot conflict.
 
 ## Fixed names (so tracks can rely on each other without waiting)

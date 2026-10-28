@@ -7,10 +7,10 @@ layer checker `scripts/check-debug-capture-layers.js` at the **repo root** (port
 
 ## Goal
 
-`cd packages/debug-capture && npm ci && npm run check` works on its own, with
+`npm ci && npm run check` works on its own, with
 no help from the host app.
 
-## Owned paths (relative to `packages/debug-capture/`)
+## Owned paths (relative to the package root)
 
 `package.json`, `package-lock.json`, `tsconfig*.json`, `.gitignore`,
 `.prettierrc*`, `.prettierignore`, `eslint.config.*`, `karma.conf.*`,
@@ -71,7 +71,7 @@ existing files: the orchestrator does one format sweep after all merges.
    files change. `format:check` may fail until the orchestrator's sweep; say
    so in the PR.
 7. **`npm run lint:layers`** — port the v1 checker to `scripts/check-layers.mjs`
-   (or `.cjs`), re-rooted at `packages/debug-capture/src`, with a `--self-test`
+   (or `.cjs`), re-rooted at the package's `src/`, with a `--self-test`
    rule table. Layers:
    - L1 `contract/` → nothing; L2 `core/` → L1 barrel; L3 `adapters/**` → L2
      barrel; L4 `install/` → L3 barrel; L5 `src/index.ts` → L4 barrel.
@@ -106,7 +106,6 @@ existing files: the orchestrator does one format sweep after all merges.
 ## Verification (paste the numbers in the PR body)
 
 ```bash
-cd packages/debug-capture
 rm -rf node_modules && npm ci
 npm run typecheck && npm run lint && npm run lint:layers && node scripts/check-layers.mjs --self-test
 npm test            # expect 312 SUCCESS

@@ -13,7 +13,7 @@ One branch, one PR. The owner reviews it. It is not merged from this slice.
 
 ## Owned paths
 
-All paths are under `packages/debug-capture/`.
+All paths are from the package root (this repository).
 
 | Path | Why |
 |---|---|

@@ -5,7 +5,7 @@
 **Read first:** `../spec.md`, `../plan.md`, HLD §5.4, §6.2, §7, §9, and
 `docs/research/practices-baseline.md` §3 (the v2 rule set).
 
-## Owned paths (relative to `packages/debug-capture/`)
+## Owned paths (relative to the package root)
 
 `AGENTS.md`, `CLAUDE.md`, `README.md`, `scripts/contrast-check*`,
 `docs/specs/README.md`.
@@ -18,7 +18,7 @@
   rules L1–L6 and P1–P5 in short (HLD §6.2, including "P5 imports P4 only by
   `import type` and one dynamic `import()`"), the panel's isolation rules by
   reference (HLD §6.7 `ISO-01…22`), and the check commands — exactly these npm
-  scripts, run from `packages/debug-capture/`: `typecheck`, `lint`,
+  scripts, run from the package root: `typecheck`, `lint`,
   `lint:layers`, `format:check`, `contrast`, `test`, `build`, `size`, `e2e`,
   and `check` (all).
 - Drop or rewrite rules that only fit the host Angular app (e.g. `ng build`,
@@ -65,7 +65,6 @@ the HLD live. Keep the existing content.
 ## Verification
 
 ```bash
-cd packages/debug-capture
 node scripts/contrast-check.mjs --self-test
 node scripts/contrast-check.mjs          # must pass on HLD 0.4 as merged
 # prove the drift check: in a scratch COPY of HLD.md change one measured

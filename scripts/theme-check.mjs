@@ -7,7 +7,7 @@
 // token. If src/panel/launcher-tokens.ts exists (the loader's few colours),
 // each token it names must also equal the HLD value.
 //
-// Usage (from packages/debug-capture/):
+// Usage (from the package root):
 //   node scripts/theme-check.mjs               check the files above
 //   node scripts/theme-check.mjs --self-test   check this script
 //
