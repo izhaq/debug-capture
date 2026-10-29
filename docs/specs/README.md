@@ -31,6 +31,7 @@ and merge into `main` here.
 | [S-11 v2.1 panel features](11-v21-features/spec.md) | Buffer size in Settings, near-full and memory warnings, status observer, "Show DBG button", user notes (HLD `D-28`…`D-34`) | S-10 |
 | [S-13 Background control](13-background-control/spec.md) | Activation shortcut beside `?debug=1` (remembered, silent), chords for capture on/off and a note that work while capture is off, download folder by Chrome policy, About in Settings (HLD `D-37`…`D-45`) | S-11 |
 | [S-14 Custom messages](14-custom-messages/spec.md) | The host sends its own messages (type, level, JSON data) into the capture; Console App chip; export (HLD `D-46`) | S-13 |
+| [S-15 Text size − / +](15-text-size/spec.md) | Settings › Text size becomes − / + / Reset, 10–20 px by 1 px, live and remembered; rows, bars, controls and icons grow with it (HLD `D-49`, `D-50`) | S-14 |
 | ~~S-12 AI add-on~~ | **Moved out** (HLD `D-48`): the AI assistant is a Chrome extension in its own repository, `izhaq/devtools-ai-assistant` | — |
 
 ## Waves (HLD §9.2)
@@ -40,7 +41,7 @@ Wave 1:  S-00
 Wave 2:  S-01 ║ S-02 ║ S-03 ║ S-04     parallel — they code against the S-00 contract
 Wave 3:  S-05 ║ S-06 ║ S-07 ║ S-08     parallel — one view each + the frame; a small contract PR first
 Wave 4:  S-09 ─► S-10                  in order — S-09 touches every view
-Wave 5:  S-11 ─► S-13 ─► S-14          v2.1, after S-10b closes 2.0 (S-12 moved out, D-48)
+Wave 5:  S-11 ─► S-13 ─► S-14 ─► S-15   v2.1, after S-10b closes 2.0 (S-12 moved out, D-48)
 ```
 
 The wave plans (branches, tracks, owned paths, contracts): [`wave-2.md`](wave-2.md),
