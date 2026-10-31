@@ -14,6 +14,8 @@ activation shortcut comes on top of the `?debug=1` URL switch, which stays (`D-4
 dropped here; the AI assistant is its own product, a Chrome extension in its own repository
 (`D-48`, superseding `D-35`). 1.0 (2026-10-28): the package moves to its own repository,
 `izhaq/debug-capture` (`D-02` done, `OPEN-06` answered: GitHub; CI is GitHub Actions, §7.2).
+1.1 (2026-10-29): release 2.4 (S-15, text size − / +) — scope §2.1d, rows §3.13, §4.10, §5.3,
+§5.5, the view contract's row height (§6.4), decisions `D-49`, `D-50`.
 **Scope:** the whole of v2: the capture layer it inherits from v1, and the new
 on-screen **debug panel**.
 **This document is the source of truth.** Every v2 spec and plan is cut from
@@ -189,6 +191,12 @@ Rows: §3.11. Release 2.2 changes nothing above unless a §3.11 row says so.
 The host app can send its **own messages** — a type name, a level and any JSON data — into
 the capture (`D-46`). They are kept in the buffer, shown in **Console** (with an **App** filter
 chip) and exported in the JSON file. Messages sent while the tool is off are dropped. Rows: §3.12.
+
+### 2.1d Release 2.4 (S-15, text size − / +)
+
+The text in the panel can be made **bigger or smaller one pixel at a time**, from 10 to 20 px,
+with **−** and **+** in Settings (`D-49`). Rows, bars, buttons and icons grow with the text
+(`D-50`), so large text is never cut off. It replaces Small / Normal / Large. Rows: §3.13.
 
 ### 2.2 Later (2.x)
 
@@ -382,6 +390,20 @@ Cut from `D-46` (owner, 2026-10-26). Core change `C-12`; interfaces §6.4.
 
 ---
 
+### 3.13 Functional — release 2.4, text size − / + (S-15)
+
+Cut from `D-49`, `D-50` (owner, 2026-10-29). Changes §4.10, §5.3, §5.5 and the view contract's
+row height (§6.4).
+
+| ID | Requirement | Pri |
+|---|---|---|
+| FR-TXT-01 | **Text size − / +** (`D-49`): Settings › Text size shows **−**, the size (`12 px`) and **+**. Each click makes the panel text 1 px smaller or bigger, **at once**, while the panel stays open. The range is **10 to 20 px**; **−** is disabled at 10 and **+** at 20. Default 12 px. It replaces Small / Normal / Large. | MUST (2.4) |
+| FR-TXT-02 | **Reset** next to **+** returns to 12 px; it is disabled at 12 px. | MUST (2.4) |
+| FR-TXT-03 | **Everything grows with the text** (`D-50`): the sizes of §5.3 and §5.5 follow the text size *n* by the formulas there — UI and data text *n*, meta text *n* − 1, list rows 2*n* − 2, controls, bars, status bar and icons too. Up to 14 px every size is what 2.3 drew, so Small (11) / Normal (12) / Large (14) look the same as before. No text is clipped in a control, chip, bar, row or badge at any size. | MUST (2.4) |
+| FR-TXT-04 | **Remembered** with the other settings (§4.10, `debug-capture:panel`) as a number of px. A value stored by 2.3 is read as Small 11 · Normal 12 · Large 14; anything else unknown, out of range or not a whole number gives 12. | MUST (2.4) |
+| FR-TXT-05 | **Usable at every size**: keyboard (the buttons are native buttons, each with a name — "Smaller text", "Larger text", "Reset text size"; the size is announced when it changes), forced colours, and at 1280 × 720 with 20 px text every toolbar control can still be reached, docked bottom and docked right (`NFR-COMP-02`). The lists keep their place when the size changes. | MUST (2.4) |
+| FR-TXT-06 | **Budgets**: no raise — UI chunk ≤ 45,056 B, loader ≤ 5,632 B, core and activation unchanged (`D-34`, `D-43`). | MUST (2.4) |
+
 ## 4. Behaviour
 
 ### 4.1 Lifecycle
@@ -574,7 +596,7 @@ A popover under the gear button.
 |---|---|---|
 | Theme | Auto (follows the OS, by a CSS `prefers-color-scheme` media query — no JS listener) · Dark · Light | Auto |
 | Dock | Bottom · Right | Bottom |
-| Text size | Small 11 px · Normal 12 px · Large 14 px (meta text 10 / 11 / 13 px) | Normal |
+| Text size | **−** `12 px` **+** **Reset** (2.4, `FR-TXT-01`, `FR-TXT-02`): 10 to 20 px, 1 px per click, live; Reset → 12. Until 2.3: Small 11 px · Normal 12 px · Large 14 px | 12 px |
 | Time | Clock · Relative | Clock |
 | Capture | On · Off (`FR-ACT-09`) — **not remembered**; every reload starts On | On |
 | Buffer (2.1) | 1,000 · 5,000 · 10,000 · 50,000 · No limit (with its warning) — `FR-BUF-01` | the policy's `maxEntries` |
@@ -673,19 +695,23 @@ the list instead of beside it.
 |---|---|
 | Panel height, docked bottom | default 40% of window; min 160 px; max 90% |
 | Panel width, docked right | default 520 px; min 360 px; max 90% |
-| Title bar / filter bar / detail header | 32 px each, at every text size |
-| Status bar | 22 px, at every text size |
-| List row | 22 px (Normal text), 20 px (Small), 26 px (Large) |
+| Title bar / filter bar / detail header | control + 8 px: 32 px up to 14 px text, 44 px at 20 px (2.4, `D-50`) |
+| Status bar | max(22, *n* + 8) px: 22 px up to 14 px text, 28 px at 20 px |
+| List row | 2*n* − 2 px: 22 px at 12 px text (20 at 11, 26 at 14, 18 at 10, 38 at 20) |
+| Controls (buttons, chips, inputs) | max(24, 2*n* − 4) px: 24 px up to 14 px text, 36 px at 20 px; menu items control + 4 px |
+| Badges | max(16, *n* + 2) px tall |
 | Detail pane | default 45% of the panel (bottom dock: width; right dock: height); min 240 px; draggable splitter |
 | Resize handle hit area | 6 px |
 | Launcher | 28 px tall, 12 px from the corner |
 | Spacing scale | 2 · 4 · 8 · 12 · 16 px |
 | Radius | 4 px (controls, chips, badges); 6 px (popovers, menus, launcher); 0 (the panel itself — it touches the window edges) |
 | Borders | 1 px |
-| Icons | 14 px, inline SVG, `currentColor` |
+| Icons | max(14, *n*) px (14 px up to 14 px text), inline SVG, `currentColor` |
 
 All sizes in **px** (never `rem`: the host's root font size must not change
-ours — `ISO-03`).
+ours — `ISO-03`). *n* is the text size (§5.5, `FR-TXT-03`): every size above that names *n*
+follows it; the rest (spacing, radius, borders, resize area, launcher) stays fixed. At *n* ≤ 14
+every size equals the 2.3 one.
 
 ### 5.4 Colour tokens
 
@@ -747,8 +773,8 @@ Status stays readable by icon and text.
 | Meta (timestamps, sizes, status bar) | the data stack above | 11 px | 400 |
 
 Line height 1.4 for text blocks, row height fixed for lists. No web fonts
-(`ISO-05`: no `@font-face`). Text size setting scales all three (11 / 12 /
-14 px base).
+(`ISO-05`: no `@font-face`). The text size setting *n* (10 to 20 px, default 12; 2.4, `D-49`)
+sets UI and data to *n* and meta to *n* − 1 (until 2.3: Small 11 / Normal 12 / Large 14).
 
 ### 5.6 Columns and status mapping
 
@@ -1255,6 +1281,7 @@ Each spec lives in `docs/specs/<nn>-<slug>/` with `spec.md`, `plan.md` and a
 | **S-11 v2.1 panel features** | Buffer size in Settings incl. "No limit" (`D-28`); buffer-near-full banner (`D-29`); memory warning (`D-30`); status observer (`D-31`); "Show DBG button" setting (`D-32`); user notes (`D-33`); budgets (`D-34`). HLD requirement rows first, in S-11's own spec | S-10 |
 | **S-13 Background control** | Activation shortcut on top of `?debug=1`, remembered per browser, hidden DBG button (`D-40`, `D-41`); chords for capture on/off and a pre-defined note, live while capture is off (`D-37`, `D-38`, `C-11`); save to a folder by Chrome policy (`D-39`); About in Settings (`D-42`); budgets (`D-43`). Before S-12 (`D-44`) | S-11 |
 | **S-14 Custom messages** | The host sends its own messages (type, level, JSON data) through a handle; buffer, Console (App chip), export; dropped while off (`D-46`, `C-12`). Before S-12 (`D-47`) | S-13 |
+| **S-15 Text size − / +** | Settings › Text size becomes − / + / Reset, 10–20 px by 1 px, live and remembered (`D-49`); rows, bars, controls and icons grow with it (`D-50`). Release 2.4 | S-14 |
 | ~~S-12 AI add-on~~ | **Moved out** (`D-48`): the AI assistant is a separate product, the Chrome extension `devtools-ai-assistant` in its own repository. Nothing about AI is built in this package. | — |
 
 ### 9.2 Waves
@@ -1264,9 +1291,10 @@ Wave 1:  S-00
 Wave 2:  S-01 ║ S-02 ║ S-03 ║ S-04            (parallel — they code against the S-00 contract)
 Wave 3:  S-05 ║ S-06 ║ S-07 ║ S-08            (parallel — one view each, plus the frame; a small contract PR first fixes the view interface the frame mounts)
 Wave 4:  S-09 ─► S-10                         (sequential — S-09 touches every view, after wave 3 is merged)
-Wave 5:  S-11 ─► S-13 ─► S-14                 (v2.1, after 2.0 is closed by S-10b — owner, 2026-10-25;
+Wave 5:  S-11 ─► S-13 ─► S-14 ─► S-15          (v2.1, after 2.0 is closed by S-10b — owner, 2026-10-25;
                                                S-13, S-14 — owner, 2026-10-26, D-44, D-47;
-                                               S-12 moved out to its own product, D-48)
+                                               S-12 moved out to its own product, D-48;
+                                               S-15 — owner, 2026-10-29, D-49)
 ```
 
 Every wave ends with the merged branch verified as a whole, and the security-
@@ -1305,6 +1333,7 @@ end to end that every `MUST` is covered.
 | NFR-COMP-02 | S-02 |
 | NFR-PORT-01 | S-10 (three hosts, `dist/` build from S-00) |
 | FR-BUF-01…05, FR-STAT-01, FR-ACT-10, FR-NOTE-01…04 (2.1) | S-11 (core `C-9`, `C-10` in S-11a; panel in S-11b) |
+| FR-TXT-01…06 (2.4) | S-15 (one panel PR, S-15a) |
 | FR-MSG-01…08 (2.3) | S-14 (core `C-12` and the activation handle in S-14a; panel handle and Console in S-14b; the app in S-14c) |
 | FR-BG-01…10 (2.2), BR-02 (2.2), NFR-SIZE-01 (2.2) | S-13 (core `C-11`, activation, seams in S-13a; panel About and hidden DBG button in S-13b; the app in S-13c) |
 
@@ -1365,6 +1394,8 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-46 | **Custom messages from the host** (owner, 2026-10-26): the host app sends its own messages through a handle — a **type** name, a **level** (`info` · `warn` · `error`) and any **JSON data** — kept in the buffer and exported. Messages sent while the tool is off are **dropped** (no queue in the always-loaded piece). They show in **Console** with an **App** chip. Level `error` counts as a **problem**. | Decided (owner, 2026-10-26; the four choices were the S-14 proposals) |
 | D-47 | **S-14 before S-12** (owner, 2026-10-26). | Decided |
 | D-48 | **The AI assistant is its own product, not part of the panel** (owner, 2026-10-26). The goal is Chrome's built-in AI assistance without sign-in and without Google's cloud, for **developers on the corporate network**, talking to a model the user chooses: an OpenAI-compatible API (on-prem servers such as vLLM or Ollama, or online) or Anthropic's API. The debug panel runs on air-gapped stations that cannot reach the on-prem model, so it is the wrong home. It becomes a **self-hosted Chrome extension** (a DevTools panel and a side panel) that each developer installs if they want, in its own repository **`izhaq/devtools-ai-assistant`**: chat about the page and the selected element (explain, find problems, suggest CSS / code) and apply changes to the page with Undo. It has its own HLD there. This package keeps `NFR-SEC-03` (no network) with no exception. Supersedes `D-35`; closes `OPEN-07` and `OPEN-08` here (they move to that repository). | Decided |
+| D-49 | **Text size − / +** (owner, 2026-10-29; the stations' users find 12 px too small): Settings › Text size becomes **−** / the size / **+** / **Reset**, 1 px per click, **10 to 20 px**, default 12, live and remembered. It replaces Small / Normal / Large; a stored 2.3 value maps to 11 / 12 / 14. Not a browser zoom chord (Ctrl + / −): those belong to the browser and zoom the host too. | Decided |
+| D-50 | **Bars and controls grow with the text** (owner, 2026-10-29): above 14 px, buttons, chips, inputs, bars, the status bar, badges and icons grow by the §5.3 formulas, so 20 px text is never clipped; up to 14 px every size stays as in 2.3. Changes §5.3 ("32 px at every text size" no longer holds above 14 px). The list row height becomes any whole number of px in the view contract (§6.4; was 20 · 22 · 26). | Decided |
 
 ---
 
