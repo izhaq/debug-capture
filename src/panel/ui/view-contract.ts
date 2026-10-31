@@ -16,8 +16,8 @@ import type { Schedule } from './search-box';
 export interface ViewSettings {
   /** Clock or relative time (P1 `TimeFormat`: `{ mode: 'clock', utcOffsetMinutes }` or `{ mode: 'relative', origin }`). */
   readonly time: TimeFormat;
-  /** Row height for the text size Small / Normal / Large (§5.3). */
-  readonly rowHeight: 20 | 22 | 26;
+  /** List row height in whole px, 2n − 2 for the text size n (§5.3, `D-50`; was 20 · 22 · 26 until 2.3). */
+  readonly rowHeight: number;
   /** Where the panel is docked: the detail pane goes beside the list (bottom) or below it (right) (§5.2). */
   readonly dock: 'bottom' | 'right';
 }

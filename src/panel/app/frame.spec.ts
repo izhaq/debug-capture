@@ -40,6 +40,7 @@ describe('S-08 frame (mountFrame)', () => {
   const stored = (): Record<string, unknown> => JSON.parse(rig.storage.items.get('dcp-spec') ?? '{}');
   const radio = (name: string, value: string): HTMLInputElement =>
     q<HTMLInputElement>(`input[name="dcp-setting-${name}"][value="${value}"]`);
+  const sizeVar = (name: string): string => stage.panelRoot.style.getPropertyValue(name);
 
   it('S08-01, S08-15: builds in panelRoot, appends one sheet after the loader’s; unmount undoes all of it, twice is harmless', () => {
     const ui = mount();
@@ -297,13 +298,14 @@ describe('S-08 frame (mountFrame)', () => {
     expect(radio('capture', 'on').checked).toBeTrue();
 
     radio('theme', 'light').click();
-    radio('textSize', 'large').click();
+    named('Larger text').click();
+    named('Larger text').click();
     radio('dock', 'right').click();
     radio('time', 'relative').click();
     radio('capture', 'off').click();
 
     expect(stage.panelRoot.getAttribute('data-theme')).toBe('light');
-    expect(stage.panelRoot.getAttribute('data-text-size')).toBe('large');
+    expect(sizeVar('--dcp-fs-ui')).toBe('14px');
     expect(stage.panelRoot.getAttribute('data-dock')).toBe('right');
     expect(stage.panelRoot.style.width).toBe('520px');
     expect(http?.settings.slice(-1)[0]).toEqual({
@@ -313,14 +315,45 @@ describe('S-08 frame (mountFrame)', () => {
     });
     expect(rig.source.calls).toEqual(['stop']);
     expect(stored()).toEqual(
-      jasmine.objectContaining({ theme: 'light', textSize: 'large', dock: 'right', time: 'relative' }),
+      jasmine.objectContaining({ theme: 'light', textSize: 14, dock: 'right', time: 'relative' }),
     );
     expect(Object.keys(stored())).not.toContain('capture');
 
     radio('theme', 'auto').click();
-    radio('textSize', 'normal').click();
+    named('Reset text size').click();
     expect(stage.panelRoot.hasAttribute('data-theme')).toBeFalse();
-    expect(stage.panelRoot.hasAttribute('data-text-size')).toBeFalse();
+    expect(sizeVar('--dcp-fs-ui')).toBe('12px');
+  });
+
+  it("S15-05, FR-TXT-01, 03, 04: + / − resize the panel at once — the root's sizes, the views' rows, storage and the form", () => {
+    mount();
+    rig.scope.frame();
+    named('Settings').click();
+    const http = rig.views.logs.http;
+    const value = (): string => (q('[data-text-size-value]').textContent ?? '').trim();
+    expect(value()).toBe('12 px');
+    expect(sizeVar('--dcp-row-h')).toBe('22px');
+
+    for (let i = 0; i < 12; i++) if (!named('Larger text').disabled) named('Larger text').click();
+    expect(value()).toBe('20 px');
+    expect(named('Larger text').disabled).toBeTrue();
+    expect(sizeVar('--dcp-fs-ui')).toBe('20px');
+    expect(sizeVar('--dcp-bar-h')).toBe('44px');
+    expect(http?.settings.slice(-1)[0]?.rowHeight).toBe(38);
+    expect(stored()['textSize']).toBe(20);
+
+    named('Smaller text').click();
+    expect(value()).toBe('19 px');
+    expect(http?.settings.slice(-1)[0]?.rowHeight).toBe(36);
+    expect(stored()['textSize']).toBe(19);
+  });
+
+  it('S15-03, FR-TXT-04: a stored 2.3 "large" opens at 14 px', () => {
+    rig.storage.items.set('dcp-spec', JSON.stringify({ textSize: 'large' }));
+    mount();
+    rig.scope.frame();
+    expect(sizeVar('--dcp-fs-ui')).toBe('14px');
+    expect(rig.views.logs.http?.deps.settings.rowHeight).toBe(26);
   });
 
   it('S08-11, D-20: chips are stored and restored; search text never reaches storage', () => {

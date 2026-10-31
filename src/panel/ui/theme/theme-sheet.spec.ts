@@ -1,5 +1,5 @@
 import { CONTROLS_CSS } from './controls-css';
-import { blendHex, ROW_HEIGHTS, THEME_CSS } from './theme-css';
+import { blendHex, rowHeightFor, TEXT_SIZE_DEFAULT, textSizeVars, THEME_CSS } from './theme-css';
 import { createThemeSheet } from './theme-sheet';
 import { TOKENS } from './tokens';
 
@@ -133,22 +133,62 @@ describe('theme (S04-02)', () => {
     expect(style.visibility).toBe('visible');
   });
 
-  it('data-text-size scales UI, data and meta sizes and the row height (HLD §5.3, §5.5)', () => {
+  /** The S-15 size table (spec.md › Sizes): n → ui, meta, row, control, bar, menu item, status bar, icon, badge, small icon. */
+  const TABLE = [
+    [10, 9, 18, 24, 32, 28, 22, 14, 16, 12],
+    [11, 10, 20, 24, 32, 28, 22, 14, 16, 12],
+    [12, 11, 22, 24, 32, 28, 22, 14, 16, 12],
+    [14, 13, 26, 24, 32, 28, 22, 14, 16, 12],
+    [16, 15, 30, 28, 36, 32, 24, 16, 18, 14],
+    [20, 19, 38, 36, 44, 40, 28, 20, 22, 18],
+  ] as const;
+
+  it("FR-TXT-03, D-50: textSizeVars gives the S-15 table; up to 14 px every size is 2.3's", () => {
+    for (const [n, meta, row, control, bar, menu, status, icon, badge, iconSm] of TABLE) {
+      expect(textSizeVars(n))
+        .withContext(`${n} px`)
+        .toEqual({
+          '--dcp-fs-ui': `${n}px`,
+          '--dcp-fs-data': `${n}px`,
+          '--dcp-fs-meta': `${meta}px`,
+          '--dcp-row-h': `${row}px`,
+          '--dcp-control-h': `${control}px`,
+          '--dcp-bar-h': `${bar}px`,
+          '--dcp-menu-item-h': `${menu}px`,
+          '--dcp-status-h': `${status}px`,
+          '--dcp-icon': `${icon}px`,
+          '--dcp-badge-h': `${badge}px`,
+          '--dcp-icon-sm': `${iconSm}px`,
+        });
+      expect(rowHeightFor(n)).withContext(`${n} px`).toBe(row);
+    }
+  });
+
+  it('FR-TXT-03: out of range or not whole is clamped to 10…20 and rounded; not a number is 12', () => {
+    expect(textSizeVars(9)).toEqual(textSizeVars(10));
+    expect(textSizeVars(99)).toEqual(textSizeVars(20));
+    expect(textSizeVars(12.6)).toEqual(textSizeVars(13));
+    expect(textSizeVars(NaN)).toEqual(textSizeVars(12));
+    expect(rowHeightFor(-1)).toBe(18);
+    expect(TEXT_SIZE_DEFAULT).toBe(12);
+  });
+
+  it("FR-TXT-03: the sheet's defaults are the 12 px sizes; the properties on the root resize text, controls, icons and badges", () => {
     const meta = probe('dcp-meta');
     const data = probe('dcp-data');
-    const sizes = [
-      ['small', '11px', '11px', '10px', 20],
-      ['normal', '12px', '12px', '11px', 22],
-      ['large', '14px', '14px', '13px', 26],
-    ] as const;
-    for (const [size, ui, dataPx, metaPx, row] of sizes) {
-      root.setAttribute('data-text-size', size);
-      expect(getComputedStyle(root).fontSize).withContext(size).toBe(ui);
-      expect(getComputedStyle(data).fontSize).withContext(size).toBe(dataPx);
-      expect(getComputedStyle(meta).fontSize).withContext(size).toBe(metaPx);
-      expect(getComputedStyle(root).getPropertyValue('--dcp-row-h').trim()).toBe(`${row}px`);
-      expect(ROW_HEIGHTS[size]).toBe(row);
-    }
+    const btn = probe('dcp-btn');
+    const badge = probe('dcp-badge');
+    const icon = probe('dcp-icon');
+    const read = (name: string): string => getComputedStyle(root).getPropertyValue(name).trim();
+    for (const [name, value] of Object.entries(textSizeVars(12))) expect(read(name)).withContext(name).toBe(value);
+
+    for (const [name, value] of Object.entries(textSizeVars(20))) root.style.setProperty(name, value);
+    expect(getComputedStyle(root).fontSize).toBe('20px');
+    expect(getComputedStyle(data).fontSize).toBe('20px');
+    expect(getComputedStyle(meta).fontSize).toBe('19px');
+    expect(getComputedStyle(btn).height).toBe('36px');
+    expect(getComputedStyle(badge).height).toBe('22px');
+    expect(getComputedStyle(icon).width).toBe('20px');
     expect(getComputedStyle(data).fontFamily).toContain('monospace');
   });
 

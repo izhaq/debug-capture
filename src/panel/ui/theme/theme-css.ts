@@ -11,18 +11,45 @@ import { ThemeTokens, TokenName, TOKENS } from './tokens';
  * (ISO-05), and every rule scoped under `.dcp-root` or a `dcp-` class.
  */
 
-/** Text size setting (HLD §4.10): `data-text-size` on `.dcp-root`; no attribute = normal. */
-export type TextSize = 'small' | 'normal' | 'large';
+/** Text size setting (HLD §4.10, `D-49`): a whole number of px, the UI and data font size. */
+export type TextSize = number;
+export const TEXT_SIZE_MIN = 10;
+export const TEXT_SIZE_MAX = 20;
+export const TEXT_SIZE_DEFAULT = 12;
 
-/** List row height in px per text size (HLD §5.3). */
-export const ROW_HEIGHTS: Readonly<Record<TextSize, number>> = { small: 20, normal: 22, large: 26 };
+/** Whole px within 10…20; anything that is not a number gives the default. */
+function clampTextSize(n: number): number {
+  if (!isFinite(n)) return TEXT_SIZE_DEFAULT;
+  return Math.min(TEXT_SIZE_MAX, Math.max(TEXT_SIZE_MIN, Math.round(n)));
+}
 
-/** UI, data and meta font sizes in px per text size (HLD §5.5). */
-const FONT_SIZES: Readonly<Record<TextSize, readonly [ui: number, data: number, meta: number]>> = {
-  small: [11, 11, 10],
-  normal: [12, 12, 11],
-  large: [14, 14, 13],
-};
+/** List row height in px for text size `n` (HLD §5.3): 22 at 12, as 2.3 drew it. */
+export function rowHeightFor(n: number): number {
+  return 2 * clampTextSize(n) - 2;
+}
+
+/**
+ * The custom properties for text size `n` (HLD §5.3, §5.5, `D-50`). Each `max()`
+ * keeps 2.3's size up to 14 px, so only bigger text makes the chrome grow.
+ */
+export function textSizeVars(size: number): Readonly<Record<string, string>> {
+  const n = clampTextSize(size);
+  const control = Math.max(24, 2 * n - 4);
+  const px = (v: number): string => `${v}px`;
+  return {
+    '--dcp-fs-ui': px(n),
+    '--dcp-fs-data': px(n),
+    '--dcp-fs-meta': px(n - 1),
+    '--dcp-row-h': px(rowHeightFor(n)),
+    '--dcp-control-h': px(control),
+    '--dcp-bar-h': px(control + 8),
+    '--dcp-menu-item-h': px(control + 4),
+    '--dcp-status-h': px(Math.max(22, n + 8)),
+    '--dcp-icon': px(Math.max(14, n)),
+    '--dcp-badge-h': px(Math.max(16, n + 2)),
+    '--dcp-icon-sm': px(Math.max(12, n - 2)),
+  };
+}
 
 /** Opacity of the badge background over `--dcp-bg` (HLD §5.4). */
 const BADGE_TINT = 0.12;
@@ -71,8 +98,10 @@ function colours(theme: 'dark' | 'light'): string {
 }
 
 function sizes(size: TextSize): string {
-  const [ui, data, meta] = FONT_SIZES[size];
-  return `--dcp-fs-ui:${ui}px;--dcp-fs-data:${data}px;--dcp-fs-meta:${meta}px;--dcp-row-h:${ROW_HEIGHTS[size]}px;`;
+  const vars = textSizeVars(size);
+  return Object.keys(vars)
+    .map((name) => `${name}:${vars[name]};`)
+    .join('');
 }
 
 const FONT_UI = 'system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
@@ -91,9 +120,8 @@ const FORCED_TOKENS =
 export const THEME_CSS = [
   // Tokens and sizes. Dark is the default; light by attribute or, with no
   // attribute (Auto, D-13), by the OS setting — no script involved.
-  `.dcp-root{${colours('dark')}${sizes('normal')}` +
+  `.dcp-root{${colours('dark')}${sizes(TEXT_SIZE_DEFAULT)}` +
     `--dcp-font-ui:${FONT_UI};--dcp-font-mono:${FONT_MONO};` +
-    '--dcp-control-h:24px;--dcp-bar-h:32px;--dcp-status-h:22px;--dcp-icon:14px;' +
     '--dcp-space-1:2px;--dcp-space-2:4px;--dcp-space-3:8px;--dcp-space-4:12px;--dcp-space-5:16px;' +
     '--dcp-radius:4px;--dcp-radius-pop:6px;' +
     // ISO-03: every inherited value the host could have changed, set here.
@@ -108,8 +136,6 @@ export const THEME_CSS = [
     '-webkit-text-size-adjust:100%;text-size-adjust:100%;-webkit-font-smoothing:auto}',
   `.dcp-root[data-theme="light"]{${colours('light')}}`,
   `@media (prefers-color-scheme:light){.dcp-root:not([data-theme="dark"]){${colours('light')}}}`,
-  `.dcp-root[data-text-size="small"]{${sizes('small')}}`,
-  `.dcp-root[data-text-size="large"]{${sizes('large')}}`,
   '.dcp-root,.dcp-root *,.dcp-root ::before,.dcp-root ::after{box-sizing:border-box}',
   '.dcp-root [hidden]{display:none!important}',
   '.dcp-root button,.dcp-root input,.dcp-root select,.dcp-root textarea{font:inherit;color:inherit;' +
@@ -131,13 +157,13 @@ export const THEME_CSS = [
     '.dcp-tone-error{color:var(--dcp-error)}',
   '.dcp-icon{width:var(--dcp-icon);height:var(--dcp-icon);flex:none;vertical-align:-2px;overflow:visible}',
   // §5.4 badges: colour on an opaque 12 % fill, so no row tint lowers the contrast.
-  '.dcp-badge{display:inline-flex;align-items:center;gap:2px;height:16px;padding:0 4px;border-radius:4px;' +
+  '.dcp-badge{display:inline-flex;align-items:center;gap:2px;height:var(--dcp-badge-h);padding:0 4px;border-radius:4px;' +
     'font-family:var(--dcp-font-ui);font-size:var(--dcp-fs-meta);font-weight:400;font-style:normal;' +
-    'line-height:16px;white-space:nowrap;vertical-align:1px;' +
+    'line-height:var(--dcp-badge-h);white-space:nowrap;vertical-align:1px;' +
     'color:var(--dcp-text-muted);background-color:var(--dcp-badge-muted-bg)}',
   '.dcp-badge--redacted,.dcp-badge--pending{color:var(--dcp-text-muted);background-color:var(--dcp-badge-muted-bg)}',
   '.dcp-badge--truncated{color:var(--dcp-warning);background-color:var(--dcp-badge-warning-bg)}',
-  '.dcp-badge>.dcp-icon{width:12px;height:12px;vertical-align:0}',
+  '.dcp-badge>.dcp-icon{width:var(--dcp-icon-sm);height:var(--dcp-icon-sm);vertical-align:0}',
   // §5.7 search match.
   '.dcp-match{background-color:var(--dcp-match-bg);color:var(--dcp-text);padding:0;border-radius:0}',
   // HLD §5.7: no motion.

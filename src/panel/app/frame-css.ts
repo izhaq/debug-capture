@@ -19,12 +19,17 @@ export const FRAME_CSS = [
   '.dcp-resize{position:absolute;z-index:40;left:0;right:0;top:0;height:6px;cursor:ns-resize;touch-action:none}',
   '.dcp-root[data-dock="right"] .dcp-resize{right:auto;bottom:0;width:6px;height:auto;cursor:ew-resize}',
   '.dcp-resize:focus-visible{outline-offset:-2px}',
-  // Title bar, 32 px at every text size, elevated (§5.3, §5.4).
-  '.dcp-titlebar{display:flex;align-items:center;gap:8px;flex:none;height:var(--dcp-bar-h);padding:0 4px 0 8px;' +
+  // Title bar, 32 px up to 14 px text, then growing with it (§5.3, D-50), elevated (§5.4). When the
+  // toolbar does not fit beside the tabs (large text, narrow dock) it wraps to a second bar-high
+  // line instead of pushing controls out of the panel (FR-TXT-05).
+  '.dcp-titlebar{display:flex;flex-wrap:wrap;align-items:center;column-gap:8px;row-gap:0;flex:none;' +
+    'min-height:var(--dcp-bar-h);padding:0 4px 0 8px;' +
     'border-bottom:1px solid var(--dcp-divider);background-color:var(--dcp-bg-elevated);white-space:nowrap}',
   '.dcp-title{display:inline-flex;align-items:center;gap:4px;flex:none;font-weight:600}',
   '.dcp-title>.dcp-icon{color:var(--dcp-accent)}',
-  '.dcp-toolbar{display:flex;align-items:center;gap:4px;flex:none;margin-left:auto}',
+  '.dcp-toolbar{display:flex;align-items:center;gap:4px;flex:none;margin-left:auto;' +
+    'min-height:calc(var(--dcp-bar-h) - 1px)}',
+  '.dcp-titlebar>.dcp-tabs{min-height:calc(var(--dcp-bar-h) - 1px)}',
   '.dcp-paused{font-family:var(--dcp-font-mono);font-size:var(--dcp-fs-meta);color:var(--dcp-warning)}',
   '.dcp-btn>.dcp-icon+.dcp-icon{margin-left:-2px}',
   '@container (max-width:720px){.dcp-toolbar .dcp-btn>span{display:none}' +
@@ -53,13 +58,16 @@ export const FRAME_CSS = [
   '.dcp-about td+td{white-space:normal}',
   '.dcp-about kbd{font:inherit;font-family:var(--dcp-font-mono)}',
   '.dcp-setting{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;min-width:0;margin:0;padding:0;border:0}',
-  '.dcp-setting>legend{float:left;width:72px;padding:0;color:var(--dcp-text-muted)}',
+  // 6em: 72 px at 12 px text, and as wide as the words at any text size (FR-TXT-03).
+  '.dcp-setting>legend{float:left;width:6em;padding:0;color:var(--dcp-text-muted)}',
   '.dcp-setting>label{display:inline-flex;align-items:center;gap:4px;cursor:pointer}',
   '.dcp-setting input{margin:0;accent-color:var(--dcp-accent)}',
+  // Text size − / the size / + / Reset (FR-TXT-01): fixed-width digits, so the buttons never move.
+  '.dcp-text-size{min-width:5ch;text-align:center;font-variant-numeric:tabular-nums}',
   // The No limit warning (FR-BUF-03): under the Buffer choices, in the warning colour, never by colour alone (it is words).
   // Its own line, wrapped (the toolbar's nowrap reaches the popover); `contain:inline-size` keeps
   // the sentence from widening the popover, so it wraps to the width the choices set.
-  '.dcp-setting-note{flex:0 0 100%;box-sizing:border-box;contain:inline-size;margin:0;padding-left:80px;' +
+  '.dcp-setting-note{flex:0 0 100%;box-sizing:border-box;contain:inline-size;margin:0;padding-left:calc(6em + 8px);' +
     'white-space:normal;color:var(--dcp-warning)}',
   // Add note form (FR-NOTE-01): controls as §5.7.
   '.dcp-note{display:flex;flex-direction:column;gap:8px;width:320px;max-width:calc(100vw - 32px);padding:4px}',
@@ -76,7 +84,7 @@ export const FRAME_CSS = [
   '.dcp-status__part{display:inline-flex;align-items:center}',
   '.dcp-status__part+.dcp-status__part::before{content:"\\00b7"/"";padding:0 6px;color:var(--dcp-text-faint)}',
   '.dcp-status__icon{display:inline-flex}',
-  '.dcp-status__icon>.dcp-icon{width:12px;height:12px;vertical-align:0}',
+  '.dcp-status__icon>.dcp-icon{width:var(--dcp-icon-sm);height:var(--dcp-icon-sm);vertical-align:0}',
   // §5.7 banner bar is an inset shadow. Forced colours drop shadows, so the
   // mark becomes a 2 px border in the system text colour (S09-02, NFR-A11Y-01).
   '@media (forced-colors:active){.dcp-banner{box-shadow:none;border-inline-start:2px solid CanvasText}}',

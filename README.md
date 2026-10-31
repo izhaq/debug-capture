@@ -264,7 +264,9 @@ back on. `controller.dispose()` stops capture and unbinds them for good.
 - **Toolbar:** pause the view, clear, export (**Download all (JSON)** or
   **Copy all (JSON)**), switch capture off and on, and **Note** — write a note
   (a title and some text) that lands in Console and in the export at that moment.
-- **Settings:** theme, dock, text size, time, **Buffer** (1,000 · 5,000 · 10,000 ·
+- **Settings:** theme, dock, **Text size** (**−** / **+** change the panel's text by 1 px,
+  from 10 to 20 px, at once; **Reset** goes back to 12 px; rows, bars and buttons grow with
+  it), time, **Buffer** (1,000 · 5,000 · 10,000 ·
   50,000 · No limit; a smaller size drops the oldest entries at once; No limit
   may make the page slow and use a lot of memory), **DBG button** (show or hide
   the corner button; hidden at first when the tool was turned on by the shortcut

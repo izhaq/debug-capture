@@ -13,7 +13,7 @@ describe('S-08 settings storage (FR-ACT-08, D-20, §6.8)', () => {
   const custom: PanelSettings = {
     theme: 'dark',
     dock: 'right',
-    textSize: 'large',
+    textSize: 14,
     time: 'relative',
     height: 300,
     width: 640,
@@ -27,11 +27,11 @@ describe('S-08 settings storage (FR-ACT-08, D-20, §6.8)', () => {
     },
   };
 
-  it('defaults: Auto, the given dock, Normal, Clock, default sizes, HTTP, no chips', () => {
+  it('defaults: Auto, the given dock, 12 px text, Clock, default sizes, HTTP, no chips', () => {
     expect(defaults).toEqual({
       theme: 'auto',
       dock: 'bottom',
-      textSize: 'normal',
+      textSize: 12,
       time: 'clock',
       height: null,
       width: null,
@@ -67,7 +67,7 @@ describe('S-08 settings storage (FR-ACT-08, D-20, §6.8)', () => {
       JSON.stringify({
         theme: 'hotpink',
         dock: 'right',
-        textSize: 12,
+        textSize: 12.5,
         height: -5,
         width: 1e9,
         tab: '__proto__',
@@ -80,6 +80,19 @@ describe('S-08 settings storage (FR-ACT-08, D-20, §6.8)', () => {
       dock: 'right',
       chips: { ...NO_CHIPS, http: { status: ['5xx'], type: [] }, console: { levels: ['error', 'warn'] } },
     });
+  });
+
+  it("FR-TXT-04: the text size is a whole number of px, 10…20; 2.3's Small / Normal / Large read as 11 / 12 / 14", () => {
+    const read = (textSize: unknown): unknown => parseSettings(JSON.stringify({ textSize }), defaults).textSize;
+    expect(read('small')).toBe(11);
+    expect(read('normal')).toBe(12);
+    expect(read('large')).toBe(14);
+    expect(read(10)).toBe(10);
+    expect(read(17)).toBe(17);
+    expect(read(20)).toBe(20);
+    for (const odd of [9, 21, 12.5, '16', 'huge', 'constructor', null, true, {}])
+      expect(read(odd)).withContext(String(odd)).toBe(12);
+    expect(JSON.parse(serializeSettings({ ...defaults, textSize: 17 })).textSize).toBe(17);
   });
 
   it('§6.8: only settings (2.1: buffer, launcher too), size, dock, tab and chips are ever written — never search text or capture', () => {

@@ -1,4 +1,5 @@
-import type { ConsoleChip, HttpStatusGroup, ListId, PanelFilters, TextSize, WsDirection } from '../views';
+import { TEXT_SIZE_DEFAULT, TEXT_SIZE_MAX, TEXT_SIZE_MIN } from '../views';
+import type { ConsoleChip, HttpStatusGroup, ListId, PanelFilters, WsDirection } from '../views';
 
 export type ThemeSetting = 'auto' | 'dark' | 'light';
 export type Dock = 'bottom' | 'right';
@@ -18,7 +19,8 @@ export interface StoredChips {
 export interface PanelSettings {
   readonly theme: ThemeSetting;
   readonly dock: Dock;
-  readonly textSize: TextSize;
+  /** Text size in whole px, 10…20 (`FR-TXT-04`). */
+  readonly textSize: number;
   readonly time: TimeSetting;
   /** Panel height docked bottom, px; `null` = the 40 % default (§5.3). */
   readonly height: number | null;
@@ -39,7 +41,6 @@ export interface PanelSettings {
 
 const THEMES: readonly ThemeSetting[] = ['auto', 'dark', 'light'];
 const DOCKS: readonly Dock[] = ['bottom', 'right'];
-const TEXT_SIZES: readonly TextSize[] = ['small', 'normal', 'large'];
 const TIMES: readonly TimeSetting[] = ['clock', 'relative'];
 const TABS: readonly ListId[] = ['http', 'ws', 'console'];
 const STATUS: readonly HttpStatusGroup[] = ['2xx', '3xx', '4xx', '5xx', 'failed', 'pending'];
@@ -58,7 +59,7 @@ export function defaultSettings(dock: Dock): PanelSettings {
   return {
     theme: 'auto',
     dock: DOCKS.indexOf(dock) >= 0 ? dock : 'bottom',
-    textSize: 'normal',
+    textSize: TEXT_SIZE_DEFAULT,
     time: 'clock',
     height: null,
     width: null,
@@ -91,6 +92,22 @@ const someOf = <T extends string>(value: unknown, allowed: readonly T[]): T[] =>
 const px = (value: unknown): number | null =>
   typeof value === 'number' && isFinite(value) && value >= 1 && value <= 100000 ? Math.round(value) : null;
 
+/** 2.3 stored a name; 2.4 reads it as the same size in px (`FR-TXT-04`). */
+const OLD_TEXT_SIZES: Readonly<Record<string, number>> = { small: 11, normal: 12, large: 14 };
+
+/** A whole px in 10…20, or a 2.3 name; anything else is the default. */
+const textSize = (value: unknown): number => {
+  if (typeof value === 'string') {
+    // Own keys only: a stored "constructor" must not reach Object.prototype.
+    return Object.prototype.hasOwnProperty.call(OLD_TEXT_SIZES, value)
+      ? (OLD_TEXT_SIZES[value] ?? TEXT_SIZE_DEFAULT)
+      : TEXT_SIZE_DEFAULT;
+  }
+  return typeof value === 'number' && Number.isInteger(value) && value >= TEXT_SIZE_MIN && value <= TEXT_SIZE_MAX
+    ? value
+    : TEXT_SIZE_DEFAULT;
+};
+
 /** A buffer size the recorder takes (C-9), short of No limit. */
 export const isBufferSize = (value: unknown): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 1;
@@ -111,7 +128,7 @@ export function parseSettings(text: string | null, defaults: PanelSettings): Pan
   return {
     theme: oneOf(raw.theme, THEMES, defaults.theme),
     dock: oneOf(raw.dock, DOCKS, defaults.dock),
-    textSize: oneOf(raw.textSize, TEXT_SIZES, defaults.textSize),
+    textSize: textSize(raw.textSize),
     time: oneOf(raw.time, TIMES, defaults.time),
     height: px(raw.height),
     width: px(raw.width),
