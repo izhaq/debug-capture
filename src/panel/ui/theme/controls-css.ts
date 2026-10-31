@@ -49,10 +49,13 @@ export const CONTROLS_CSS = [
   '.dcp-split__handle:focus-visible{outline-offset:0}',
   // Popover / menu: elevated, 1 px divider border, radius 6, no shadow.
   '.dcp-popwrap{position:relative;display:inline-flex}',
+  // Never wider than the panel frame (a size container, `cqw`) nor below its bottom (max-height, set on
+  // open): large text (FR-TXT-05) makes Settings wrap and scroll instead of leaving the panel.
   '.dcp-pop{position:absolute;top:calc(100% + 4px);right:0;z-index:30;width:max-content;padding:4px;' +
+    'max-width:calc(100cqw - 8px);overflow-y:auto;overscroll-behavior:contain;' +
     'border:1px solid var(--dcp-divider);border-radius:6px;background-color:var(--dcp-bg-elevated);color:var(--dcp-text)}',
   '.dcp-menu{display:flex;flex-direction:column;min-width:200px}',
-  '.dcp-menu__item{display:flex;align-items:center;gap:8px;width:100%;height:28px;padding:0 8px;border:0;' +
+  '.dcp-menu__item{display:flex;align-items:center;gap:8px;width:100%;height:var(--dcp-menu-item-h);padding:0 8px;border:0;' +
     'border-radius:4px;background:transparent;color:var(--dcp-text);font-family:var(--dcp-font-ui);' +
     'font-size:var(--dcp-fs-ui);text-align:left;white-space:nowrap;cursor:pointer}',
   '.dcp-menu__item:focus-visible{outline-offset:-2px}',

@@ -93,6 +93,7 @@ function createPopup(dom: Dom, options: PopupOptions, parts: PopupParts): Popove
         open = true;
         popup.hidden = false;
         setAttr(trigger, 'aria-expanded', 'true');
+        fitInPanel(popup);
       }
       parts.first(popup).focus();
     },
@@ -124,6 +125,28 @@ function createPopup(dom: Dom, options: PopupOptions, parts: PopupParts): Popove
   });
   parts.wire?.(listeners, control);
   return control;
+}
+
+/**
+ * Keeps the popup inside the panel root (FR-TXT-05): the root clips what passes
+ * its edges, so a Settings box at large text would lose its last rows below, or
+ * its left part on a narrow dock. The popup opens right-aligned under its
+ * trigger, so the room is from its top to the root's bottom and from its right
+ * edge to the root's left, 4 px short of each like the gap above. Measured on
+ * each open: the dock, the panel size and the text size all move those edges.
+ */
+function fitInPanel(popup: HTMLElement): void {
+  popup.style.maxHeight = '';
+  popup.style.maxWidth = '';
+  const panel = popup.closest('.dcp-root');
+  if (!panel) return;
+  const edge = panel.getBoundingClientRect();
+  const box = popup.getBoundingClientRect();
+  const width = Math.floor(box.right - edge.left - 4);
+  if (box.width > width) popup.style.maxWidth = `${Math.max(120, width)}px`;
+  // After a width change the rows may wrap, so the height is read again.
+  const height = Math.floor(edge.bottom - popup.getBoundingClientRect().top - 4);
+  if (popup.offsetHeight > height) popup.style.maxHeight = `${Math.max(48, height)}px`;
 }
 
 /** A popover (`role="dialog"`, non-modal) for forms such as Settings. */

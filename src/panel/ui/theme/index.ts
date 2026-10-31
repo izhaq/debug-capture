@@ -4,7 +4,7 @@
  * directory), so the P2 barrel can re-export it.
  */
 export { CONTROLS_CSS } from './controls-css';
-export { ROW_HEIGHTS, THEME_CSS } from './theme-css';
+export { rowHeightFor, TEXT_SIZE_DEFAULT, TEXT_SIZE_MAX, TEXT_SIZE_MIN, textSizeVars, THEME_CSS } from './theme-css';
 export type { TextSize } from './theme-css';
 export { createThemeSheet } from './theme-sheet';
 export { TOKENS } from './tokens';

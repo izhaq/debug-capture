@@ -25,9 +25,12 @@ import {
   PanelDataSource,
   PanelState,
   PanelView,
-  ROW_HEIGHTS,
+  rowHeightFor,
   selectListCounts,
   setAttr,
+  TEXT_SIZE_MAX,
+  TEXT_SIZE_MIN,
+  textSizeVars,
   VIEW_CSS,
   ViewDeps,
   ViewSettings,
@@ -256,14 +259,18 @@ function build(
   });
 
   // Theme and text size live on the panel root (§4.10): Auto = no attribute, so CSS follows the OS.
+  // The text size is custom properties (D-50) by CSSOM, which a strict CSP allows.
   const applyLook = (): void => {
     setAttr(panelRoot, 'data-theme', settings.theme === 'auto' ? null : settings.theme);
-    setAttr(panelRoot, 'data-text-size', settings.textSize === 'normal' ? null : settings.textSize);
+    const vars = textSizeVars(settings.textSize);
+    for (const name of Object.keys(vars)) panelRoot.style.setProperty(name, vars[name] ?? null);
   };
   applyLook();
   later(() => {
     setAttr(panelRoot, 'data-theme', null);
-    setAttr(panelRoot, 'data-text-size', null);
+    for (const name of Object.keys(textSizeVars(settings.textSize))) panelRoot.style.removeProperty(name);
+    // As the layout does: no empty `style=""` left on the loader's root (reading it flushes Chrome's lazy write).
+    if (panelRoot.style.length === 0 && panelRoot.getAttribute('style') !== null) panelRoot.removeAttribute('style');
   });
 
   const layout = createLayout(dom, {
@@ -491,7 +498,7 @@ function build(
       settings.time === 'clock'
         ? { mode: 'clock', utcOffsetMinutes: deps.utcOffsetMinutes }
         : { mode: 'relative', origin: deps.timeOrigin },
-    rowHeight: ROW_HEIGHTS[settings.textSize] as ViewSettings['rowHeight'],
+    rowHeight: rowHeightFor(settings.textSize),
     dock: settings.dock,
   });
   const ensureView = (list: ListId): void => {
@@ -595,8 +602,12 @@ function build(
       return;
     }
     if (name === 'theme') settings = { ...settings, theme: value as ThemeSetting };
-    else if (name === 'textSize') settings = { ...settings, textSize: value as PanelSettings['textSize'] };
-    else if (name === 'time') settings = { ...settings, time: value as TimeSetting };
+    else if (name === 'textSize') {
+      const size = Number(value);
+      if (!Number.isInteger(size) || size < TEXT_SIZE_MIN || size > TEXT_SIZE_MAX) return;
+      settings = { ...settings, textSize: size };
+      form.set(formValues(store.getState().captureOn));
+    } else if (name === 'time') settings = { ...settings, time: value as TimeSetting };
     else if (name === 'dock') {
       settings = { ...settings, dock: value as Dock };
       layout.setDock(settings.dock);

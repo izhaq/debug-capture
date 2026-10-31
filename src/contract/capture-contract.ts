@@ -13,7 +13,7 @@
 export const CAPTURE_SCHEMA_VERSION = 2;
 
 /** The package version (HLD `D-42`), shown in Settings › About. `npm run build` checks it equals package.json. */
-export const DEBUG_CAPTURE_VERSION = '2.3.0';
+export const DEBUG_CAPTURE_VERSION = '2.4.0-alpha.0';
 
 export type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
 

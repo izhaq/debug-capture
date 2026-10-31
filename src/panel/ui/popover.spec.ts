@@ -236,4 +236,36 @@ describe('menu and popover (S04-04, HLD §4.12)', () => {
     expect(popover.isOpen).toBeFalse();
     expect(active()).not.toBe(triggerEl);
   });
+
+  it("FR-TXT-05: a popover taller than the panel below it gets a max height to the panel's bottom and scrolls", () => {
+    root.style.cssText = 'position:fixed;left:0;top:0;width:400px;height:200px;overflow:hidden';
+    const trigger = createButton(dom, { label: 'Settings', icon: 'settings', onClick: () => undefined }).element;
+    const tall = dom.el('div', null, [dom.el('button', null, ['first'])]);
+    tall.style.height = '600px';
+    const pop = createPopover(dom, { trigger, ariaLabel: 'Settings', content: [tall] });
+    const wrap = dom.el('div', null, [pop.element]);
+    wrap.style.cssText = 'position:relative;display:flex;justify-content:flex-end';
+    root.appendChild(wrap);
+
+    pop.open();
+    const panel = root.getBoundingClientRect();
+    const box = pop.popup.getBoundingClientRect();
+    expect(box.bottom).toBeLessThanOrEqual(panel.bottom);
+    expect(pop.popup.scrollHeight).toBeGreaterThan(pop.popup.clientHeight);
+    expect(getComputedStyle(pop.popup).overflowY).toBe('auto');
+    pop.destroy();
+  });
+
+  it('FR-TXT-05: a popover is never wider than the panel frame it sits in (container width)', () => {
+    root.style.cssText = 'position:fixed;left:0;top:0;width:300px;height:400px;container-type:inline-size';
+    const trigger = createButton(dom, { label: 'Settings', icon: 'settings', onClick: () => undefined }).element;
+    const wide = dom.el('div', { className: 'dcp-setting' }, [
+      'one two three four five six seven eight nine ten '.repeat(4),
+    ]);
+    const pop = createPopover(dom, { trigger, ariaLabel: 'Settings', content: [wide] });
+    root.appendChild(pop.element);
+    pop.open();
+    expect(pop.popup.getBoundingClientRect().width).toBeLessThanOrEqual(300);
+    pop.destroy();
+  });
 });
