@@ -10,24 +10,48 @@ to a new version later. The options and the panel itself are in the
 (Angular 16.2) — the wiring is in `src/app/features/debug-panel/`, its guide in
 `docs/debug-panel.md`.
 
-## 1. Get the tarball
+## 1. Get the tarball into `vendor/`
 
-Download `debug-capture-<version>.tgz` and its `.sha256` file from the
-[GitHub Releases](https://github.com/izhaq/debug-capture/releases) page of this
-repository (or build it yourself: [`RELEASING.md`](../RELEASING.md)). Check it:
+Put the tarball in the host's own repository, in a `vendor/` folder, so the
+build works with no network and every developer gets the same file. Each
+[GitHub Release](https://github.com/izhaq/debug-capture/releases) has the
+tarball and a `.sha256` file; its notes show the checksum too. (Or build it
+yourself: [`RELEASING.md`](../RELEASING.md).)
 
-```bash
-sha256sum -c debug-capture-<version>.tgz.sha256    # → debug-capture-<version>.tgz: OK
+Run these from the host project's root folder. Replace `<version>` with the
+release, for example `2.3.0`.
+
+**Windows (PowerShell):**
+
+```powershell
+New-Item -ItemType Directory -Force vendor
+Invoke-WebRequest -Uri https://github.com/izhaq/debug-capture/releases/download/v<version>/debug-capture-<version>.tgz -OutFile vendor\debug-capture-<version>.tgz
+(Get-FileHash vendor\debug-capture-<version>.tgz -Algorithm SHA256).Hash
 ```
 
-## 2. Install it from `vendor/`
+The last line prints the checksum in capitals; it must match the one in the
+release notes (letter case does not matter). In Windows PowerShell, `curl` is
+another name for `Invoke-WebRequest`, so Linux `curl` flags such as `-L` do not
+work there.
 
-Put the tarball in the host's own repository, so the build works with no
-network and every developer gets the same file:
+**Linux or macOS:**
 
 ```bash
 mkdir -p vendor
-cp debug-capture-<version>.tgz vendor/
+curl -fL -o vendor/debug-capture-<version>.tgz \
+  https://github.com/izhaq/debug-capture/releases/download/v<version>/debug-capture-<version>.tgz
+shasum -a 256 vendor/debug-capture-<version>.tgz   # must match the release notes
+```
+
+**If the download is blocked** (for example by a company proxy): open the
+release page in a browser, click the `.tgz` under **Assets**, move the file from
+your Downloads folder into `vendor/`, and check it with the hash command above.
+
+## 2. Install it
+
+Same on every system:
+
+```bash
 npm install ./vendor/debug-capture-<version>.tgz
 ```
 
@@ -170,10 +194,11 @@ policies (Group Policy on Windows; a JSON file in
 
 ## Update to a new version
 
+1. Get the new tarball into `vendor/` and check its hash ([step 1](#1-get-the-tarball-into-vendor)).
+2. Remove the old one and install the new one:
+
 ```bash
-sha256sum -c debug-capture-<new>.tgz.sha256
 git rm vendor/debug-capture-<old>.tgz
-cp debug-capture-<new>.tgz vendor/
 npm install ./vendor/debug-capture-<new>.tgz   # updates package.json and package-lock.json
 npm ci && npm test && npm run build            # the host's own checks
 ```
