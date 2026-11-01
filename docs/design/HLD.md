@@ -15,7 +15,9 @@ dropped here; the AI assistant is its own product, a Chrome extension in its own
 (`D-48`, superseding `D-35`). 1.0 (2026-10-28): the package moves to its own repository,
 `izhaq/debug-capture` (`D-02` done, `OPEN-06` answered: GitHub; CI is GitHub Actions, §7.2).
 1.1 (2026-10-29): release 2.4 (S-15, text size − / +) — scope §2.1d, rows §3.13, §4.10, §5.3,
-§5.5, the view contract's row height (§6.4), decisions `D-49`, `D-50`.
+§5.5, the view contract's row height (§6.4), decisions `D-49`, `D-50`. 1.2 (2026-11-01): release 2.5
+(S-16, replay and mock, for developers) — scope §2.1e, rows §3.14, the entry `debug-capture/replay`
+(§6.1), core change `C-13`, decisions `D-51` … `D-55`; `NFR-SEC-03` gets one scoped exception.
 **Scope:** the whole of v2: the capture layer it inherits from v1, and the new
 on-screen **debug panel**.
 **This document is the source of truth.** Every v2 spec and plan is cut from
@@ -198,6 +200,15 @@ The text in the panel can be made **bigger or smaller one pixel at a time**, fro
 with **−** and **+** in Settings (`D-49`). Rows, bars, buttons and icons grow with the text
 (`D-50`), so large text is never cut off. It replaces Small / Normal / Large. Rows: §3.13.
 
+### 2.1e Release 2.5 (S-16, replay and mock — for developers)
+
+A **developer** right-clicks an HTTP request or a WebSocket message in the panel, edits it, and
+**sends it again** to the real server, or **mocks** it: the app gets the developer's response
+instead of the server's (`D-51` … `D-54`). It is a separate entry, `debug-capture/replay`, that
+only **development builds** import; production builds — the stations — do not contain it and stay
+network-free (`D-51`). Also for everyone: **Copy as JSON** on a request, the hand-off format the
+AI assistant can turn into a test mock (`D-55`). Rows: §3.14.
+
 ### 2.2 Later (2.x)
 
 - **Separate window** mode (the panel in its own browser window, fed over
@@ -326,7 +337,7 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 | NFR-SIZE-01 | **Loader** (`debug-capture/panel`, loaded at start): ≤ **4 kB** min+gzip. **UI chunk** (loaded on first open): ≤ **40 kB** min+gzip (raised from 25 kB, `D-25`); hosts that never open the panel load **0 bytes** of it. **Core:** within ± 2 kB of v1's size — the baseline is measured and recorded in S-00. **2.1** (`D-34`, measured in S-11b): **loader ≤ 5.5 kB** (5,632 B; 4,084 → 4,717 B, +633 B), **UI chunk ≤ 44 kB** (45,056 B; 39,006 → 40,577 B, +1,571 B) — each raise is about 2.5 × the S-11 growth. **2.2** (`D-43`): **core ≤ v1 + 3.5 kB** (13,904 B = the 10,320 B baseline + 3,584 B; was v1 + 2 kB, 12,368 B); the **activation piece** (`debug-capture/activate`, the only part a station loads before it is switched on) **≤ 1.5 kB** (1,536 B; 1,130 B measured in S-13a); loader and UI chunk unchanged. Core measured in S-13a: 12,294 → 12,481 B. | MUST |
 | NFR-SEC-01 | No `innerHTML` / `outerHTML` / `insertAdjacentHTML`, no `eval` / `new Function`, no inline handlers. Captured data enters the DOM only as text. No `href` / `src` built from captured data. | MUST |
 | NFR-SEC-02 | Works under a strict CSP (`default-src 'self'`, no `'unsafe-inline'`) and Trusted Types (`require-trusted-types-for 'script'`) with no violations. | MUST |
-| NFR-SEC-03 | The panel never makes network requests and never reads anything the recorder did not store (it sees only redacted data). | MUST |
+| NFR-SEC-03 | The panel never makes network requests and never reads anything the recorder did not store (it sees only redacted data). **One scoped exception (2.5, `D-51`):** with the development-only entry `debug-capture/replay` installed, a user's explicit Send makes the one request they edited; mocks answer the app without the network. Without that entry the rule holds as written. | MUST |
 | NFR-SEC-04 | Copy and export are explicit user actions only. | MUST |
 | NFR-REL-01 | The panel never throws into the host, never logs to `console`, never leaves an unhandled rejection; its own failures cannot reach the recorder (no feedback loop). | MUST |
 | NFR-A11Y-01 | Keyboard-complete; visible focus; WCAG 2.1 AA contrast (verified tokens, §5.4); works in forced-colors mode; respects `prefers-reduced-motion`; status never shown by colour alone. | MUST |
@@ -403,6 +414,25 @@ row height (§6.4).
 | FR-TXT-04 | **Remembered** with the other settings (§4.10, `debug-capture:panel`) as a number of px. A value stored by 2.3 is read as Small 11 · Normal 12 · Large 14; anything else unknown, out of range or not a whole number gives 12. | MUST (2.4) |
 | FR-TXT-05 | **Usable at every size**: keyboard (the buttons are native buttons, each with a name — "Smaller text", "Larger text", "Reset text size"; the size is announced when it changes), forced colours, and at 1280 × 720 with 20 px text every toolbar control can still be reached, docked bottom and docked right (`NFR-COMP-02`). The lists keep their place when the size changes. | MUST (2.4) |
 | FR-TXT-06 | **Budgets**: no raise — UI chunk ≤ 45,056 B, loader ≤ 5,632 B, core and activation unchanged (`D-34`, `D-43`). | MUST (2.4) |
+
+### 3.14 Functional — release 2.5, replay and mock (S-16)
+
+Cut from `D-51` … `D-55` (owner, 2026-11-01). Core change `C-13`; entry §6.1.
+
+| ID | Requirement | Pri |
+|---|---|---|
+| FR-RPL-01 | **Opt-in, development only** (`D-51`): replay and mock live in the entry `debug-capture/replay`; `installReplay(handle)` (the activation handle, or a controller) turns them on. Without that import nothing of it is bundled, the panel shows no replay items, and production stays as 2.4. The docs show the import guarded by the host's development flag. | MUST (2.5) |
+| FR-RPL-02 | **Row menu**: right-click (and the context-menu key, Shift+F10) on an HTTP row or a WebSocket message opens a menu with **Copy as cURL** and **Copy as JSON** (always), and the replay items below (only with the add-on). | MUST (2.5) |
+| FR-RPL-03 | **Edit and resend (HTTP)**: method (any, `GET`, `POST`, `PUT`, `PATCH`, `DELETE`…), URL, headers and body in an editor, prefilled from the request. **Send** makes the call from the page, with the page's cookies (`credentials: 'same-origin'`, as the app's own `fetch`). The app does not see the answer; the panel does: it is a new HTTP row marked **replayed**, with the full detail. | MUST (2.5) |
+| FR-RPL-04 | **Redacted values must be filled in**: a value the recorder hid (`[redacted]`) is shown empty and marked; Send stays disabled until each one is filled or the field removed. Nothing redacted is ever sent as the literal `[redacted]`. | MUST (2.5) |
+| FR-RPL-05 | **WebSocket resend** (`D-52`): on a **sent** (↑) message, **Edit and resend** sends the edited text (or the same binary) on the **same open connection**, as if the app sent it; recorded as a sent message marked **replayed**. Disabled when the connection is closed. | MUST (2.5) |
+| FR-RPL-06 | **WebSocket fake receive** (`D-52`): on a **received** (↓) message, **Edit and deliver** gives the edited text to the app as a `message` event on that socket (its `onmessage` and listeners run), as if the server sent it; recorded as a received message marked **mocked**. Disabled when the connection is closed. | MUST (2.5) |
+| FR-RPL-07 | **HTTP mock** (`D-53`): **Mock this response** makes a rule from the request — method + URL (exact, or with `*` in the path or query), and a response: status, headers, body (prefilled from the captured response). While the rule is on, a matching `fetch` or XHR from the app **does not reach the network**: it gets the mock, through the app's normal code path (`Response` for fetch; the XHR ready states, events and `response*` fields). Recorded as an HTTP row marked **mocked**. | MUST (2.5) |
+| FR-RPL-08 | **Mocks are remembered** (`D-53`): rules are kept in this browser (`localStorage`, `debug-capture:mocks`) and apply from the first request after a reload, until turned off. | MUST (2.5) |
+| FR-RPL-09 | **Always visible**: while any mock is on, the panel shows a banner (`N mocks on`) with **Show mocks** and **Turn all off**; the badge counts nothing for it, but the status bar says `mocks N`. A list of rules (on/off, edit, delete). With the panel closed, the DBG button shows a small `M` mark. | MUST (2.5) |
+| FR-RPL-10 | **Copy as JSON** (`D-55`): on an HTTP row, copies `{ method, url, status, contentType, requestHeaders, requestBody, responseHeaders, responseBody, redacted: [...], truncated: bool }` — the redacted field names and the truncated flag say what is not the real value. No network; part of the panel, not the add-on. | MUST (2.5) |
+| FR-RPL-11 | **Never into the stations by accident**: `installReplay` refuses (and says so in the Console) unless the host passes `{ allow: true }`; the README shows `allow: !environment.production`. | MUST (2.5) |
+| FR-RPL-12 | **Budgets**: the add-on is its own entry and lazy chunk with its own budget, set from a measurement (`D-34` margin rule); the panel's growth (row menu, Copy as JSON, mock banner and list) stays within the UI chunk's 45,056 B, or a raise is put to the owner with the numbers. | MUST (2.5) |
 
 ## 4. Behaviour
 
@@ -870,6 +900,7 @@ debug-capture/                         (the repository izhaq/debug-capture — D
     react/                                        ← entry "debug-capture/react"    (L6)
     panel/                                        ← entry "debug-capture/panel"    (L6, new: loader)
                                                     + lazy chunk "panel UI" (P1–P4, loaded on first open)
+    replay/                                       ← entry "debug-capture/replay"   (L6, 2.5: dev-only replay and mock)
     activate/                                     ← entry "debug-capture/activate" (L6, 2.2: the activation
                                                     piece — the only part loaded before switch-on, D-40)
   test/  hosts/ (angular, react, plain) · hostile-host/ · e2e/ · perf/
@@ -884,6 +915,10 @@ debug-capture/                         (the repository izhaq/debug-capture — D
   first open (`FR-ACT-02`, `NFR-SIZE-01`).
 - `debug-capture` (core) never imports `debug-capture/panel`, so the core does
   not grow.
+- `debug-capture/replay` (2.5, `D-51`) is for **development builds only**: replay and mock
+  (`FR-RPL-*`). It imports the core only, and registers on the controller (`controller.replay`);
+  the panel shows its items when that is set, and loads their editors as a third lazy chunk on
+  first use. Neither the activation piece nor the loader imports it.
 - `debug-capture/activate` (2.2) imports the core and the panel loader only as types and
   by dynamic `import()` — no static value import, checked by the layer script — so a
   station that never switches the tool on loads only this piece (`FR-BG-01`, `D-43`).
@@ -1097,6 +1132,7 @@ panel is closed; it hands the UI `launcher`, `setLauncher`, `warnings()` and
 | C-10 | **Note entries** (2.1). A new entry kind `note` (`title`, `text`), policed like an error message (redacted, truncated). `session.addNote(title, text?)` records one with the session clock's time, also while capture is off. Never a problem (`C-8`). | `FR-NOTE-01`…`04` | One new entry kind; `schemaVersion` stays 1; readers skip unknown kinds |
 | C-11 | **Chords for the controller's life** (2.2). The controller binds its chords — download, copy, clear, plus the new **record** (`ctrl+alt+shift+s`: `stop()` / `start()`) and **note** (`ctrl+alt+shift+m`: `session.addNote()` with the `note` option's title and text) — when it is created, not with the probes; `stop()` / `start()` leave them. `controller.dispose()` stops capture and unbinds them for good; `controller.shortcuts` is the resolved config (or `null`). `installDebugCapture()` keeps v1's meaning: its `session.dispose()` is a full dispose. `isDebugRequested()` stays (`D-45`); `DEBUG_CAPTURE_VERSION` joins the core. | `FR-BG-05`…`07`, `FR-BG-09`, `D-37` | None |
 | C-12 | **App messages** (2.3). A new entry kind `app` (`type`, `level`, `data`) and `session.addMessage(type, data?, level?)`: recorded only while capture is on; `data` by `toJsonSafe` like log args, `type` by `redactFreeText`. `isProblemEntry` is true for `level: 'error'`. | `FR-MSG-01`…`07` | One new entry kind; `schemaVersion` stays 2; readers skip unknown kinds |
+| C-13 | **Hooks for replay and mock** (2.5). (1) The fetch and XHR probes ask an optional `mockFor(request)` before the network; a hit answers the app with the mock and records the entry with `origin: 'mock'`. (2) The WebSocket probe keeps live sockets by `socketId` (until `close`), and the controller exposes `sockets.send(socketId, data)` and `sockets.deliver(socketId, data)` (a `message` event to the app); the entries get `origin: 'replay'` / `'mock'`. (3) The controller exposes `http.send(draft)`: the original `fetch`, recorded with `origin: 'replay'`. (4) An optional `origin` on HTTP and WebSocket entries. All of it unused, and free of network, until `debug-capture/replay` is installed. | `FR-RPL-03` … `FR-RPL-09` | An optional `origin` field on `http` / `ws` entries; schema stays 2 |
 | C-6 | **Change events.** `recorder.onChange(listener)` fires on `clear()` (also from v1's `Ctrl+Alt+Shift+X`) and when only stats change (`dropped`, `failed`). The data source maps it to `cleared` / `stats`. | `FR-BAR-03`, `FR-BAR-06` | None |
 
 ### 6.6 Using it in a host
@@ -1281,6 +1317,7 @@ Each spec lives in `docs/specs/<nn>-<slug>/` with `spec.md`, `plan.md` and a
 | **S-11 v2.1 panel features** | Buffer size in Settings incl. "No limit" (`D-28`); buffer-near-full banner (`D-29`); memory warning (`D-30`); status observer (`D-31`); "Show DBG button" setting (`D-32`); user notes (`D-33`); budgets (`D-34`). HLD requirement rows first, in S-11's own spec | S-10 |
 | **S-13 Background control** | Activation shortcut on top of `?debug=1`, remembered per browser, hidden DBG button (`D-40`, `D-41`); chords for capture on/off and a pre-defined note, live while capture is off (`D-37`, `D-38`, `C-11`); save to a folder by Chrome policy (`D-39`); About in Settings (`D-42`); budgets (`D-43`). Before S-12 (`D-44`) | S-11 |
 | **S-14 Custom messages** | The host sends its own messages (type, level, JSON data) through a handle; buffer, Console (App chip), export; dropped while off (`D-46`, `C-12`). Before S-12 (`D-47`) | S-13 |
+| **S-16 Replay and mock** | The dev-only entry `debug-capture/replay`: row menu, edit and resend HTTP (any method) and WebSocket messages, fake a received WebSocket message, HTTP mocks remembered until off; Copy as JSON for everyone (`D-51` … `D-55`, `C-13`). Release 2.5 | S-15 |
 | **S-15 Text size − / +** | Settings › Text size becomes − / + / Reset, 10–20 px by 1 px, live and remembered (`D-49`); rows, bars, controls and icons grow with it (`D-50`). Release 2.4 | S-14 |
 | ~~S-12 AI add-on~~ | **Moved out** (`D-48`): the AI assistant is a separate product, the Chrome extension `devtools-ai-assistant` in its own repository. Nothing about AI is built in this package. | — |
 
@@ -1294,7 +1331,8 @@ Wave 4:  S-09 ─► S-10                         (sequential — S-09 touches e
 Wave 5:  S-11 ─► S-13 ─► S-14 ─► S-15          (v2.1, after 2.0 is closed by S-10b — owner, 2026-10-25;
                                                S-13, S-14 — owner, 2026-10-26, D-44, D-47;
                                                S-12 moved out to its own product, D-48;
-                                               S-15 — owner, 2026-10-29, D-49)
+                                               S-15 — owner, 2026-10-29, D-49;
+                                               S-16 — owner, 2026-11-01, D-51)
 ```
 
 Every wave ends with the merged branch verified as a whole, and the security-
@@ -1334,6 +1372,7 @@ end to end that every `MUST` is covered.
 | NFR-PORT-01 | S-10 (three hosts, `dist/` build from S-00) |
 | FR-BUF-01…05, FR-STAT-01, FR-ACT-10, FR-NOTE-01…04 (2.1) | S-11 (core `C-9`, `C-10` in S-11a; panel in S-11b) |
 | FR-TXT-01…06 (2.4) | S-15 (one panel PR, S-15a) |
+| FR-RPL-01…12 (2.5) | S-16 (core hooks `C-13` in S-16a; the replay entry in S-16b; row menu, Copy as JSON, editors and the mock list in S-16c) |
 | FR-MSG-01…08 (2.3) | S-14 (core `C-12` and the activation handle in S-14a; panel handle and Console in S-14b; the app in S-14c) |
 | FR-BG-01…10 (2.2), BR-02 (2.2), NFR-SIZE-01 (2.2) | S-13 (core `C-11`, activation, seams in S-13a; panel About and hidden DBG button in S-13b; the app in S-13c) |
 
@@ -1396,6 +1435,11 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-48 | **The AI assistant is its own product, not part of the panel** (owner, 2026-10-26). The goal is Chrome's built-in AI assistance without sign-in and without Google's cloud, for **developers on the corporate network**, talking to a model the user chooses: an OpenAI-compatible API (on-prem servers such as vLLM or Ollama, or online) or Anthropic's API. The debug panel runs on air-gapped stations that cannot reach the on-prem model, so it is the wrong home. It becomes a **self-hosted Chrome extension** (a DevTools panel and a side panel) that each developer installs if they want, in its own repository **`izhaq/devtools-ai-assistant`**: chat about the page and the selected element (explain, find problems, suggest CSS / code) and apply changes to the page with Undo. It has its own HLD there. This package keeps `NFR-SEC-03` (no network) with no exception. Supersedes `D-35`; closes `OPEN-07` and `OPEN-08` here (they move to that repository). | Decided |
 | D-49 | **Text size − / +** (owner, 2026-10-29; the stations' users find 12 px too small): Settings › Text size becomes **−** / the size / **+** / **Reset**, 1 px per click, **10 to 20 px**, default 12, live and remembered. It replaces Small / Normal / Large; a stored 2.3 value maps to 11 / 12 / 14. Not a browser zoom chord (Ctrl + / −): those belong to the browser and zoom the host too. | Decided |
 | D-50 | **Bars and controls grow with the text** (owner, 2026-10-29): above 14 px, buttons, chips, inputs, bars, the status bar, badges and icons grow by the §5.3 formulas, so 20 px text is never clipped; up to 14 px every size stays as in 2.3. Changes §5.3 ("32 px at every text size" no longer holds above 14 px). The list row height becomes any whole number of px in the view contract (§6.4; was 20 · 22 · 26). | Decided |
+| D-51 | **Replay and mock are for developers, in a separate entry** (owner, 2026-11-01): `debug-capture/replay`, imported only by development builds (`installReplay(handle, { allow })`). Production builds — the stations — do not contain it, so they keep `NFR-SEC-03` (no network) and 2.4's behaviour. Proposed by the AI assistant's team too: it needs no model, needs headers and bodies the assistant never reads, and the code that owns capture should own changing it. | Decided |
+| D-52 | **What replay covers** (owner, 2026-11-01): HTTP with any method (`GET`, `POST`…), edited before sending; WebSocket: **resend a sent message** on the same open connection, and **fake a received message** (delivered to the app as if from the server). Not: replay on a new WebSocket connection, sequences of requests. | Decided |
+| D-53 | **HTTP mocks are remembered until turned off** (owner, 2026-11-01): kept in this browser and applied from the first request after a reload, so startup requests can be mocked. A banner shows while any is on (`FR-RPL-09`). | Decided |
+| D-54 | **Mocks answer through the app's own code path**: `fetch` and XHR only (what the probes patch). Not images, scripts, `sendBeacon`, service workers or `EventSource`. | Decided (follows from `C-13`; the extension would have had the same limit) |
+| D-55 | **Copy as JSON**, for everyone (owner, 2026-11-01): one HTTP request as JSON, naming its redacted fields and whether a body was cut — the hand-off format the AI assistant (`D-48`) can import as a Playwright test mock. In the panel, no network. | Decided |
 
 ---
 
