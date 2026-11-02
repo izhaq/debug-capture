@@ -1,5 +1,5 @@
-import { Clock, HeaderMap, HttpEntry, Probe, ProbeRecorder, Recorder } from '../../../core';
-import { addHeader, describeBody, parseRawHeaders, responseBytes, toAbsoluteUrl } from './http-helpers';
+import { Clock, EntryOrigin, HeaderMap, HttpEntry, MockResponse, Probe, ProbeRecorder, Recorder } from '../../../core';
+import { addHeader, describeBody, MockBox, parseRawHeaders, responseBytes, toAbsoluteUrl } from './http-helpers';
 import { outsideZones } from './outside-zones';
 
 /**
@@ -34,6 +34,10 @@ interface RequestState {
   recorded: boolean;
   /** The recorder's pending id from `send()` (C-1); `null` when none or already ended. */
   id: number | null;
+  /** `open()`'s third argument: a synchronous request is answered inside `send()`. */
+  async: boolean;
+  /** C-13: answered by a mock. */
+  origin?: EntryOrigin;
 }
 
 type PatchedName = 'open' | 'setRequestHeader' | 'send' | 'abort';
@@ -46,6 +50,8 @@ type XhrMethod = (this: XMLHttpRequest, ...args: unknown[]) => unknown;
 interface Steps {
   after?: () => void;
   failed?: () => void;
+  /** C-13: the original is not called (a mock answers instead). */
+  skip?: boolean;
 }
 type Hook = (xhr: XMLHttpRequest, args: unknown[]) => Steps | void;
 
@@ -70,7 +76,16 @@ const ERROR_EVENTS: ReadonlyArray<[string, NonNullable<XhrError>]> = [
  * LOADING are recognised as stale — a request's own terminal events always
  * fire with `readyState` DONE.
  */
-export function installXhrProbe(recorder: Sink, clock: Clock, host: XhrHost = globalThis): Probe {
+export function installXhrProbe(
+  recorder: Sink,
+  clock: Clock,
+  host: XhrHost = globalThis,
+  mocks: MockBox = { resolver: null },
+): Probe {
+  /** C-13: instances a mock is answering, with the way to stop it before it does. */
+  const mocked = new WeakMap<XMLHttpRequest, () => void>();
+  /** C-13: instances whose state a mock answer shadows — the only ones `unmock` touches. */
+  const shadowed = new WeakSet<XMLHttpRequest>();
   const proto = host.XMLHttpRequest.prototype as unknown as Record<PatchedName, XhrMethod>;
   const states = new WeakMap<XMLHttpRequest, RequestState>();
   /** Instances that already carry our listeners — attached once, reused across `open()` calls. */
@@ -143,6 +158,9 @@ export function installXhrProbe(recorder: Sink, clock: Clock, host: XhrHost = gl
             : entryOf(xhr, replaced, 'abort'),
         )
       : null;
+    // A mock still answering this instance stops, and the instance is native again.
+    mocked.get(xhr)?.();
+    if (shadowed.delete(xhr)) unmock(xhr);
     const after = (): void => {
       if (replaced && draft) emit(replaced, draft);
       // Its entry could not be built: it still must not stay pending forever.
@@ -156,6 +174,7 @@ export function installXhrProbe(recorder: Sink, clock: Clock, host: XhrHost = gl
         error: null,
         recorded: false,
         id: null,
+        async: args.length < 3 || Boolean(args[2]),
       });
     };
     return { after };
@@ -170,6 +189,13 @@ export function installXhrProbe(recorder: Sink, clock: Clock, host: XhrHost = gl
   function onAbort(xhr: XMLHttpRequest): void {
     const state = unrecorded(xhr);
     if (!state) return;
+    const stop = mocked.get(xhr);
+    if (stop) {
+      // The browser never sent it, so its abort() fires nothing: fire what a real abort does.
+      stop();
+      fireAbort(xhr);
+      return;
+    }
     if (xhr.readyState === DONE) finish(state, () => entryOf(xhr, state, state.error ?? failureGuess(xhr, state)));
     else state.error = 'abort';
   }
@@ -208,9 +234,80 @@ export function installXhrProbe(recorder: Sink, clock: Clock, host: XhrHost = gl
       state.id = id;
       inFlight.set(id, state);
     }
+    // C-13: a mock answers instead of the network (FR-RPL-07).
+    const mock = attempt(() => mocks.resolver?.({ method: state.method, url: state.url }) ?? null);
+    if (mock) {
+      state.origin = 'mock';
+      answer(xhr, state, mock);
+      return { skip: true };
+    }
     // This send() threw — a synchronous request that failed: no event will
     // report it, so the request it started is not pending any more.
     return { failed: () => endPending(state) };
+  }
+
+  /**
+   * Plays a response on the instance as the browser would (C-13, D-54): own
+   * getters shadow the prototype's state, then `loadstart`, ready states 2–4,
+   * `load` and `loadend` fire — asynchronously, in the caller's zone, unless
+   * the request is synchronous. The probe's own listeners record it.
+   */
+  function answer(xhr: XMLHttpRequest, state: RequestState, mock: MockResponse): void {
+    let readyState = 1;
+    let live = true;
+    const headers: Record<string, string> = {};
+    for (const name of Object.keys(mock.headers)) headers[name.toLowerCase()] = String(mock.headers[name]);
+    const raw = Object.keys(headers)
+      .map((name) => `${name}: ${headers[name]}\r\n`)
+      .join('');
+    const text = (): boolean => xhr.responseType === '' || xhr.responseType === 'text';
+    const getter = (name: string, get: () => unknown): void =>
+      void Object.defineProperty(xhr, name, { configurable: true, get });
+    getter('readyState', () => readyState);
+    getter('status', () => (readyState < 2 ? 0 : mock.status));
+    getter('statusText', () => (readyState < 2 ? '' : (mock.statusText ?? '')));
+    getter('responseURL', () => state.url);
+    getter('responseText', () => {
+      // As the browser: reading responseText of a non-text type throws.
+      if (!text()) throw new DOMException('responseText needs responseType "" or "text"', 'InvalidStateError');
+      return readyState < 3 ? '' : mock.body;
+    });
+    getter('response', () => {
+      if (text()) return readyState < 3 ? '' : mock.body;
+      if (readyState < 4) return null;
+      return xhr.responseType === 'json' ? attempt(() => JSON.parse(mock.body) as unknown) : null;
+    });
+    getter(
+      'getResponseHeader',
+      () => (name: string) => (readyState < 2 ? null : (headers[String(name).toLowerCase()] ?? null)),
+    );
+    getter('getAllResponseHeaders', () => () => (readyState < 2 ? '' : raw));
+    mocked.set(xhr, () => (live = false));
+    shadowed.add(xhr);
+    const play = (): void => {
+      if (!live) return;
+      mocked.delete(xhr);
+      fire(xhr, 'loadstart');
+      for (const next of [2, 3, 4]) {
+        readyState = next;
+        xhr.dispatchEvent(new Event('readystatechange'));
+      }
+      fire(xhr, 'load');
+      fire(xhr, 'loadend');
+    };
+    if (state.async) void Promise.resolve().then(play);
+    else play();
+  }
+
+  /** A mocked request aborted before its answer: what the browser fires for an abort. */
+  function fireAbort(xhr: XMLHttpRequest): void {
+    own(xhr, 'readyState', 4);
+    own(xhr, 'status', 0);
+    xhr.dispatchEvent(new Event('readystatechange'));
+    fire(xhr, 'abort');
+    fire(xhr, 'loadend');
+    shadowed.delete(xhr);
+    unmock(xhr);
   }
 
   function markError(xhr: XMLHttpRequest, error: NonNullable<XhrError>): void {
@@ -247,6 +344,7 @@ export function installXhrProbe(recorder: Sink, clock: Clock, host: XhrHost = gl
       error,
       // The pending id, set on the fresh draft: `record()` ends the row with it (C-1).
       ...(state.id === null ? null : { requestId: state.id }),
+      ...(state.origin ? { origin: state.origin } : null),
     };
   }
 
@@ -285,6 +383,7 @@ export function installXhrProbe(recorder: Sink, clock: Clock, host: XhrHost = gl
     const wasOwn = Object.prototype.hasOwnProperty.call(target, name);
     const wrapper: XhrMethod = function (this: XMLHttpRequest, ...args: unknown[]) {
       const steps = sink ? attempt(() => hook(this, args)) : null;
+      if (steps?.skip) return undefined;
       let result: unknown;
       try {
         result = original.apply(this, args);
@@ -369,4 +468,30 @@ function attempt<T>(work: () => T): T | null {
   } catch {
     return null;
   }
+}
+
+/** The names a mock answer shadows on the instance (C-13). */
+const MOCKED = [
+  'readyState',
+  'status',
+  'statusText',
+  'responseURL',
+  'responseText',
+  'response',
+  'getResponseHeader',
+  'getAllResponseHeaders',
+];
+
+/** A fixed own value on the instance, shadowing the prototype's getter. */
+function own(xhr: XMLHttpRequest, name: string, value: unknown): void {
+  Object.defineProperty(xhr, name, { configurable: true, value });
+}
+
+/** The instance's own state, from the browser again. */
+function unmock(xhr: XMLHttpRequest): void {
+  for (const name of MOCKED) delete (xhr as unknown as Record<string, unknown>)[name];
+}
+
+function fire(xhr: XMLHttpRequest, type: string): void {
+  xhr.dispatchEvent(typeof ProgressEvent === 'undefined' ? new Event(type) : new ProgressEvent(type));
 }

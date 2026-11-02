@@ -6,4 +6,5 @@
 export { installXhrProbe } from './xhr.probe';
 export type { XhrHost } from './xhr.probe';
 export { installFetchProbe } from './fetch.probe';
-export type { FetchHost } from './fetch.probe';
+export type { FetchHost, FetchProbe } from './fetch.probe';
+export type { MockBox } from './http-helpers';

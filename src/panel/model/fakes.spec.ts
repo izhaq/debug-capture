@@ -240,6 +240,11 @@ export function fakeCapture(policy: Partial<CapturePolicy> = {}): FakeCapture {
     },
     onChange: (listener) => subscribe(controllerListeners, listener),
     shortcuts: null,
+    // C-13 (2.5): no replay add-on in these fakes.
+    replay: null,
+    http: { send: () => Promise.resolve(null) },
+    sockets: { send: () => false, deliver: () => false },
+    setMockResolver: () => undefined,
     dispose: () => setOn(false),
   };
   return { controller, recorder, controllerListeners, calls };

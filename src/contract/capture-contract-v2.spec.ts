@@ -120,6 +120,11 @@ const createFakeController: CreateCaptureController = (_options?: DebugCaptureOp
     },
     start: () => set(true),
     shortcuts: null,
+    // C-13 (2.5): no replay add-on in these fakes.
+    replay: null,
+    http: { send: () => Promise.resolve(null) },
+    sockets: { send: () => false, deliver: () => false },
+    setMockResolver: () => undefined,
     dispose: () => set(false),
     stop: () => set(false),
     onChange(listener: (on: boolean) => void): Unsubscribe {

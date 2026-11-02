@@ -6,12 +6,15 @@ import {
   DEFAULT_NOTE,
   DEFAULT_SHORTCUTS,
   DebugCaptureOptions,
+  FetchProbe,
   LiveRecorder,
+  MockBox,
   Probe,
   ProbeRecorder,
   Recorder,
   ShortcutConfig,
   Unsubscribe,
+  WebSocketProbe,
   Clock,
   buildCaptureFile,
   copyText,
@@ -97,6 +100,10 @@ function createController(
   let notifying = false;
   /** Set while on: removes the probes. */
   let uninstall: (() => void) | null = null;
+  /** C-13: the probes a developer's resend uses, while on. */
+  let probes: InstalledProbes | null = null;
+  /** C-13: one box for the controller's life, so a resolver outlives stop / start. */
+  const mocks: MockBox = { resolver: null };
   let disposed = false;
   let unbind = (): void => undefined;
 
@@ -192,7 +199,8 @@ function createController(
       // Claimed first: a listener that calls installDebugCapture() while the
       // probes go in gets this session instead of patching everything twice.
       activeSession = session;
-      uninstall = installCapture(recorder, env);
+      probes = installCapture(recorder, env, mocks);
+      uninstall = probes.remove;
       changed(true);
     },
     stop(): void {
@@ -201,6 +209,7 @@ function createController(
         return;
       }
       uninstall = null;
+      probes = null;
       if (activeSession === session) {
         activeSession = null;
       }
@@ -237,6 +246,17 @@ function createController(
       controller.stop();
       unbind();
     },
+    replay: null,
+    http: {
+      send: (draft) => (probes?.fetch ? probes.fetch.send(draft).catch(() => null) : Promise.resolve(null)),
+    },
+    sockets: {
+      send: (socketId, data) => attempt(() => probes?.ws?.send(socketId, data)) === true,
+      deliver: (socketId, data) => attempt(() => probes?.ws?.deliver(socketId, data)) === true,
+    },
+    setMockResolver(resolver): void {
+      mocks.resolver = resolver;
+    },
   };
 
   if (options.shortcuts !== false) {
@@ -261,21 +281,34 @@ function createController(
   return controller;
 }
 
+/** What `installCapture` hands back: the way off, and the probes a resend uses (C-13). */
+interface InstalledProbes {
+  remove: () => void;
+  fetch: FetchProbe | null;
+  ws: WebSocketProbe | null;
+}
+
 /**
- * Installs every probe on `recorder`; returns the function that takes them
- * all off again, in reverse order.
+ * Installs every probe on `recorder`; `remove` takes them all off again, in
+ * reverse order.
  */
-function installCapture(recorder: LiveRecorder & ProbeRecorder, env: CaptureEnvironment): () => void {
+function installCapture(
+  recorder: LiveRecorder & ProbeRecorder,
+  env: CaptureEnvironment,
+  mocks: MockBox,
+): InstalledProbes {
   const { clock } = env;
   const report = (message: string, error: unknown) => reportFailure(recorder, clock, message, error);
 
   const installers: ReadonlyArray<readonly [string, () => Probe]> = [
     ['console', () => installConsoleProbe(recorder, clock, env.console)],
     ['global-error', () => installGlobalErrorProbe(recorder, clock, env.errors)],
-    ['xhr', () => installXhrProbe(recorder, clock, env.xhr)],
-    ['fetch', () => installFetchProbe(recorder, clock, env.fetch)],
-    ['websocket', () => installWebSocketProbe(recorder, clock, env.webSocket)],
+    ['xhr', () => installXhrProbe(recorder, clock, env.xhr, mocks)],
+    ['fetch', () => (fetch = installFetchProbe(recorder, clock, env.fetch, mocks))],
+    ['websocket', () => (ws = installWebSocketProbe(recorder, clock, env.webSocket))],
   ];
+  let fetch: FetchProbe | null = null;
+  let ws: WebSocketProbe | null = null;
   const probes: Probe[] = [];
   for (const [name, install] of installers) {
     try {
@@ -285,7 +318,7 @@ function installCapture(recorder: LiveRecorder & ProbeRecorder, env: CaptureEnvi
     }
   }
 
-  return () => {
+  const remove = (): void => {
     // Reverse order: the last patch applied is the first taken off.
     for (const probe of probes.slice().reverse()) {
       try {
@@ -295,6 +328,16 @@ function installCapture(recorder: LiveRecorder & ProbeRecorder, env: CaptureEnvi
       }
     }
   };
+  return { remove, fetch, ws };
+}
+
+/** The result, or `null` when `work` threw: a developer's resend must never throw at them. */
+function attempt<T>(work: () => T): T | null {
+  try {
+    return work();
+  } catch {
+    return null;
+  }
 }
 
 /** Records the capture layer's own failure into its own buffer — the only place anyone will see it. */

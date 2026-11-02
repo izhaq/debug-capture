@@ -99,6 +99,11 @@ function fakeController(recorder: FakeRecorder): CaptureController & { setOn(nex
       listeners.forEach((l) => l(next));
     },
     shortcuts: null,
+    // C-13 (2.5): no replay add-on in these fakes.
+    replay: null,
+    http: { send: () => Promise.resolve(null) },
+    sockets: { send: () => false, deliver: () => false },
+    setMockResolver: () => undefined,
     dispose: () => undefined,
   };
   return controller;

@@ -27,11 +27,20 @@ class FakeWebSocket extends EventTarget {
   readyState = FakeWebSocket.CONNECTING;
   /** What actually reached the "wire" through send(). */
   readonly sent: unknown[] = [];
+  /** Like the browser's handler attribute: run for every `message` event, dispatched ones too. */
+  onmessage: ((event: MessageEvent) => void) | null = null;
 
   constructor(url: string, protocols?: string | string[]) {
     super();
     this.url = url;
     this.protocols = protocols;
+  }
+
+  /** Runs `onmessage` after the listeners — no extra listener, so the zone specs count only the probe's. */
+  override dispatchEvent(event: Event): boolean {
+    const result = super.dispatchEvent(event);
+    if (event.type === 'message') this.onmessage?.(event as MessageEvent);
+    return result;
   }
 
   send(data: unknown): void {
@@ -558,5 +567,70 @@ describe('installWebSocketProbe — socket ids from the recorder (C-2)', () => {
 
     expect(recorder.snapshot().map((e) => (e as WebSocketEntry).socketId)).toEqual([4]);
     expect(recorder.nextSocketId()).toBe(5);
+  });
+});
+
+/** S-16a (C-13, FR-RPL-05, FR-RPL-06): resend on, and deliver to, a socket the app still has open. */
+describe('installWebSocketProbe — resend and deliver (C-13)', () => {
+  it('send(id, data) sends on the same open socket, recorded as sent with origin "replay"', () => {
+    const recorder = new FakeRecorder();
+    const host = fakeHost();
+    const probe = installWebSocketProbe(recorder, new FakeClock(), host);
+    const socket = openFake(host);
+    socket.fireOpen();
+
+    expect(probe.send(1, '{"cmd":"ping"}')).toBeTrue();
+    expect(socket.sent).toEqual(['{"cmd":"ping"}']);
+    expect(recorder.ws().slice(-1)[0]).toEqual(
+      jasmine.objectContaining({ event: 'send', data: '{"cmd":"ping"}', origin: 'replay' }),
+    );
+    probe.dispose();
+  });
+
+  it("deliver(id, data) gives the app a message event as if from the server: onmessage and listeners run; recorded as received with origin 'mock'", () => {
+    const recorder = new FakeRecorder();
+    const host = fakeHost();
+    const probe = installWebSocketProbe(recorder, new FakeClock(), host);
+    const socket = openFake(host) as unknown as WebSocket;
+    const got: unknown[] = [];
+    socket.onmessage = (event) => got.push(['on', event.data]);
+    socket.addEventListener('message', (event) => got.push(['listener', (event as MessageEvent).data]));
+    (socket as unknown as FakeWebSocket).fireOpen();
+
+    expect(probe.deliver(1, '{"price":9}')).toBeTrue();
+    expect(got).toEqual(
+      jasmine.arrayWithExactContents([
+        ['on', '{"price":9}'],
+        ['listener', '{"price":9}'],
+      ]),
+    );
+    expect(recorder.ws().slice(-1)[0]).toEqual(
+      jasmine.objectContaining({ event: 'receive', data: '{"price":9}', origin: 'mock' }),
+    );
+    probe.dispose();
+  });
+
+  it("the app's own frames keep no origin; a closed, unknown or not-yet-open socket, or after dispose, gives false", () => {
+    const recorder = new FakeRecorder();
+    const host = fakeHost();
+    const probe = installWebSocketProbe(recorder, new FakeClock(), host);
+    const socket = openFake(host);
+    expect(probe.send(1, 'early')).withContext('still connecting').toBeFalse();
+    expect(probe.deliver(1, 'early')).withContext('still connecting: no message before open').toBeFalse();
+    socket.fireOpen();
+    socket.send('own');
+    socket.fireMessage('theirs');
+    expect(recorder.ws().filter((d) => d.origin !== undefined)).toEqual([]);
+
+    expect(probe.send(2, 'x')).withContext('unknown id').toBeFalse();
+    socket.fireClose(1000);
+    expect(probe.send(1, 'x')).withContext('closed').toBeFalse();
+    expect(probe.deliver(1, 'x')).withContext('closed').toBeFalse();
+
+    const other = openFake(host);
+    other.fireOpen();
+    probe.dispose();
+    expect(probe.send(2, 'x')).withContext('after dispose').toBeFalse();
+    expect(other.sent).toEqual([]);
   });
 });

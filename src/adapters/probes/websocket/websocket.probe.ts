@@ -1,4 +1,4 @@
-import { Clock, Probe, ProbeRecorder, Recorder, WebSocketEntry, WebSocketEvent } from '../../../core';
+import { Clock, EntryOrigin, Probe, ProbeRecorder, Recorder, WebSocketEntry, WebSocketEvent } from '../../../core';
 import { bytesOf, toBase64, utf8Length } from './frame-data';
 import { outsideZones } from './outside-zones';
 
@@ -7,7 +7,7 @@ export interface WebSocketHost {
   WebSocket: typeof WebSocket;
 }
 
-type Payload = Pick<WebSocketEntry, 'opcode' | 'bytes' | 'data' | 'code'>;
+type Payload = Pick<WebSocketEntry, 'opcode' | 'bytes' | 'data' | 'code' | 'origin'>;
 type SendData = Parameters<WebSocket['send']>[0];
 /** A v1 `Recorder` still works: it gets a per-install counter, as in v1 (C-2). */
 type Sink = Recorder & Partial<ProbeRecorder>;
@@ -40,7 +40,13 @@ function text(value: string): Payload {
  * Sockets created before install are not captured — there is nothing to
  * hook into after the fact.
  */
-export function installWebSocketProbe(recorder: Sink, clock: Clock, host: WebSocketHost = globalThis): Probe {
+/** C-13 (2.5): resend on, and deliver to, a socket the app still has open (`FR-RPL-05`, `FR-RPL-06`). */
+export interface WebSocketProbe extends Probe {
+  send(socketId: number, data: string): boolean;
+  deliver(socketId: number, data: string): boolean;
+}
+
+export function installWebSocketProbe(recorder: Sink, clock: Clock, host: WebSocketHost = globalThis): WebSocketProbe {
   const Original = host.WebSocket;
   /**
    * Dropped on dispose: listeners on sockets that stay open, and our subclass
@@ -51,6 +57,12 @@ export function installWebSocketProbe(recorder: Sink, clock: Clock, host: WebSoc
   let localSocketId = 0;
   /** Kept off the socket itself so the app never sees a stray property on its objects. */
   const socketIds = new WeakMap<WebSocket, number>();
+  /** C-13: sockets by id until they close, for a developer's resend and deliver. */
+  const live = new Map<number, WebSocket>();
+  /** C-13: set only while `send()` below calls the socket's own `send`. */
+  let replaying = false;
+  /** C-13: the message event `deliver()` is dispatching right now. */
+  let delivering: Event | null = null;
 
   /**
    * Runs capture bookkeeping so that it can never throw into the socket or
@@ -77,11 +89,17 @@ export function installWebSocketProbe(recorder: Sink, clock: Clock, host: WebSoc
    * a Blob is read asynchronously, and the entry must say when the frame
    * moved, not when we finished reading it.
    */
-  function recordFrame(socket: WebSocket, socketId: number, event: 'send' | 'receive', data: unknown): void {
+  function recordFrame(
+    socket: WebSocket,
+    socketId: number,
+    event: 'send' | 'receive',
+    data: unknown,
+    origin?: EntryOrigin,
+  ): void {
     const t = clock.now();
     const url = socket.url;
     if (typeof data === 'string') {
-      emit(socketId, url, event, t, text(data));
+      emit(socketId, url, event, t, { ...text(data), ...(origin ? { origin } : null) });
     } else if (data instanceof Blob) {
       data.arrayBuffer().then(
         (buffer) => guard(() => emit(socketId, url, event, t, binary(new Uint8Array(buffer)))),
@@ -101,6 +119,7 @@ export function installWebSocketProbe(recorder: Sink, clock: Clock, host: WebSoc
     guard(() => {
       const socketId = sink?.nextSocketId ? sink.nextSocketId() : ++localSocketId;
       socketIds.set(socket, socketId);
+      live.set(socketId, socket);
       const lifecycle = (event: WebSocketEvent, payload: () => Payload) => () =>
         guard(() => emit(socketId, socket.url, event, clock.now(), payload()));
 
@@ -116,9 +135,10 @@ export function installWebSocketProbe(recorder: Sink, clock: Clock, host: WebSoc
           lifecycle('error', () => NO_PAYLOAD),
         );
         socket.addEventListener('message', (event: MessageEvent<unknown>) =>
-          guard(() => recordFrame(socket, socketId, 'receive', event.data)),
+          guard(() => recordFrame(socket, socketId, 'receive', event.data, event === delivering ? 'mock' : undefined)),
         );
-        socket.addEventListener('close', (event: CloseEvent) =>
+        socket.addEventListener('close', (event: CloseEvent) => {
+          live.delete(socketId);
           guard(() =>
             emit(socketId, socket.url, 'close', clock.now(), {
               opcode: null,
@@ -126,8 +146,8 @@ export function installWebSocketProbe(recorder: Sink, clock: Clock, host: WebSoc
               data: event.reason || null,
               code: event.code,
             }),
-          ),
-        );
+          );
+        });
       });
     });
   }
@@ -147,7 +167,7 @@ export function installWebSocketProbe(recorder: Sink, clock: Clock, host: WebSoc
       super.send(data);
       const socketId = socketIds.get(this);
       if (socketId !== undefined) {
-        guard(() => recordFrame(this, socketId, 'send', data));
+        guard(() => recordFrame(this, socketId, 'send', data, replaying ? 'replay' : undefined));
       }
     }
   }
@@ -156,13 +176,47 @@ export function installWebSocketProbe(recorder: Sink, clock: Clock, host: WebSoc
 
   host.WebSocket = CapturingWebSocket;
 
+  /** A captured socket the browser still has open; `null` after dispose. */
+  function open(socketId: number): WebSocket | null {
+    const socket = sink ? live.get(socketId) : undefined;
+    return socket && socket.readyState === 1 ? socket : null;
+  }
+
   return {
     name: 'websocket',
+    send(socketId, data): boolean {
+      const socket = open(socketId);
+      if (!socket) return false;
+      replaying = true;
+      try {
+        socket.send(data);
+        return true;
+      } catch {
+        return false;
+      } finally {
+        replaying = false;
+      }
+    },
+    deliver(socketId, data): boolean {
+      const socket = open(socketId);
+      if (!socket) return false;
+      const event = new MessageEvent('message', { data });
+      delivering = event;
+      try {
+        // The app's onmessage and listeners run as for a frame from the server; one that throws
+        // is reported by the browser, as it would be for a real frame.
+        socket.dispatchEvent(event);
+        return true;
+      } finally {
+        delivering = null;
+      }
+    },
     dispose(): void {
       if (!sink) {
         return;
       }
       sink = null;
+      live.clear();
       // If someone patched on top of us, leave their patch in place; with no
       // recorder left, our subclass is already a pass-through.
       if (host.WebSocket === CapturingWebSocket) {
