@@ -11,6 +11,7 @@
  *                 all a station loads before switch-on (D-43)
  *   angular       src/angular/index.ts                   recorded only
  *   react         src/react/index.ts                     recorded only
+ *   replay        src/replay/index.ts, the core left out ≤ its budget (S16-11, D-34)
  *
  * The seams and the panel are measured with the core (the L5 barrel) and the
  * peer packages left out: a host loads the core anyway, and it has its own line.
@@ -37,6 +38,7 @@ rows.push(await measure('core', 'src/index.ts', false));
 for (const [name, source] of [
   ['angular', 'src/angular/index.ts'],
   ['react', 'src/react/index.ts'],
+  ['replay', 'src/replay/index.ts'],
 ]) {
   rows.push(has(name) ? await measure(name, source, true) : skipped(name, source));
 }
