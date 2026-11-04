@@ -35,4 +35,24 @@ by a merge, no rebase.
 
 ## Status
 
-Docs PR open.
+Docs PR #8 — merged.
+
+S-16a — done, in review. Unit specs 1279 → **1296** (+17: fetch 4 and XHR 4 in the new
+`mock.probe.spec.ts`, WebSocket 3, controller 4, Angular `HttpClient` 2). Every new spec failed
+once: 12 against stubs; the Angular, controller and XHR ones again by a mutation (mock off), and
+the WebSocket "not yet open" case by a mutation (no open check), which first showed the case was
+untested and got its own line. Changed existing specs only to compile (four `CaptureController`
+fakes gain the new members) and the WebSocket spec fake gained `onmessage`. Version 2.5.0-alpha.0.
+Core 12,607 → **13,835 B** (≤ 13,904; 69 B left).
+
+Deviations from the brief:
+
+- `http.send` / `ReplayApi.send` resolve to the recorded entry's `requestId` (or `null`), not the
+  entry: the body is read after the app gets its `Response`, so the entry is not there yet; the
+  panel finds it by `requestId`.
+- WebSocket resend and deliver take text (`string`); binary frames are not resent (S16-14 said
+  "or the same binary"). Binary frames are stored base64, so a later PR can add it.
+- A mock answers `fetch` with a `Response` built from the host's `Response`; a status the
+  constructor rejects (below 200, above 599) reaches the app as a rejected `fetch`, as a real one
+  would. A mocked XHR fires `loadstart`, ready states 2–4, `load`, `loadend` in a microtask (in the
+  caller's zone, so Angular sees it), or inside `send()` for a synchronous request.

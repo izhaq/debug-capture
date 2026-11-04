@@ -13,7 +13,7 @@
 export const CAPTURE_SCHEMA_VERSION = 2;
 
 /** The package version (HLD `D-42`), shown in Settings › About. `npm run build` checks it equals package.json. */
-export const DEBUG_CAPTURE_VERSION = '2.4.0-alpha.0';
+export const DEBUG_CAPTURE_VERSION = '2.5.0-alpha.0';
 
 export type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
 
@@ -75,7 +75,15 @@ export interface HttpEntry extends CaptureEntryBase {
    * Present and `true`, or absent — never `false`.
    */
   readonly resBodyCapped?: true;
+  /** C-13 (2.5): not the app's own request — a developer's resend or a mock's answer. */
+  readonly origin?: EntryOrigin;
 }
+
+/**
+ * C-13 (2.5, `debug-capture/replay`): where an entry came from when it was not
+ * the app's own traffic. Absent on every entry the app itself caused.
+ */
+export type EntryOrigin = 'replay' | 'mock';
 
 export type WebSocketEvent = 'open' | 'send' | 'receive' | 'close' | 'error';
 
@@ -99,6 +107,8 @@ export interface WebSocketEntry extends CaptureEntryBase {
   readonly data: string | null;
   /** `close` only: the close code. */
   readonly code: number | null;
+  /** C-13 (2.5): a frame a developer resent (`replay`) or delivered as if from the server (`mock`). */
+  readonly origin?: EntryOrigin;
 }
 
 export interface ErrorEntry extends CaptureEntryBase {
@@ -567,6 +577,70 @@ export interface CaptureController {
   readonly shortcuts: ShortcutConfig | null;
   /** 2.2 (`C-11`): `stop()` and unbinds the chords, for good. Idempotent. */
   dispose(): void;
+  /** C-13 (2.5): set by `debug-capture/replay` (`D-51`); `null` otherwise, and the panel shows no replay items. */
+  replay: ReplayApi | null;
+  /**
+   * C-13: sends a request with the page's original `fetch` and records it
+   * with `origin: 'replay'`. Resolves to its `requestId`, or `null` while
+   * capture is off; never rejects.
+   */
+  readonly http: { send(draft: HttpRequestDraft): Promise<number | null> };
+  /** C-13: on a socket the probe still sees open; `false` when closed, unknown or capture is off. Never throw. */
+  readonly sockets: {
+    send(socketId: number, data: string): boolean;
+    deliver(socketId: number, data: string): boolean;
+  };
+  /** C-13: asked before each fetch / XHR of the app while capture is on; `null` turns mocking off. */
+  setMockResolver(resolver: MockResolver | null): void;
+}
+
+/** C-13 (2.5): a request a developer edited, to send from the page (`FR-RPL-03`). */
+export interface HttpRequestDraft {
+  readonly method: string;
+  /** Absolute, or relative to the page. */
+  readonly url: string;
+  readonly headers: HeaderMap;
+  readonly body: string | null;
+}
+
+/** C-13 (2.5): what a mock answers the app with (`FR-RPL-07`). */
+export interface MockResponse {
+  readonly status: number;
+  readonly statusText?: string;
+  readonly headers: HeaderMap;
+  readonly body: string;
+}
+
+/** C-13 (2.5): asked before each app request while set; a response answers it without the network. */
+export type MockResolver = (request: { readonly method: string; readonly url: string }) => MockResponse | null;
+
+/** 2.5 (`FR-RPL-07`, `D-53`): one mock — a request to match and the answer. */
+export interface MockRule {
+  readonly id: string;
+  readonly on: boolean;
+  /** Upper-case, or `*` for any. */
+  readonly method: string;
+  /** Absolute; `*` matches any run of characters in the path or query. */
+  readonly url: string;
+  readonly response: MockResponse;
+}
+
+/** 2.5 (`D-51`): what `debug-capture/replay` adds; the panel shows its items while it is set. */
+export interface ReplayApi {
+  /** Sends the draft from the page (`FR-RPL-03`); the recorded entry's `requestId`, or `null` when nothing was sent. */
+  send(draft: HttpRequestDraft): Promise<number | null>;
+  /** `FR-RPL-05`: on the same open socket, as if the app sent it. `false` when closed or unknown. */
+  resend(socketId: number, data: string): boolean;
+  /** `FR-RPL-06`: to the app, as if the server sent it. `false` when closed or unknown. */
+  deliver(socketId: number, data: string): boolean;
+  readonly mocks: {
+    list(): readonly MockRule[];
+    add(rule: Omit<MockRule, 'id'>): MockRule;
+    update(id: string, change: Partial<Omit<MockRule, 'id'>>): void;
+    remove(id: string): void;
+    clear(): void;
+    onChange(listener: (rules: readonly MockRule[]) => void): Unsubscribe;
+  };
 }
 
 /**

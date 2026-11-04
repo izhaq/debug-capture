@@ -1,11 +1,22 @@
-import { Clock, HeaderMap, HttpEntry, Probe, ProbeRecorder, Recorder } from '../../../core';
-import { describeBody, headersToMap, isTextual, responseBytes, toAbsoluteUrl } from './http-helpers';
+import {
+  Clock,
+  EntryOrigin,
+  HeaderMap,
+  HttpEntry,
+  HttpRequestDraft,
+  Probe,
+  ProbeRecorder,
+  Recorder,
+} from '../../../core';
+import { describeBody, headersToMap, isTextual, MockBox, responseBytes, toAbsoluteUrl } from './http-helpers';
 import { outsideZones } from './outside-zones';
 
 /** What the fetch probe patches: `host.fetch` is swapped for a wrapper. */
 export interface FetchHost {
   fetch: typeof fetch;
   location: { href: string };
+  /** For mock answers (C-13); the global one when absent. */
+  Response?: typeof Response;
 }
 
 /**
@@ -28,6 +39,8 @@ interface StartedRequest {
   start: number;
   /** The recorder's pending id (C-1); `null` when none or already ended. */
   id: number | null;
+  /** C-13: a mock's answer or a developer's resend. */
+  origin?: EntryOrigin;
 }
 
 /**
@@ -35,7 +48,17 @@ interface StartedRequest {
  * error or abort). `host` defaults to the real global; specs pass a host
  * around a bound real fetch or a fake.
  */
-export function installFetchProbe(recorder: Sink, clock: Clock, host: FetchHost = globalThis): Probe {
+/** C-13 (2.5): the probe can also send a developer's request (`FR-RPL-03`). */
+export interface FetchProbe extends Probe {
+  send(draft: HttpRequestDraft): Promise<number | null>;
+}
+
+export function installFetchProbe(
+  recorder: Sink,
+  clock: Clock,
+  host: FetchHost = globalThis,
+  mocks: MockBox = { resolver: null },
+): FetchProbe {
   const original = host.fetch;
   /** Dropped on dispose: a wrapper left in someone else's chain must not keep the buffer alive. */
   let sink: Sink | null = recorder;
@@ -50,10 +73,41 @@ export function installFetchProbe(recorder: Sink, clock: Clock, host: FetchHost 
    * rejection the app never handles is still reported as unhandled.
    */
   const wrapper = function (...args: Parameters<typeof fetch>): Promise<Response> {
+    return run(args);
+  };
+
+  /**
+   * The wrapper's work. `origin` is set for a developer's resend (C-13), which
+   * never meets a mock; `onStart` receives the request as booked.
+   */
+  function run(
+    args: Parameters<typeof fetch>,
+    origin?: EntryOrigin,
+    onStart?: (started: StartedRequest) => void,
+  ): Promise<Response> {
     const started = sink ? attempt(() => startRequest(args)) : null;
+    // C-13: a mock answers the app instead of the network (FR-RPL-07).
+    const mock =
+      started && !origin ? attempt(() => mocks.resolver?.({ method: started.method, url: started.url }) ?? null) : null;
+    if (started) {
+      started.origin = mock ? 'mock' : origin;
+      if (onStart) safely(() => onStart(started));
+    }
     let pending: Promise<Response>;
     try {
-      pending = original.apply(host, args);
+      pending = mock
+        ? // In a promise, so a status the Response constructor rejects reaches the app as a rejection.
+          new Promise((resolve) => {
+            const noBody = [101, 204, 205, 304].indexOf(mock.status) >= 0;
+            resolve(
+              new (host.Response ?? Response)(noBody ? null : mock.body, {
+                status: mock.status,
+                statusText: mock.statusText ?? '',
+                headers: mock.headers,
+              }),
+            );
+          })
+        : original.apply(host, args);
     } catch (error) {
       // Someone else's patched fetch threw: nothing will settle this request.
       if (started) endPending(started);
@@ -76,7 +130,7 @@ export function installFetchProbe(recorder: Sink, clock: Clock, host: FetchHost 
       endPending(started);
       return pending;
     }
-  };
+  }
 
   /** Bookkeeping that fails before recording must not leave the request pending forever. */
   function settle(started: StartedRequest, work: () => void): void {
@@ -182,6 +236,7 @@ export function installFetchProbe(recorder: Sink, clock: Clock, host: FetchHost 
         error: outcome.error,
         ...(requestId === null ? null : { requestId }),
         ...(capped ? { resBodyCapped: true as const } : null),
+        ...(started.origin ? { origin: started.origin } : null),
       }),
     );
   }
@@ -190,6 +245,21 @@ export function installFetchProbe(recorder: Sink, clock: Clock, host: FetchHost 
 
   return {
     name: 'fetch',
+    send(draft): Promise<number | null> {
+      if (!sink) return Promise.resolve(null);
+      let id: number | null = null;
+      return new Promise<Response>((resolve) => {
+        const method = String(draft.method).toUpperCase();
+        const init: RequestInit = { method, headers: { ...draft.headers }, credentials: 'same-origin' };
+        // fetch() rejects a body on GET and HEAD.
+        if (draft.body !== null && method !== 'GET' && method !== 'HEAD') init.body = draft.body;
+        resolve(run([toAbsoluteUrl(draft.url, host.location.href), init], 'replay', (started) => (id = started.id)));
+      }).then(
+        () => id,
+        // Recorded as a failed request already; the developer sees it in the list.
+        () => id,
+      );
+    },
     dispose(): void {
       if (!sink) return;
       // Cut off: these will never be recorded, so no listener may keep their rows (C-1).

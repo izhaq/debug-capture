@@ -40,6 +40,11 @@ function emptyController(): { controller: CaptureController; listeners: () => nu
     stop: () => undefined,
     onChange: add(sets[3] as Set<unknown>) as CaptureController['onChange'],
     shortcuts: null,
+    // C-13 (2.5): no replay add-on in these fakes.
+    replay: null,
+    http: { send: () => Promise.resolve(null) },
+    sockets: { send: () => false, deliver: () => false },
+    setMockResolver: () => undefined,
     dispose: () => undefined,
   };
   return { controller, listeners: () => sets.reduce((n, set) => n + set.size, 0) };

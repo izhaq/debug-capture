@@ -14,6 +14,7 @@ import {
   AppMessageEntry,
   NoteEntry,
   FetchHost,
+  HttpEntry,
   ProbeRecorder,
   RecorderChange,
   WebSocketEntry,
@@ -994,5 +995,73 @@ describe('session.addMessage — 2.3 (C-12, FR-MSG-01, 03, 04, 07)', () => {
       controller.session.addMessage(null as unknown as string, cyclic, 5 as unknown as 'info'),
     ).not.toThrow();
     expect(apps(controller.session).length).toBe(1);
+  });
+});
+
+/** S-16a (C-13): the controller's hooks for `debug-capture/replay` — inert until used. */
+describe('createCaptureController — replay and mock hooks (C-13)', () => {
+  let fake: Fake;
+  beforeEach(() => (fake = fakeEnvironment()));
+  afterEach(() => getActiveCaptureSession()?.dispose());
+
+  const http = (session: CaptureSession) => entries(session).filter((e): e is HttpEntry => e.kind === 'http');
+  const mock = { status: 418, headers: { 'content-type': 'text/plain' }, body: 'mocked' };
+
+  it("replay is null, nothing is mocked, and the app's requests carry no origin until a resolver is set", async () => {
+    const controller = createCaptureController({}, fake.env);
+    expect(controller.replay).toBeNull();
+    const url = blobUrl('{"a":1}');
+    await (await fake.fetchHost.fetch(url)).text();
+    await until(() => http(controller.session).length === 1);
+    expect(http(controller.session)[0]?.origin).toBeUndefined();
+  });
+
+  it("setMockResolver answers the app's fetch and XHR, survives stop / start, and null turns it off", async () => {
+    const controller = createCaptureController({}, fake.env);
+    const url = blobUrl('real', 'text/plain');
+    controller.setMockResolver((request) => (request.url === url ? mock : null));
+
+    expect(await (await fake.fetchHost.fetch(url)).text()).toBe('mocked');
+    await xhrRequest(fake, 'GET', url);
+    controller.stop();
+    controller.start();
+    expect((await fake.fetchHost.fetch(url)).status)
+      .withContext('after stop / start')
+      .toBe(418);
+    controller.setMockResolver(null);
+    expect(await (await fake.fetchHost.fetch(url)).text()).toBe('real');
+
+    await until(() => http(controller.session).length === 4);
+    expect(http(controller.session).map((e) => [e.transport, e.status, e.origin])).toEqual([
+      ['fetch', 418, 'mock'],
+      ['xhr', 418, 'mock'],
+      ['fetch', 418, 'mock'],
+      ['fetch', 200, undefined],
+    ]);
+  });
+
+  it('http.send records with origin "replay" and resolves to its requestId; capture off: null, and no mock applies', async () => {
+    const controller = createCaptureController({}, fake.env);
+    const url = blobUrl('{"ok":true}');
+    const id = await controller.http.send({ method: 'GET', url, headers: {}, body: null });
+    await until(() => http(controller.session).length === 1);
+    expect(http(controller.session)[0]).toEqual(jasmine.objectContaining({ origin: 'replay', status: 200 }));
+    expect(http(controller.session)[0]?.requestId).toBe(id ?? -1);
+
+    controller.setMockResolver(() => mock);
+    controller.stop();
+    expect(await controller.http.send({ method: 'GET', url, headers: {}, body: null })).toBeNull();
+    expect(await (await fake.fetchHost.fetch(url)).text())
+      .withContext('capture off: no mock')
+      .toBe('{"ok":true}');
+  });
+
+  it('sockets.send / deliver are false for an unknown socket and while capture is off, and never throw', () => {
+    const controller = createCaptureController({}, fake.env);
+    expect(controller.sockets.send(99, 'x')).toBeFalse();
+    expect(controller.sockets.deliver(99, 'x')).toBeFalse();
+    controller.stop();
+    expect(controller.sockets.send(1, 'x')).toBeFalse();
+    expect(controller.sockets.deliver(1, 'x')).toBeFalse();
   });
 });

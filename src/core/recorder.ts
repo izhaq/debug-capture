@@ -1,4 +1,5 @@
 import {
+  EntryOrigin,
   APP_MESSAGE_LEVELS,
   BufferUsage,
   CaptureEntry,
@@ -190,6 +191,7 @@ export function createRecorder(policy: CapturePolicy): LiveRecorder & ProbeRecor
           // Only when present, so a v1 draft still stores exactly the v1 shape.
           ...(typeof draft.requestId === 'number' ? { requestId: draft.requestId } : null),
           ...(draft.resBodyCapped === true ? { resBodyCapped: true as const } : null),
+          ...origin(draft.origin),
         };
       case 'ws':
         return {
@@ -204,6 +206,7 @@ export function createRecorder(policy: CapturePolicy): LiveRecorder & ProbeRecor
           // Binary frames (base64) and close reasons are never JSON: truncate only.
           data: draft.data === null ? null : policedFrame(draft.data, draft.url, draft.opcode === 'text'),
           code: draft.code,
+          ...origin(draft.origin),
         };
       case 'error': {
         const { message, stack } = policedError(draft.message, draft.stack);
@@ -463,4 +466,9 @@ function weigh(value: unknown): number {
     }
   }
   return n;
+}
+
+/** C-13: kept only when it is one of the two known values, so nothing else rides along. */
+function origin(value: unknown): { origin: EntryOrigin } | null {
+  return value === 'replay' || value === 'mock' ? { origin: value } : null;
 }

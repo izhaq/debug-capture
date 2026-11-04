@@ -1,4 +1,4 @@
-import { HeaderMap } from '../../../core';
+import { HeaderMap, MockResolver } from '../../../core';
 
 /**
  * Helpers shared by the XHR and fetch probes. Module-internal: the barrel
@@ -127,4 +127,13 @@ export function responseBytes(headers: HeaderMap, textBody: string | null): numb
   const length = (headers['content-length'] ?? '').trim();
   if (/^\d+$/.test(length)) return Number(length);
   return textBody === null ? null : utf8Length(textBody);
+}
+
+/**
+ * C-13 (2.5): the controller's mock resolver, shared by the fetch and XHR
+ * probes and read on each request, so a resolver set or cleared later — or
+ * kept across stop / start — applies at once.
+ */
+export interface MockBox {
+  resolver: MockResolver | null;
 }
