@@ -409,4 +409,37 @@ describe('installDebugActivation — 2.2 (FR-BG-01…03)', () => {
     await debug.ready;
     expect(() => debug.activate()).not.toThrow();
   });
+
+  it('S-16b: onChange tells each listener the new controller at switch-on, before the panel, and null at switch-off', async () => {
+    const debug = createActivation({}, { scope: scope(), load });
+    const seen: Array<string | null> = [];
+    const stop = debug.onChange((controller) =>
+      seen.push(
+        controller === null ? null : controller === created[0]?.controller ? `c1 panels:${panels.length}` : 'c?',
+      ),
+    );
+    chord();
+    await settle();
+    chord();
+    expect(seen).toEqual(['c1 panels:0', null]);
+
+    stop();
+    chord();
+    await settle();
+    expect(seen.length).withContext('unsubscribed').toBe(2);
+  });
+
+  it('S-16b: a throwing onChange listener costs neither the switch-on nor the other listeners', async () => {
+    const debug = createActivation({}, { scope: scope(), load });
+    const after = jasmine.createSpy('after');
+    debug.onChange(() => {
+      throw new Error('listener bug');
+    });
+    debug.onChange(after);
+    chord();
+    await settle();
+    expect(debug.controller).toBe(created[0]?.controller ?? null);
+    expect(debug.panel).not.toBeNull();
+    expect(after).toHaveBeenCalledOnceWith(created[0]?.controller);
+  });
 });
