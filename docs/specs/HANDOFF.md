@@ -1,4 +1,4 @@
-# Handoff — debug-capture (updated 2026-10-28)
+# Handoff — debug-capture (updated 2026-11-15)
 
 For the next session that works on this repository. Read [`AGENTS.md`](../../AGENTS.md)
 first (all rules), then this page. The design is [`docs/design/HLD.md`](../design/HLD.md).
@@ -23,7 +23,11 @@ into `main`. Ask only for real owner decisions.
 
 - Done: v2.0, 2.1 (S-11), 2.2 (S-13 background control), 2.3 (S-14 custom messages).
   Package **2.3.0**, released as `v2.3.0` (GitHub Release, `RELEASING.md`). No planned spec.
-- Numbers: 1267 unit specs, 66 e2e + perf; core 12,602 / 13,904 B, activation 1,198 / 1,536 B,
+- **2.3.1** (patch, branch `release/2.3.x` from `v2.3.0`, not from `main`): the Angular error
+  handler wraps `ErrorHandler` instead of extending it, so loading `angular.mjs` can no longer
+  throw "Class extends value … is not a constructor" (a host's Docker build hit it). Same fix
+  as `main` PR #11.
+- Numbers: 1268 unit specs (2.3.1), 66 e2e + perf; core 12,602 / 13,904 B, activation 1,198 / 1,536 B,
   loader 4,783 / 5,632 B, UI chunk 41,474 / 45,056 B (min + gzip); warm open about 60 ms
   (limit 100). The same on Chrome 146.0.7680.72.
 - Plans with all numbers and notes: [`13-background-control/plan.md`](13-background-control/plan.md),
@@ -31,7 +35,7 @@ into `main`. Ask only for real owner decisions.
 
 ## Next
 
-- Nothing planned. The playground app switches from 2.3.0-alpha.1 to the 2.3.0 tarball
+- After 2.3.1 is tagged: hosts on 2.3.0 update to the 2.3.1 tarball
   (`docs/host-setup.md` › Update). A new version starts as `2.4.0-alpha.0` on a spec branch.
 
 ## The AI assistant is not here

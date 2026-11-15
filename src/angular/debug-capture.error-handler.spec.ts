@@ -60,6 +60,16 @@ describe('DebugCaptureErrorHandler', () => {
     consoleError = spyOn(console, 'error');
   });
 
+  it('does not extend ErrorHandler, so loading the module never touches @angular/core at run time', () => {
+    // `class X extends ErrorHandler` runs when the module loads. If a tool
+    // loads angular.mjs with something other than the real class (CommonJS
+    // interop in a test runner, prerendering, two copies of @angular/core),
+    // the import itself throws "Class extends value #<Object> is not a
+    // constructor or null". Wrapping Angular's handler instead needs the
+    // class only when the first error arrives, inside the app.
+    expect(Object.getPrototypeOf(DebugCaptureErrorHandler)).toBe(Function.prototype);
+  });
+
   it('records an Angular error with message, stack and clock time', () => {
     const handler = setup(fakeSession());
     const error = new Error('template blew up');
