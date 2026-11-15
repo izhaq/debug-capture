@@ -39,6 +39,12 @@ export interface DebugActivationHandle {
    * (`session.addMessage`); dropped while the tool is off or still loading. Never throws.
    */
   message(type: string, data?: unknown, level?: AppMessageLevel): void;
+  /**
+   * 2.5 (S-16b): `listener` gets each new controller at switch-on, before the
+   * panel is installed, and `null` at switch-off. For `debug-capture/replay`.
+   * A throwing listener is ignored. Returns the unsubscribe.
+   */
+  onChange(listener: (controller: CaptureController | null) => void): () => void;
 }
 
 /** What a switch-on loads: the core and the panel entry. */
@@ -89,6 +95,7 @@ export function createActivation(options: DebugActivationOptions = {}, deps: Act
       deactivate: none,
       dispose: none,
       message: none,
+      onChange: () => none,
     };
   }
 }
@@ -104,6 +111,16 @@ function build(options: DebugActivationOptions, deps: ActivationDeps): DebugActi
   let active = false;
   let loadError: unknown = null;
   let loaded: { controller: CaptureController; panel: DebugPanelHandle | null } | null = null;
+  const listeners = new Set<(controller: CaptureController | null) => void>();
+  const tell = (controller: CaptureController | null): void => {
+    for (const listener of [...listeners]) {
+      try {
+        listener(controller);
+      } catch {
+        // A listener's bug costs nothing here (ISO-12).
+      }
+    }
+  };
 
   const remember = (on: boolean): void => {
     try {
@@ -128,6 +145,7 @@ function build(options: DebugActivationOptions, deps: ActivationDeps): DebugActi
         .then((modules) => {
           if (mine !== generation) return;
           const controller = modules.createCaptureController(options.capture);
+          tell(controller);
           try {
             // D-41: shown on a ?debug=1 page; otherwise no visible sign — unless the host says otherwise.
             const panel =
@@ -136,6 +154,7 @@ function build(options: DebugActivationOptions, deps: ActivationDeps): DebugActi
                 : modules.installDebugPanel(controller, { launcher, ...options.panel, activation: chord });
             loaded = { controller, panel };
           } catch (error) {
+            tell(null);
             controller.dispose();
             throw error;
           }
@@ -153,6 +172,7 @@ function build(options: DebugActivationOptions, deps: ActivationDeps): DebugActi
     active = false;
     const was = loaded;
     loaded = null;
+    if (was) tell(null);
     try {
       was?.panel?.dispose();
     } catch {
@@ -221,6 +241,12 @@ function build(options: DebugActivationOptions, deps: ActivationDeps): DebugActi
       } catch {
         // Never throws at the host (ISO-12).
       }
+    },
+    onChange(listener: (controller: CaptureController | null) => void): () => void {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
     },
   };
 }

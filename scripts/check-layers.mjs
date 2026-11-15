@@ -15,6 +15,7 @@
  *   L5 public       src/*.ts               → L4 barrel
  *   L6 angular      src/angular/           → L5 barrel + @angular/*, rxjs
  *   L6 react        src/react/             → L5 barrel (no packages, not even React)
+ *   L6 replay       src/replay/            → L5 barrel (2.5, dev-only add-on; nothing imports it)
  *   L6 activate     src/activate/          → L5 barrel and src/panel/index.ts ONLY by
  *                                            `import type` or dynamic `import()` (rule 9)
  *   L6 panel:
@@ -95,6 +96,7 @@ export const LAYERS = {
   public: { id: 'L5', barrel: `${SRC}/index.ts`, above: 'install' },
   angular: { id: 'L6', barrel: `${SRC}/angular/index.ts`, above: 'public', packages: ANGULAR_PACKAGES },
   react: { id: 'L6', barrel: `${SRC}/react/index.ts`, above: 'public' },
+  replay: { id: 'L6', barrel: `${SRC}/replay/index.ts`, above: 'public' },
   'panel/model': { id: 'P1', barrel: `${SRC}/panel/model/index.ts`, above: 'public', panel: true },
   'panel/ui': { id: 'P2', barrel: `${SRC}/panel/ui/index.ts`, above: 'panel/model', panel: true },
   'panel/views': { id: 'P3', barrel: `${SRC}/panel/views/index.ts`, above: 'panel/ui', panel: true },
@@ -103,7 +105,7 @@ export const LAYERS = {
   activate: { id: 'L6', barrel: `${SRC}/activate/index.ts`, above: null, typesOrImport: ['public', 'panel'] },
 };
 
-const TOP_LAYERS = ['contract', 'core', 'adapters', 'install', 'angular', 'react', 'activate'];
+const TOP_LAYERS = ['contract', 'core', 'adapters', 'install', 'angular', 'react', 'replay', 'activate'];
 const PANEL_LAYERS = ['model', 'ui', 'views', 'app'];
 const UNCLASSIFIED = 'unclassified';
 const OUTSIDE = 'outside';
@@ -141,7 +143,7 @@ export function checkImport(from, specifier, exists, kind = 'value') {
   const layer = classify(from);
   if (layer === OUTSIDE) return null;
   if (layer === UNCLASSIFIED) {
-    return `fits no layer — files under ${SRC}/ belong in contract/, core/, adapters/, install/, angular/, react/, activate/, panel/{model,ui,views,app}/, panel/ or directly in ${SRC}/`;
+    return `fits no layer — files under ${SRC}/ belong in contract/, core/, adapters/, install/, angular/, react/, replay/, activate/, panel/{model,ui,views,app}/, panel/ or directly in ${SRC}/`;
   }
   if (specifier === null) {
     return `${kind === 'dynamic' ? 'import()' : 'require()'} needs a string literal, or it cannot be checked (rule 4)`;
@@ -392,6 +394,9 @@ const VIRTUAL_FILES = new Set([
   'src/panel/misc/stray.ts',
   'src/activate/index.ts',
   'src/activate/activate.ts',
+  'src/replay/index.ts',
+  'src/replay/replay.ts',
+  'src/replay/mocks.ts',
 ]);
 
 /** [importing file, specifier, kind, null when allowed | the rule the violation must cite]. */
@@ -464,6 +469,18 @@ const SELF_TEST_CASES = [
   ['src/index.ts', './react', 'value', 'rule 4'],
   ['src/index.ts', './angular', 'value', 'rule 4'],
   ['src/index.ts', './panel', 'value', 'rule 4'],
+  // L6 replay (2.5, S16-11): the L5 barrel only; activate, panel and core never import it.
+  ['src/replay/replay.ts', '..', 'type', null],
+  ['src/replay/replay.ts', './mocks', 'value', null],
+  ['src/replay/index.ts', './replay', 'value', null],
+  ['src/replay/replay.ts', '../core', 'value', 'rule 4'],
+  ['src/replay/replay.ts', '../activate', 'type', 'rule 4'],
+  ['src/replay/replay.ts', '../panel', 'type', 'rule 4'],
+  ['src/replay/replay.ts', 'lodash', 'value', 'rule 5'],
+  ['src/activate/activate.ts', '../replay', 'dynamic', 'rule 9'],
+  ['src/panel/element.ts', '../replay', 'value', 'rule 4'],
+  ['src/core/recorder.ts', '../replay', 'value', 'rule 4'],
+  ['src/index.ts', './replay', 'value', 'rule 4'],
   // P1 model → L5 barrel only.
   ['src/panel/model/store.ts', '../..', 'value', null],
   ['src/panel/model/index.ts', '../..', 'value', null],

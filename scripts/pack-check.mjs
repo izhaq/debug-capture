@@ -109,6 +109,7 @@ import { provideDebugCapture } from 'debug-capture/angular';
 import { createReactRootErrorOptions } from 'debug-capture/react';
 import { PANEL_ELEMENT_NAME, type InstallDebugPanel } from 'debug-capture/panel';
 import { DEBUG_STORAGE_KEY, installDebugActivation, type DebugActivationHandle } from 'debug-capture/activate';
+import { installReplay, MOCKS_STORAGE_KEY } from 'debug-capture/replay';
 
 export const install: typeof installDebugCapture = installDebugCapture;
 export const entries: readonly CaptureEntry[] | undefined = getActiveCaptureSession()?.recorder.snapshot();
@@ -119,6 +120,8 @@ export const panelName: string = PANEL_ELEMENT_NAME;
 export type Panel = InstallDebugPanel;
 export const activate: (options?: { shortcut?: string | false }) => DebugActivationHandle = installDebugActivation;
 export const storageKey: string = DEBUG_STORAGE_KEY;
+export const replay = (debug: DebugActivationHandle) => installReplay(debug, { allow: true });
+export const mocksKey: string = MOCKS_STORAGE_KEY;
 `,
 );
 const MODES = {
@@ -168,6 +171,7 @@ await expectExport('debug-capture/angular', 'provideDebugCapture');
 await expectExport('debug-capture/react', 'createReactRootErrorOptions');
 await expectExport('debug-capture/panel', 'PANEL_ELEMENT_NAME');
 await expectExport('debug-capture/activate', 'installDebugActivation');
+await expectExport('debug-capture/replay', 'installReplay');
 await expectExport('debug-capture/dist/index.mjs', 'installDebugCapture');
 try {
   createRequire(import.meta.url).resolve('debug-capture/package.json');

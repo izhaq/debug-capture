@@ -8,5 +8,6 @@
   "panel-ui": { "max": 45056, "note": "44 kB (D-34): 40,577 B measured in S-11b, raise ~2.5x the S-11 growth" },
   "activate": { "max": 1536, "note": "1.5 kB (D-43): 1,130 B measured in S-13a, all a station loads before switch-on" },
   "angular": { "recorded": 527 },
-  "react": { "recorded": 717 }
+  "react": { "recorded": 717 },
+  "replay": { "max": 2048, "note": "2 kB (S16-11, D-34): 1,298 B measured in S-16b, room for S-16c's hooks" }
 }

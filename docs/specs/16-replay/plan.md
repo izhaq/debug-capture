@@ -37,7 +37,7 @@ by a merge, no rebase.
 
 Docs PR #8 — merged.
 
-S-16a — done, in review. Unit specs 1279 → **1296** (+17: fetch 4 and XHR 4 in the new
+S-16a — merged (PR #9). Unit specs 1279 → **1296** (+17: fetch 4 and XHR 4 in the new
 `mock.probe.spec.ts`, WebSocket 3, controller 4, Angular `HttpClient` 2). Every new spec failed
 once: 12 against stubs; the Angular, controller and XHR ones again by a mutation (mock off), and
 the WebSocket "not yet open" case by a mutation (no open check), which first showed the case was
@@ -56,3 +56,23 @@ Deviations from the brief:
   constructor rejects (below 200, above 599) reaches the app as a rejected `fetch`, as a real one
   would. A mocked XHR fires `loadstart`, ready states 2–4, `load`, `loadend` in a microtask (in the
   caller's zone, so Angular sees it), or inside `send()` for a synchronous request.
+
+S-16b — done, in review. Unit specs 1296 → **1315** (+19: mock store 9, `installReplay` 8,
+activation `onChange` 2). Every new spec failed once against stubs (the two activation ones
+against an `onChange` that never calls back). Layer self-test 119 → 130 cases (the new `replay`
+seam; 7 failed before the rule). Version 2.5.0-alpha.1. Replay entry **1,298 B** (new budget
+2,048 B); activation 1,198 → **1,264 B** (≤ 1,536); core unchanged (13,835 B).
+
+Deviations from the brief:
+
+- The activation handle gains `onChange(listener)` (outside the owned paths): it creates a new
+  controller at each switch-on, so `installReplay(debug, …)` must hear of each one to set
+  `controller.replay` and the mock resolver again. The listener runs before the panel is
+  installed, so the panel sees `controller.replay` from its first frame (S-16c).
+- `installReplay` takes a third, optional `scope` (the page: `localStorage`, `console`,
+  `location`; default `globalThis`), so the specs need no real storage. The "not allowed" line is
+  written with `scope.console.warn` (ESLint forbids `console` in `src/`).
+- A draft is refused when any header value or the body still holds the policy's `redactedValue`
+  (`[redacted]`): `send()` resolves to `null` and nothing goes out.
+- Stored format: `{ "v": 1, "rules": [...] }`. A rule of the wrong shape is dropped, a value that
+  is not JSON gives no rules; ids (`m1`, `m2`, …) go on from the highest stored one.
