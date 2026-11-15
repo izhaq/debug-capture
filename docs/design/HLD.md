@@ -17,7 +17,9 @@ dropped here; the AI assistant is its own product, a Chrome extension in its own
 1.1 (2026-10-29): release 2.4 (S-15, text size − / +) — scope §2.1d, rows §3.13, §4.10, §5.3,
 §5.5, the view contract's row height (§6.4), decisions `D-49`, `D-50`. 1.2 (2026-11-01): release 2.5
 (S-16, replay and mock, for developers) — scope §2.1e, rows §3.14, the entry `debug-capture/replay`
-(§6.1), core change `C-13`, decisions `D-51` … `D-55`; `NFR-SEC-03` gets one scoped exception.
+(§6.1), core change `C-13`, decisions `D-51` … `D-55`; `NFR-SEC-03` gets one scoped exception. 1.3 (2026-11-15): **headless** (S-17) — a host can ship
+capture and export with **no panel code in its bundle**, by the new entry
+`debug-capture/activate-headless` — scope §2.1f, rows §3.15, §6.1, §6.2, §6.4, §6.6, decision `D-56`.
 **Scope:** the whole of v2: the capture layer it inherits from v1, and the new
 on-screen **debug panel**.
 **This document is the source of truth.** Every v2 spec and plan is cut from
@@ -62,7 +64,8 @@ error).
 - **It is a package.** v2 lives in its own repository, `izhaq/debug-capture` (`D-02`;
   until 2026-10-28 in `packages/debug-capture/` of the playground app
   `izhaq/angular-13-playground`), with entry points `core`, `angular`, `react`, `panel` and
-  `activate`. It ships as one tarball attached to a GitHub Release (`BR-05`).
+  `activate` (and, from 2.5, `replay` and `activate-headless`). It ships as one tarball attached to a
+  GitHub Release (`BR-05`).
 - **Delivery.** 11 specs (S-00 … S-10), built in waves by parallel agents,
   each reviewed, tested in a real browser and merged into an integration
   branch — the process that delivered v1.
@@ -209,6 +212,14 @@ only **development builds** import; production builds — the stations — do no
 network-free (`D-51`). Also for everyone: **Copy as JSON** on a request, the hand-off format the
 AI assistant can turn into a test mock (`D-55`). Rows: §3.14.
 
+### 2.1f Headless — capture and export with no panel (S-17, `D-56`)
+
+A host can choose to ship **without the panel**: capture still works, export still works (by
+the chords, or by code), and the panel **cannot be seen or opened** — its code is **not in the
+host's bundle at all**, not even as a lazy chunk. The host chooses by the entry it imports:
+`debug-capture/activate` (with the panel, as before) or the new
+`debug-capture/activate-headless` (the same call and handle, no panel). Rows: §3.15.
+
 ### 2.2 Later (2.x)
 
 - **Separate window** mode (the panel in its own browser window, fed over
@@ -334,7 +345,7 @@ must list the IDs they cover. Behaviour details are in §4, visual details in §
 | NFR-PERF-04 | **Scroll:** lists are virtualised — under 2,000 DOM nodes per tab **including the detail pane**, whatever the entry count, for a panel up to **1,080 px** tall; taller (a maximised panel on a 4K screen) adds at most ~23 nodes per extra visible row, because every visible row is drawn (`D-22`). No long task over 50 ms while scrolling. | MUST |
 | NFR-PERF-05 | **Angular host:** the panel causes **0** change-detection cycles (verified with an `NgZone` counter). | MUST |
 | NFR-PERF-06 | **Memory:** the panel adds under 10 MB on top of the capture buffer with 5,000 entries. | SHOULD |
-| NFR-SIZE-01 | **Loader** (`debug-capture/panel`, loaded at start): ≤ **4 kB** min+gzip. **UI chunk** (loaded on first open): ≤ **40 kB** min+gzip (raised from 25 kB, `D-25`); hosts that never open the panel load **0 bytes** of it. **Core:** within ± 2 kB of v1's size — the baseline is measured and recorded in S-00. **2.1** (`D-34`, measured in S-11b): **loader ≤ 5.5 kB** (5,632 B; 4,084 → 4,717 B, +633 B), **UI chunk ≤ 44 kB** (45,056 B; 39,006 → 40,577 B, +1,571 B) — each raise is about 2.5 × the S-11 growth. **2.2** (`D-43`): **core ≤ v1 + 3.5 kB** (13,904 B = the 10,320 B baseline + 3,584 B; was v1 + 2 kB, 12,368 B); the **activation piece** (`debug-capture/activate`, the only part a station loads before it is switched on) **≤ 1.5 kB** (1,536 B; 1,130 B measured in S-13a); loader and UI chunk unchanged. Core measured in S-13a: 12,294 → 12,481 B. | MUST |
+| NFR-SIZE-01 | **Loader** (`debug-capture/panel`, loaded at start): ≤ **4 kB** min+gzip. **UI chunk** (loaded on first open): ≤ **40 kB** min+gzip (raised from 25 kB, `D-25`); hosts that never open the panel load **0 bytes** of it. **Core:** within ± 2 kB of v1's size — the baseline is measured and recorded in S-00. **2.1** (`D-34`, measured in S-11b): **loader ≤ 5.5 kB** (5,632 B; 4,084 → 4,717 B, +633 B), **UI chunk ≤ 44 kB** (45,056 B; 39,006 → 40,577 B, +1,571 B) — each raise is about 2.5 × the S-11 growth. **2.2** (`D-43`): **core ≤ v1 + 3.5 kB** (13,904 B = the 10,320 B baseline + 3,584 B; was v1 + 2 kB, 12,368 B); the **activation piece** (`debug-capture/activate`, the only part a station loads before it is switched on) **≤ 1.5 kB** (1,536 B; 1,130 B measured in S-13a); loader and UI chunk unchanged. Core measured in S-13a: 12,294 → 12,481 B. **2.5 headless** (`FR-HL-07`): `debug-capture/activate-headless` ≤ 1.5 kB (1,536 B) with its static imports; a headless host loads **0 bytes** of the loader and the UI chunk, and bundles none. | MUST |
 | NFR-SEC-01 | No `innerHTML` / `outerHTML` / `insertAdjacentHTML`, no `eval` / `new Function`, no inline handlers. Captured data enters the DOM only as text. No `href` / `src` built from captured data. | MUST |
 | NFR-SEC-02 | Works under a strict CSP (`default-src 'self'`, no `'unsafe-inline'`) and Trusted Types (`require-trusted-types-for 'script'`) with no violations. | MUST |
 | NFR-SEC-03 | The panel never makes network requests and never reads anything the recorder did not store (it sees only redacted data). **One scoped exception (2.5, `D-51`):** with the development-only entry `debug-capture/replay` installed, a user's explicit Send makes the one request they edited; mocks answer the app without the network. Without that entry the rule holds as written. | MUST |
@@ -433,6 +444,21 @@ Cut from `D-51` … `D-55` (owner, 2026-11-01). Core change `C-13`; entry §6.1.
 | FR-RPL-10 | **Copy as JSON** (`D-55`): on an HTTP row, copies `{ method, url, status, contentType, requestHeaders, requestBody, responseHeaders, responseBody, redacted: [...], truncated: bool }` — the redacted field names and the truncated flag say what is not the real value. No network; part of the panel, not the add-on. | MUST (2.5) |
 | FR-RPL-11 | **Never into the stations by accident**: `installReplay` refuses (and says so in the Console) unless the host passes `{ allow: true }`; the README shows `allow: !environment.production`. | MUST (2.5) |
 | FR-RPL-12 | **Budgets**: the add-on is its own entry and lazy chunk with its own budget, set from a measurement (`D-34` margin rule); the panel's growth (row menu, Copy as JSON, mock banner and list) stays within the UI chunk's 45,056 B, or a raise is put to the owner with the numbers. | MUST (2.5) |
+
+### 3.15 Functional — headless, no panel in the bundle (S-17)
+
+Cut from `D-56` (owner request, 2026-11-15). Entry §6.1; interfaces §6.4; host wiring §6.6.
+Serves `BR-06` (export without the panel). No core change.
+
+| ID | Requirement | Pri |
+|---|---|---|
+| FR-HL-01 | **A headless entry** (`D-56`): `debug-capture/activate-headless` exports `installDebugActivation(options?)` and `DEBUG_STORAGE_KEY`, the same names as `debug-capture/activate`. The options are the same without `panel`; the handle is the same `DebugActivationHandle`, with `panel` always `null`. So the seams (`FR-BG-10`), `message()` (`FR-MSG-02`) and `installReplay(handle)` (`FR-RPL-01`) take it unchanged. | MUST (2.5) |
+| FR-HL-02 | **No panel code in the bundle**: nothing the headless entry imports — statically or by `import()`, directly or through other modules — is panel code (`src/panel/`: the loader or the UI chunk). A host bundle built from it with a code-splitting bundler (esbuild, as the Angular CLI and Vite use) holds no panel file. The build fails if the entry's import graph reaches `src/panel/`; an end-to-end test bundles a real host and checks its output. | MUST (2.5) |
+| FR-HL-03 | **Capture as with the panel**: switching on and off is `FR-BG-01`…`03` word for word (`?debug=1`, the stored flag, the activation chord, `activate()` / `deactivate()`, `ready`, `loadError`), except that switching on loads **only the core** and installs no panel. Every entry kind is recorded as with the panel (HTTP by fetch and XHR, WebSocket, console, errors, notes, app messages). | MUST (2.5) |
+| FR-HL-04 | **Export with no UI** (`BR-06`): the core's chords work as with the panel — download `Ctrl+Alt+Shift+D`, copy `Ctrl+Alt+Shift+C`, clear, capture on / off, note (`FR-BG-05`…`08`), configurable by `capture.shortcuts`. In code: `handle.session?.download()`, `copy()`, `toJson()`. The file is the same file (`schemaVersion` 2), whichever entry recorded it. | MUST (2.5) |
+| FR-HL-05 | **Nothing to see or open**: no element is added to the page, no DBG button (also on a `?debug=1` page), and the panel toggle chord (`Ctrl+Alt+Shift+P`) is not bound — the key goes to the page as if the tool were not there. `BR-07` holds with no exception. | MUST (2.5) |
+| FR-HL-06 | **Configurable by the host**: the host picks with-panel or headless by the entry it imports — one line in its own `debug.ts` (§6.6), or, per build, the bundler's file replacement (Angular `fileReplacements`). `debug-capture/activate` does not change; its `panel: false` still means "no panel installed", and the docs say that it does **not** drop the panel code (only the headless entry does). | MUST (2.5) |
+| FR-HL-07 | **Budgets**: the headless entry plus its static imports ≤ **1,536 B** (the `D-43` activation budget); `debug-capture/activate` stays ≤ 1,536 B; the core, loader and UI chunk do not change. The two activation entries may share one chunk of activation code; it must hold nothing but `src/activate/` (`D-43` still: no core, no panel before switch-on). | MUST (2.5) |
 
 ## 4. Behaviour
 
@@ -903,6 +929,8 @@ debug-capture/                         (the repository izhaq/debug-capture — D
     replay/                                       ← entry "debug-capture/replay"   (L6, 2.5: dev-only replay and mock)
     activate/                                     ← entry "debug-capture/activate" (L6, 2.2: the activation
                                                     piece — the only part loaded before switch-on, D-40)
+                                                  ← entry "debug-capture/activate-headless" (same folder, 2.5,
+                                                    D-56: the same piece that loads only the core — no panel)
   test/  hosts/ (angular, react, plain) · hostile-host/ · e2e/ · perf/
   dist/  *.mjs + *.d.ts per entry (prebuilt ESM — usable without a bundler)
 ```
@@ -922,6 +950,11 @@ debug-capture/                         (the repository izhaq/debug-capture — D
 - `debug-capture/activate` (2.2) imports the core and the panel loader only as types and
   by dynamic `import()` — no static value import, checked by the layer script — so a
   station that never switches the tool on loads only this piece (`FR-BG-01`, `D-43`).
+- `debug-capture/activate-headless` (2.5, `D-56`) is the same activation piece with no panel:
+  it imports the core only as types and by dynamic `import()`, and **nothing of the panel** —
+  not even a type or an `import()` — so a host that imports it bundles no panel code
+  (`FR-HL-02`). The build checks its whole import graph. Both activation entries share their
+  code in `src/activate/activate.ts`; in `dist/` that is one small shared chunk.
 
 ### 6.2 Layers
 
@@ -949,7 +982,7 @@ L1 contract ─► L2 core ─► L3 adapters ─► L4 install ─► L5 public
 | P2 `panel/ui` | Safe element builder (`text` only, no HTML strings); virtual list (bidi-safe cells); JSON viewer (paged children); split pane; tabs; chips; buttons; empty/no-match block; icons (SVG builders); theme (tokens → one `CSSStyleSheet`) | P1 barrel; the `document` passed in |
 | P3 `panel/views` | Title bar, filter bars, HTTP list + detail, WebSocket view, Console view, settings popover, status bar | P2 barrel |
 | P4 `panel/app` | `mountPanelUi(shadowRoot, controller, options)`: the frame (top tabs, Network sub-tab routing, split, resize, dock, maximize), scheduler (rAF batching), settings storage, banners (capture off, host modal) | P3 barrel |
-| L6 `activate/` (2.2) | `installDebugActivation()`: the activation chord, the stored flag, the lazy start and stop (`FR-BG-01`…`03`) | L5 barrel and the panel entry (`src/panel/index.ts`) **only** by `import type` and dynamic `import()` |
+| L6 `activate/` (2.2) | `installDebugActivation()`: the activation chord, the stored flag, the lazy start and stop (`FR-BG-01`…`03`). 2.5: a second entry file, `activate/headless.ts` (`D-56`) | L5 barrel and the panel entry (`src/panel/index.ts`) **only** by `import type` and dynamic `import()`. `headless.ts`: the L5 barrel by `import()` and its own folder; **never** the panel, not even as a type (`FR-HL-02`) |
 | P5 `panel/index.ts` | **Loader:** `installDebugPanel()`; the custom element; mount on `<html>`; top layer; host lockdown sheet; event wall; zone handling; toggle shortcut; launcher + badge (own tiny sheet, same tokens; badge uses core's `isProblemEntry`, `C-8`) | L5 barrel; P4 only by `import type` and **one** dynamic `import()` — the layer checker fails on any static value import of P4, so the chunk stays lazy. P5 passes the **controller** to `mountPanelUi`; P4 builds the data source from P1 |
 
 ### 6.3 Data flow
@@ -1092,6 +1125,11 @@ interface DebugActivationHandle {
 function installDebugActivation(options?: DebugActivationOptions): DebugActivationHandle;
 const DEBUG_STORAGE_KEY = 'debug-capture';
 
+// 2.5 (D-56, FR-HL-01): debug-capture/activate-headless — the same names, no panel
+type DebugHeadlessActivationOptions = Omit<DebugActivationOptions, 'panel'>;
+function installDebugActivation(options?: DebugHeadlessActivationOptions): DebugActivationHandle;  // handle.panel is always null
+const DEBUG_STORAGE_KEY = 'debug-capture';
+
 // 2.3 (C-12, FR-MSG-01…07)
 type AppMessageLevel = 'info' | 'warn' | 'error';
 interface AppMessageEntry { kind: 'app'; seq: number; t: number; type: string; level: AppMessageLevel; data: JsonValue }
@@ -1170,6 +1208,19 @@ bootstrap (`FR-BG-10`): Angular `provideDebugCapture()` + `provideDebugCaptureSe
 (platform providers); React `createReactRootErrorOptions(() => debug.session)`. They still
 take a session (or `null`) as in v1. A host that wants capture without activation keeps
 calling `createCaptureController()` and `installDebugPanel(controller)` directly (§6.4).
+
+**Headless** (2.5, `D-56`, `FR-HL-*`): the same wiring with the other entry. Capture, the
+chords and export work; there is no panel, and no panel code is bundled.
+
+```ts
+// src/debug.ts — the one line that picks with-panel or headless
+import { installDebugActivation } from 'debug-capture/activate-headless';  // or 'debug-capture/activate'
+export const debug = installDebugActivation();
+```
+
+To pick per build, the host keeps two such files and lets the bundler replace one with the
+other (Angular: `fileReplacements` in a build configuration). A runtime flag cannot do it: a
+bundler emits a chunk for every `import()` it can see, whether it runs or not (`D-56`).
 
 ### 6.7 Isolation rules (from tested research)
 
@@ -1318,6 +1369,7 @@ Each spec lives in `docs/specs/<nn>-<slug>/` with `spec.md`, `plan.md` and a
 | **S-13 Background control** | Activation shortcut on top of `?debug=1`, remembered per browser, hidden DBG button (`D-40`, `D-41`); chords for capture on/off and a pre-defined note, live while capture is off (`D-37`, `D-38`, `C-11`); save to a folder by Chrome policy (`D-39`); About in Settings (`D-42`); budgets (`D-43`). Before S-12 (`D-44`) | S-11 |
 | **S-14 Custom messages** | The host sends its own messages (type, level, JSON data) through a handle; buffer, Console (App chip), export; dropped while off (`D-46`, `C-12`). Before S-12 (`D-47`) | S-13 |
 | **S-16 Replay and mock** | The dev-only entry `debug-capture/replay`: row menu, edit and resend HTTP (any method) and WebSocket messages, fake a received WebSocket message, HTTP mocks remembered until off; Copy as JSON for everyone (`D-51` … `D-55`, `C-13`). Release 2.5 | S-15 |
+| **S-17 Headless** | The entry `debug-capture/activate-headless`: capture and export with no panel code in the host's bundle; the host picks with-panel or headless by the entry it imports (`D-56`). Release 2.5 | S-16b |
 | **S-15 Text size − / +** | Settings › Text size becomes − / + / Reset, 10–20 px by 1 px, live and remembered (`D-49`); rows, bars, controls and icons grow with it (`D-50`). Release 2.4 | S-14 |
 | ~~S-12 AI add-on~~ | **Moved out** (`D-48`): the AI assistant is a separate product, the Chrome extension `devtools-ai-assistant` in its own repository. Nothing about AI is built in this package. | — |
 
@@ -1332,7 +1384,8 @@ Wave 5:  S-11 ─► S-13 ─► S-14 ─► S-15          (v2.1, after 2.0 is c
                                                S-13, S-14 — owner, 2026-10-26, D-44, D-47;
                                                S-12 moved out to its own product, D-48;
                                                S-15 — owner, 2026-10-29, D-49;
-                                               S-16 — owner, 2026-11-01, D-51)
+                                               S-16 — owner, 2026-11-01, D-51;
+                                               S-17 headless — owner, 2026-11-15, D-56)
 ```
 
 Every wave ends with the merged branch verified as a whole, and the security-
@@ -1372,6 +1425,7 @@ end to end that every `MUST` is covered.
 | NFR-PORT-01 | S-10 (three hosts, `dist/` build from S-00) |
 | FR-BUF-01…05, FR-STAT-01, FR-ACT-10, FR-NOTE-01…04 (2.1) | S-11 (core `C-9`, `C-10` in S-11a; panel in S-11b) |
 | FR-TXT-01…06 (2.4) | S-15 (one panel PR, S-15a) |
+| FR-HL-01…07 (2.5), BR-06 (headless) | S-17 (one code PR, S-17a) |
 | FR-RPL-01…12 (2.5) | S-16 (core hooks `C-13` in S-16a; the replay entry in S-16b; row menu, Copy as JSON, editors and the mock list in S-16c) |
 | FR-MSG-01…08 (2.3) | S-14 (core `C-12` and the activation handle in S-14a; panel handle and Console in S-14b; the app in S-14c) |
 | FR-BG-01…10 (2.2), BR-02 (2.2), NFR-SIZE-01 (2.2) | S-13 (core `C-11`, activation, seams in S-13a; panel About and hidden DBG button in S-13b; the app in S-13c) |
@@ -1440,6 +1494,7 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-53 | **HTTP mocks are remembered until turned off** (owner, 2026-11-01): kept in this browser and applied from the first request after a reload, so startup requests can be mocked. A banner shows while any is on (`FR-RPL-09`). | Decided |
 | D-54 | **Mocks answer through the app's own code path**: `fetch` and XHR only (what the probes patch). Not images, scripts, `sendBeacon`, service workers or `EventSource`. | Decided (follows from `C-13`; the extension would have had the same limit) |
 | D-55 | **Copy as JSON**, for everyone (owner, 2026-11-01): one HTTP request as JSON, naming its redacted fields and whether a body was cut — the hand-off format the AI assistant (`D-48`) can import as a Playwright test mock. In the panel, no network. | Decided |
+| D-56 | **Headless is a separate entry, picked at build time** (owner request, 2026-11-15): a host can ship capture and export with **no panel code in its bundle**. The way to choose is the entry the host imports — `debug-capture/activate-headless` (no panel) or `debug-capture/activate` (with the panel) — with the same call and the same handle, so switching is one line. **Not a runtime option**: `installDebugActivation({ panel: false })` keeps the panel unreachable, but its `import('../panel')` still makes every bundler emit the loader and the UI chunk (measured: 9.5 kB + 122 kB raw in an esbuild host bundle). Also rejected: the host passes the panel's `import()` in as an option (one entry, but every 2.2 host would lose its panel until it changes its code); a host-side build constant around the `import()` (works only where the bundler is told to drop dead code, and not on a plain page). Export without the panel already exists in the core — the chords and `session.download()` / `copy()` — so no core change. | Proposed (S-17) |
 
 ---
 
