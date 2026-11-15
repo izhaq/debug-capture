@@ -1,4 +1,4 @@
-# Handoff — debug-capture (updated 2026-10-28)
+# Handoff — debug-capture (updated 2026-11-15)
 
 For the next session that works on this repository. Read [`AGENTS.md`](../../AGENTS.md)
 first (all rules), then this page. The design is [`docs/design/HLD.md`](../design/HLD.md).
@@ -23,18 +23,22 @@ into `main`. Ask only for real owner decisions.
 
 - Done: v2.0, 2.1 (S-11), 2.2 (S-13 background control), 2.3 (S-14 custom messages),
   released as `v2.3.0` (GitHub Release, `RELEASING.md`).
-- In review: **S-15 text size − / +** (release 2.4): docs PR #6, code PR S-15a. Package
-  **2.4.0-alpha.0** on that branch.
-- Numbers (S-15a): 1279 unit specs, 69 e2e + perf; core 12,607 / 13,904 B, activation 1,198 / 1,536 B,
-  loader 4,783 / 5,632 B, UI chunk 42,251 / 45,056 B (min + gzip); warm open about 60 ms
-  (limit 100). The same on Chrome 146.0.7680.72.
+- Merged into `main`: S-15 text size (2.4), S-16a core hooks and S-16b the `debug-capture/replay`
+  entry (2.5), the S-17 docs (#14).
+- In review: **S-17a headless** (release 2.5): `debug-capture/activate-headless` (no panel code in
+  the host's bundle, `D-56`) and the `panel` option as a function, for a backend feature flag
+  (`D-57`). Package **2.5.0-alpha.2** on `feat/s17a-headless`.
+- Numbers (S-17a): 1336 unit specs, 75 e2e + perf; core 13,836 / 13,904 B, activation 1,465 / 1,536 B,
+  headless activation 1,453 / 1,536 B, loader 4,783 / 5,632 B, UI chunk 42,251 / 45,056 B,
+  replay 1,298 / 2,048 B (min + gzip). The same on Chrome 146.0.7680.72.
 - Plans with all numbers and notes: [`13-background-control/plan.md`](13-background-control/plan.md),
-  [`14-custom-messages/plan.md`](14-custom-messages/plan.md).
+  [`16-replay/plan.md`](16-replay/plan.md), [`17-headless/plan.md`](17-headless/plan.md).
 
 ## Next
 
-- After S-15 is merged: release **2.4.0** (`RELEASING.md`). The playground app and `bdi_W` then
-  update from `vendor/` (`docs/host-setup.md` › Update).
+- S-16c (the replay panel) is still to come. Then release **2.5.0** (`RELEASING.md`); the
+  playground app and `bdi_W` update from `vendor/` (`docs/host-setup.md` › Update).
+- Size: the activation pieces have 71 and 83 B left; the core 68 B. A raise goes to the owner.
 
 ## The AI assistant is not here
 

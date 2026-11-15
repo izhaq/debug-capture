@@ -7,22 +7,26 @@
  */
 import { ActivationScope, createActivation, DebugActivationHandle, DebugActivationOptions } from './activate';
 
-export type { DebugActivationHandle, DebugActivationOptions } from './activate';
+export type { DebugActivationHandle, DebugActivationOptions, DebugPanelChoice } from './activate';
 export { DEBUG_STORAGE_KEY } from './activate';
 
 /**
  * `installDebugActivation(options)` (HLD §6.6): binds the activation chord
  * (`Ctrl+Alt+Shift+A`) and reads the flags (`?debug=1`, the stored
  * `debug-capture` = `1`). Switched on, it loads the core and the panel loader
- * and starts capture with the panel closed. Never throws.
+ * and starts capture with the panel closed. A `panel` function (2.5, `D-57`) is
+ * asked once capture is on; `false` loads no panel. Never throws.
  */
 export function installDebugActivation(options?: DebugActivationOptions): DebugActivationHandle {
   return createActivation(options, {
     scope: globalThis as unknown as ActivationScope,
-    load: () =>
-      Promise.all([import('..'), import('../panel')]).then(([core, panel]) => ({
-        createCaptureController: core.createCaptureController,
-        installDebugPanel: panel.installDebugPanel,
-      })),
+    // D-57: the panel entry is asked for only when a panel may be installed.
+    load: (withPanel) =>
+      withPanel
+        ? Promise.all([import('..'), import('../panel')]).then(([core, panel]) => ({
+            createCaptureController: core.createCaptureController,
+            installDebugPanel: panel.installDebugPanel,
+          }))
+        : import('..').then((core) => ({ createCaptureController: core.createCaptureController })),
   });
 }

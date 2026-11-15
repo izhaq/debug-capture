@@ -465,7 +465,7 @@ Serves `BR-06` (export without the panel). No core change.
 | FR-HL-08 | **Panel off at run time** (`D-57`): on `debug-capture/activate`, the `panel` option also takes a function, `() => DebugPanelOptions \| false \| Promise<DebugPanelOptions \| false>` — for example a backend feature flag. It is called **at each switch-on**, after capture has started. `false`: the panel entry is **never loaded** (no `import()` runs, no panel file is fetched), no element is added, no DBG button, the panel toggle chord is not bound — the same as headless (`FR-HL-04`, `FR-HL-05`) at run time; the panel code stays in the bundle. Options: the panel is installed as today, closed (`D-41` launcher default). | MUST (2.5) |
 | FR-HL-09 | **Capture does not wait for the flag** (`D-57`): with a function, switching on loads the core and starts capture first; `ready` resolves when **capture** has started, not when the panel decision comes, so a host that waits for `ready` before bootstrap — and fetches the flag after bootstrap — records its startup requests and never deadlocks. The panel follows when the function answers (`handle.panel` is `null` until then). A switch-off before it answers wins: no panel is installed. | MUST (2.5) |
 | FR-HL-10 | **Fails closed** (`D-57`): a function that throws, rejects or returns anything but `false` or an object gives **no panel** for this switch-on; capture keeps running, and `handle.panelError` (new) holds the reason. The package sets no timeout: the host's promise decides. The answer is not followed live: a flag that changes later applies at the next switch-on (the chord again, or a reload). A static `panel` value (an object or `false`) behaves exactly as in 2.4. | MUST (2.5) |
-| FR-HL-07 | **Budgets**: the headless entry plus its static imports ≤ **1,536 B** (the `D-43` activation budget); `debug-capture/activate` stays ≤ 1,536 B; the core, loader and UI chunk do not change. The two activation entries may share one chunk of activation code; it must hold nothing but `src/activate/` (`D-43` still: no core, no panel before switch-on). | MUST (2.5) |
+| FR-HL-07 | **Budgets**: the headless entry plus its static imports ≤ **1,536 B** (the `D-43` activation budget); `debug-capture/activate` stays ≤ 1,536 B; the core, loader and UI chunk do not change. Each activation entry is **one file** with no static import (`D-43`): the build makes them in a pass of their own, so they do not share a chunk (S-17a); a chunk they did import would have to hold nothing but `src/activate/` code. | MUST (2.5) |
 
 ## 4. Behaviour
 
@@ -961,7 +961,8 @@ debug-capture/                         (the repository izhaq/debug-capture — D
   it imports the core only as types and by dynamic `import()`, and **nothing of the panel** —
   not even a type or an `import()` — so a host that imports it bundles no panel code
   (`FR-HL-02`). The build checks its whole import graph. Both activation entries share their
-  code in `src/activate/activate.ts`; in `dist/` that is one small shared chunk.
+  code in `src/activate/activate.ts`; in `dist/` each is still one file (a build pass of its own,
+  so a station loads one file before switch-on, `D-43`).
 
 ### 6.2 Layers
 

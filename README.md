@@ -53,16 +53,18 @@ download policy, and updating to a new version: [`docs/host-setup.md`](docs/host
 
 ESM only, with type declarations. Entry points:
 
-| Import                   | What                                                                                  |
-| ------------------------ | ------------------------------------------------------------------------------------- |
-| `debug-capture/activate` | the activation piece: `installDebugActivation` — the only part loaded before it is on |
-| `debug-capture`          | the recorder: `createCaptureController`, `isDebugRequested`, policies, types          |
-| `debug-capture/panel`    | the panel loader: `installDebugPanel`                                                 |
-| `debug-capture/angular`  | Angular providers (`@angular/core` 16–20 as a peer)                                   |
-| `debug-capture/react`    | React root error options (no React import of its own)                                 |
+| Import                            | What                                                                                  |
+| --------------------------------- | ------------------------------------------------------------------------------------- |
+| `debug-capture/activate`          | the activation piece: `installDebugActivation` — the only part loaded before it is on |
+| `debug-capture/activate-headless` | the same, with no panel: capture and export only; no panel code in your bundle (2.5)  |
+| `debug-capture/replay`            | replay and mock, for development builds only (2.5)                                    |
+| `debug-capture`                   | the recorder: `createCaptureController`, `isDebugRequested`, policies, types          |
+| `debug-capture/panel`             | the panel loader: `installDebugPanel`                                                 |
+| `debug-capture/angular`           | Angular providers (`@angular/core` 16–20 as a peer)                                   |
+| `debug-capture/react`             | React root error options (no React import of its own)                                 |
 
-Each entry is a prebuilt file in `dist/` (`activate.mjs`, `index.mjs`, `panel.mjs`,
-`angular.mjs`, `react.mjs`). TypeScript resolves the types with `moduleResolution` `node`,
+Each entry is a prebuilt file in `dist/` (`activate.mjs`, `activate-headless.mjs`, `index.mjs`,
+`panel.mjs`, `angular.mjs`, `react.mjs`, `replay.mjs`). TypeScript resolves the types with `moduleResolution` `node`,
 `bundler`, `node16` or `nodenext`.
 
 ## Add it to your app
@@ -148,6 +150,36 @@ Copy the package's `dist/` folder next to your page (here as
 
 Have your own code `await window.debugReady` before its first request.
 
+### Without the panel (headless, 2.5)
+
+For apps whose users must never see the panel: import the headless entry instead. It is the
+same call and the same handle. Capture, the keyboard chords and export work; there is no panel,
+and none of its code is in your bundle:
+
+```ts
+// src/debug.ts — the one line that picks with-panel or headless
+import { installDebugActivation } from 'debug-capture/activate-headless'; // or 'debug-capture/activate'
+export const debug = installDebugActivation();
+```
+
+`Ctrl+Alt+Shift+D` saves the capture as a file, `Ctrl+Alt+Shift+C` copies it, `Ctrl+Alt+Shift+S`
+stops and starts recording; in code, `debug.session?.download()`. To pick per build, keep two
+such files and let the build swap them (Angular: `fileReplacements`).
+
+Or keep the panel in the bundle and let a **backend feature flag** decide at run time. Capture
+starts at once; the function is asked after that, at each switch-on:
+
+```ts
+export const debug = installDebugActivation({
+  panel: () => featureFlags.get('debugPanel').then((on) => (on ? {} : false)),
+});
+```
+
+`false`, a throw or a rejection: no panel (nothing loads or shows; `debug.panelError` says why
+on a failure). A flag that changes later applies at the next switch-on. `panel: false` as a
+plain value also gives no panel — but only the headless entry keeps the panel's code out of
+your bundle.
+
 ### Without the activation piece
 
 `createCaptureController()` and `installDebugPanel(controller)` still work on
@@ -165,15 +197,15 @@ installDebugPanel(controller); // null → does nothing
 
 `installDebugActivation(options)`:
 
-| Option       | Default              | What                                                                                   |
-| ------------ | -------------------- | -------------------------------------------------------------------------------------- |
-| `shortcut`   | `'ctrl+alt+shift+a'` | The activation chord, matched on the physical key. `false` binds none (flags only).    |
-| `storageKey` | `'debug-capture'`    | Where the shortcut remembers "on" (`'1'`). `false` remembers nothing (this page only). |
-| `capture`    | —                    | Options for `createCaptureController` (below).                                         |
-| `panel`      | —                    | Options for `installDebugPanel` (below). `false`: capture with no panel.               |
+| Option       | Default              | What                                                                                                                                                             |
+| ------------ | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shortcut`   | `'ctrl+alt+shift+a'` | The activation chord, matched on the physical key. `false` binds none (flags only).                                                                              |
+| `storageKey` | `'debug-capture'`    | Where the shortcut remembers "on" (`'1'`). `false` remembers nothing (this page only).                                                                           |
+| `capture`    | —                    | Options for `createCaptureController` (below).                                                                                                                   |
+| `panel`      | —                    | Options for `installDebugPanel` (below). `false`: capture with no panel. Or a function that gives either, maybe as a promise — asked after capture starts (2.5). |
 
 It returns a handle: `active`, `session`, `controller` and `panel` (`null`
-until loaded), `loadError`, `ready`, `activate()`, `deactivate()` (as the
+until loaded), `loadError`, `panelError` (why a `panel` function gave no panel), `ready`, `activate()`, `deactivate()` (as the
 shortcut: on and remembered / off for good) and `dispose()`.
 
 `installDebugPanel(controller, options)`:
@@ -328,7 +360,11 @@ Chrome policies (Group Policy on Windows, or a JSON file in
 Then check `chrome://policy` on a station. Note: `DownloadDirectory` applies to
 **every** download in that Chrome, not only this tool's files. To only suggest
 the folder, use `DefaultDownloadDirectory` instead. The file is named
-`debug-capture-<date>-<time>.json`.
+`debug-capture-<date>-<time>.json`, a new file on every save.
+
+Without the policy, a user can set the same once on a station: Chrome Settings › Downloads →
+**Location**, and turn off **Ask where to save each file before downloading**. In full screen
+(F11) Chrome's toolbar, and so its download icon, is hidden.
 
 ## Safety
 
