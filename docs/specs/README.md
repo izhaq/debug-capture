@@ -33,6 +33,7 @@ and merge into `main` here.
 | [S-14 Custom messages](14-custom-messages/spec.md) | The host sends its own messages (type, level, JSON data) into the capture; Console App chip; export (HLD `D-46`) | S-13 |
 | [S-15 Text size − / +](15-text-size/spec.md) | Settings › Text size becomes − / + / Reset, 10–20 px by 1 px, live and remembered; rows, bars, controls and icons grow with it (HLD `D-49`, `D-50`) | S-14 |
 | [S-16 Replay and mock](16-replay/spec.md) | Dev-only entry `debug-capture/replay`: row menu, edit and resend HTTP and WebSocket messages, fake a received WebSocket message, HTTP mocks remembered until off; Copy as JSON for everyone (HLD `D-51`…`D-55`, `C-13`) | S-15 |
+| [S-17 Headless](17-headless/spec.md) | The entry `debug-capture/activate-headless`: capture and export with no panel code in the host's bundle; the host picks with-panel or headless by the entry it imports (HLD `D-56`) | S-16b |
 | ~~S-12 AI add-on~~ | **Moved out** (HLD `D-48`): the AI assistant is a Chrome extension in its own repository, `izhaq/devtools-ai-assistant` | — |
 
 ## Waves (HLD §9.2)
@@ -42,7 +43,7 @@ Wave 1:  S-00
 Wave 2:  S-01 ║ S-02 ║ S-03 ║ S-04     parallel — they code against the S-00 contract
 Wave 3:  S-05 ║ S-06 ║ S-07 ║ S-08     parallel — one view each + the frame; a small contract PR first
 Wave 4:  S-09 ─► S-10                  in order — S-09 touches every view
-Wave 5:  S-11 ─► S-13 ─► S-14 ─► S-15 ─► S-16   v2.1 on, after S-10b closes 2.0 (S-12 moved out, D-48)
+Wave 5:  S-11 ─► S-13 ─► S-14 ─► S-15 ─► S-16 ─► S-17   v2.1 on, after S-10b closes 2.0 (S-12 moved out, D-48)
 ```
 
 The wave plans (branches, tracks, owned paths, contracts): [`wave-2.md`](wave-2.md),
