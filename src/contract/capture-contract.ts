@@ -417,7 +417,8 @@ export interface PendingRequest {
  * a row that will not finish.
  */
 export type PendingEvent =
-  { readonly type: 'start'; readonly request: PendingRequest } | { readonly type: 'end'; readonly id: number };
+  | { readonly type: 'start'; readonly request: PendingRequest }
+  | { readonly type: 'end'; readonly id: number };
 
 /** C-1. A throwing listener is isolated, like `EntryListener`. */
 export type PendingListener = (event: PendingEvent) => void;
