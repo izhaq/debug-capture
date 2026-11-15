@@ -30,9 +30,9 @@ in by a merge, no rebase.
   reach a host bundle, so `FR-HL-02` holds; `headless.ts` itself may not import `../panel` at all
   (S17-04). If a host's type check should not see panel types either, the brief says how to move
   them.
-- **Version.** Main is `2.5.0-alpha.1` and S-16c is still to come. Proposed: S-17a bumps to the
-  next alpha on main at merge time (see the PR question).
+- **Version.** Main is `2.5.0-alpha.1`; S-17a bumps to `2.5.0-alpha.2` (owner: release 2.5).
 
 ## Status
 
-Docs PR — open.
+Docs PR #14 — merged. Owner answers (2026-11-15): fail closed, not followed live, one tarball,
+release 2.5 (next alpha on `main`).
