@@ -22,11 +22,20 @@ import { DEBUG_CAPTURE_SESSION } from './debug-capture.tokens';
  * code throws Angular's NG0203 ("inject() must be called from an injection
  * context"). Use provideDebugCapture(), or wrap the call in
  * `runInInjectionContext(injector, ...)`.
+ *
+ * It wraps Angular's handler instead of extending it: `extends ErrorHandler`
+ * would run when the module loads, and any tool that loads angular.mjs with
+ * something other than the real class (CommonJS interop in a test runner,
+ * prerendering, two copies of @angular/core) would fail on the import with
+ * "Class extends value … is not a constructor". Angular finds the handler by
+ * its `ErrorHandler` token, not by `instanceof`, so nothing else changes.
  */
-export class DebugCaptureErrorHandler extends ErrorHandler {
+export class DebugCaptureErrorHandler implements ErrorHandler {
   private readonly session = inject(DEBUG_CAPTURE_SESSION, { optional: true });
+  /** Made on the first error, so the module and the constructor never need the class. */
+  private fallback: ErrorHandler | null = null;
 
-  override handleError(error: unknown): void {
+  handleError(error: unknown): void {
     // A debug tool must never turn one error into two: any failure while
     // recording (a throwing session getter included) is swallowed and
     // Angular's handling still runs.
@@ -44,7 +53,8 @@ export class DebugCaptureErrorHandler extends ErrorHandler {
     } catch {
       // Intentionally ignored — see above.
     }
-    super.handleError(error);
+    if (this.fallback === null) this.fallback = new ErrorHandler();
+    this.fallback.handleError(error);
   }
 }
 
