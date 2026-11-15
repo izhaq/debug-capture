@@ -19,7 +19,8 @@ dropped here; the AI assistant is its own product, a Chrome extension in its own
 (S-16, replay and mock, for developers) — scope §2.1e, rows §3.14, the entry `debug-capture/replay`
 (§6.1), core change `C-13`, decisions `D-51` … `D-55`; `NFR-SEC-03` gets one scoped exception. 1.3 (2026-11-15): **headless** (S-17) — a host can ship
 capture and export with **no panel code in its bundle**, by the new entry
-`debug-capture/activate-headless` — scope §2.1f, rows §3.15, §6.1, §6.2, §6.4, §6.6, decision `D-56`.
+`debug-capture/activate-headless` — or keep the panel in the bundle and turn it off at run time from
+a backend feature flag — scope §2.1f, rows §3.15, §6.1, §6.2, §6.4, §6.6, decisions `D-56`, `D-57`.
 **Scope:** the whole of v2: the capture layer it inherits from v1, and the new
 on-screen **debug panel**.
 **This document is the source of truth.** Every v2 spec and plan is cut from
@@ -218,7 +219,10 @@ A host can choose to ship **without the panel**: capture still works, export sti
 the chords, or by code), and the panel **cannot be seen or opened** — its code is **not in the
 host's bundle at all**, not even as a lazy chunk. The host chooses by the entry it imports:
 `debug-capture/activate` (with the panel, as before) or the new
-`debug-capture/activate-headless` (the same call and handle, no panel). Rows: §3.15.
+`debug-capture/activate-headless` (the same call and handle, no panel). A host that keeps the
+panel in its bundle can also turn it off **at run time**, from a feature flag its backend sends:
+the `panel` option takes a function, read at each switch-on; capture does not wait for it
+(`D-57`). Rows: §3.15.
 
 ### 2.2 Later (2.x)
 
@@ -458,6 +462,9 @@ Serves `BR-06` (export without the panel). No core change.
 | FR-HL-04 | **Export with no UI** (`BR-06`): the core's chords work as with the panel — download `Ctrl+Alt+Shift+D`, copy `Ctrl+Alt+Shift+C`, clear, capture on / off, note (`FR-BG-05`…`08`), configurable by `capture.shortcuts`. In code: `handle.session?.download()`, `copy()`, `toJson()`. The file is the same file (`schemaVersion` 2), whichever entry recorded it. | MUST (2.5) |
 | FR-HL-05 | **Nothing to see or open**: no element is added to the page, no DBG button (also on a `?debug=1` page), and the panel toggle chord (`Ctrl+Alt+Shift+P`) is not bound — the key goes to the page as if the tool were not there. `BR-07` holds with no exception. | MUST (2.5) |
 | FR-HL-06 | **Configurable by the host**: the host picks with-panel or headless by the entry it imports — one line in its own `debug.ts` (§6.6), or, per build, the bundler's file replacement (Angular `fileReplacements`). `debug-capture/activate` does not change; its `panel: false` still means "no panel installed", and the docs say that it does **not** drop the panel code (only the headless entry does). | MUST (2.5) |
+| FR-HL-08 | **Panel off at run time** (`D-57`): on `debug-capture/activate`, the `panel` option also takes a function, `() => DebugPanelOptions \| false \| Promise<DebugPanelOptions \| false>` — for example a backend feature flag. It is called **at each switch-on**, after capture has started. `false`: the panel entry is **never loaded** (no `import()` runs, no panel file is fetched), no element is added, no DBG button, the panel toggle chord is not bound — the same as headless (`FR-HL-04`, `FR-HL-05`) at run time; the panel code stays in the bundle. Options: the panel is installed as today, closed (`D-41` launcher default). | MUST (2.5) |
+| FR-HL-09 | **Capture does not wait for the flag** (`D-57`): with a function, switching on loads the core and starts capture first; `ready` resolves when **capture** has started, not when the panel decision comes, so a host that waits for `ready` before bootstrap — and fetches the flag after bootstrap — records its startup requests and never deadlocks. The panel follows when the function answers (`handle.panel` is `null` until then). A switch-off before it answers wins: no panel is installed. | MUST (2.5) |
+| FR-HL-10 | **Fails closed** (`D-57`): a function that throws, rejects or returns anything but `false` or an object gives **no panel** for this switch-on; capture keeps running, and `handle.panelError` (new) holds the reason. The package sets no timeout: the host's promise decides. The answer is not followed live: a flag that changes later applies at the next switch-on (the chord again, or a reload). A static `panel` value (an object or `false`) behaves exactly as in 2.4. | MUST (2.5) |
 | FR-HL-07 | **Budgets**: the headless entry plus its static imports ≤ **1,536 B** (the `D-43` activation budget); `debug-capture/activate` stays ≤ 1,536 B; the core, loader and UI chunk do not change. The two activation entries may share one chunk of activation code; it must hold nothing but `src/activate/` (`D-43` still: no core, no panel before switch-on). | MUST (2.5) |
 
 ## 4. Behaviour
@@ -1110,6 +1117,8 @@ interface DebugActivationOptions {
   storageKey?: string | false;             // default 'debug-capture' (value '1'); false: nothing remembered
   capture?: DebugCaptureOptions;           // for createCaptureController
   panel?: DebugPanelOptions | false;       // for installDebugPanel (launcher true on ?debug=1, else 'hidden', unless given); false: no panel
+  // 2.5 (D-57, FR-HL-08…10): or a function, called at each switch-on after capture started; fails closed
+  // panel?: DebugPanelOptions | false | (() => DebugPanelOptions | false | Promise<DebugPanelOptions | false>);
 }
 interface DebugActivationHandle {
   readonly active: boolean;                // from switch-on (also while loading) until off
@@ -1221,6 +1230,18 @@ export const debug = installDebugActivation();
 To pick per build, the host keeps two such files and lets the bundler replace one with the
 other (Angular: `fileReplacements` in a build configuration). A runtime flag cannot do it: a
 bundler emits a chunk for every `import()` it can see, whether it runs or not (`D-56`).
+
+**Panel off by a backend flag** (2.5, `D-57`, `FR-HL-08…10`): the panel stays in the bundle; the
+host decides at run time. Capture starts at once; the panel comes only if the flag says so.
+
+```ts
+// src/debug.ts
+import { installDebugActivation } from 'debug-capture/activate';
+export const debug = installDebugActivation({
+  // Called at each switch-on, after capture started. false, a throw or a rejection: no panel.
+  panel: () => featureFlags.get('debugPanel').then((on) => (on ? {} : false)),
+});
+```
 
 ### 6.7 Isolation rules (from tested research)
 
@@ -1425,7 +1446,7 @@ end to end that every `MUST` is covered.
 | NFR-PORT-01 | S-10 (three hosts, `dist/` build from S-00) |
 | FR-BUF-01…05, FR-STAT-01, FR-ACT-10, FR-NOTE-01…04 (2.1) | S-11 (core `C-9`, `C-10` in S-11a; panel in S-11b) |
 | FR-TXT-01…06 (2.4) | S-15 (one panel PR, S-15a) |
-| FR-HL-01…07 (2.5), BR-06 (headless) | S-17 (one code PR, S-17a) |
+| FR-HL-01…10 (2.5), BR-06 (headless) | S-17 (one code PR, S-17a) |
 | FR-RPL-01…12 (2.5) | S-16 (core hooks `C-13` in S-16a; the replay entry in S-16b; row menu, Copy as JSON, editors and the mock list in S-16c) |
 | FR-MSG-01…08 (2.3) | S-14 (core `C-12` and the activation handle in S-14a; panel handle and Console in S-14b; the app in S-14c) |
 | FR-BG-01…10 (2.2), BR-02 (2.2), NFR-SIZE-01 (2.2) | S-13 (core `C-11`, activation, seams in S-13a; panel About and hidden DBG button in S-13b; the app in S-13c) |
@@ -1494,7 +1515,8 @@ owner confirms or changes it before the spec that depends on it starts.
 | D-53 | **HTTP mocks are remembered until turned off** (owner, 2026-11-01): kept in this browser and applied from the first request after a reload, so startup requests can be mocked. A banner shows while any is on (`FR-RPL-09`). | Decided |
 | D-54 | **Mocks answer through the app's own code path**: `fetch` and XHR only (what the probes patch). Not images, scripts, `sendBeacon`, service workers or `EventSource`. | Decided (follows from `C-13`; the extension would have had the same limit) |
 | D-55 | **Copy as JSON**, for everyone (owner, 2026-11-01): one HTTP request as JSON, naming its redacted fields and whether a body was cut — the hand-off format the AI assistant (`D-48`) can import as a Playwright test mock. In the panel, no network. | Decided |
-| D-56 | **Headless is a separate entry, picked at build time** (owner request, 2026-11-15): a host can ship capture and export with **no panel code in its bundle**. The way to choose is the entry the host imports — `debug-capture/activate-headless` (no panel) or `debug-capture/activate` (with the panel) — with the same call and the same handle, so switching is one line. **Not a runtime option**: `installDebugActivation({ panel: false })` keeps the panel unreachable, but its `import('../panel')` still makes every bundler emit the loader and the UI chunk (measured: 9.5 kB + 122 kB raw in an esbuild host bundle). Also rejected: the host passes the panel's `import()` in as an option (one entry, but every 2.2 host would lose its panel until it changes its code); a host-side build constant around the `import()` (works only where the bundler is told to drop dead code, and not on a plain page). Export without the panel already exists in the core — the chords and `session.download()` / `copy()` — so no core change. | Proposed (S-17) |
+| D-56 | **Headless is a separate entry, picked at build time** (owner request, 2026-11-15): a host can ship capture and export with **no panel code in its bundle**. The way to choose is the entry the host imports — `debug-capture/activate-headless` (no panel) or `debug-capture/activate` (with the panel) — with the same call and the same handle, so switching is one line. **Not a runtime option**: `installDebugActivation({ panel: false })` keeps the panel unreachable, but its `import('../panel')` still makes every bundler emit the loader and the UI chunk (measured: 9.5 kB + 122 kB raw in an esbuild host bundle). Also rejected: the host passes the panel's `import()` in as an option (one entry, but every 2.2 host would lose its panel until it changes its code); a host-side build constant around the `import()` (works only where the bundler is told to drop dead code, and not on a plain page). Export without the panel already exists in the core — the chords and `session.download()` / `copy()` — so no core change. | Decided (owner, 2026-11-15) |
+| D-57 | **The panel can also be turned off at run time** (owner, 2026-11-15): beside the headless entry, a host that ships the panel can switch it off from a **backend feature flag**. The `panel` option of `debug-capture/activate` takes a function, called at each switch-on **after capture has started**, so `ready` (and the host's bootstrap) never waits for the backend and startup requests are still recorded. `false` loads nothing of the panel — no element, no DBG button, no toggle chord — but its code is in the bundle (`D-56` is the way to drop it). It **fails closed**: a throw, a rejection or an unknown value gives no panel. Not followed live: a changed flag applies at the next switch-on. | Proposed (S-17): fail-closed and not-live are proposals |
 
 ---
 

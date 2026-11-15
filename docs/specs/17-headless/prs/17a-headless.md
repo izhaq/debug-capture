@@ -1,6 +1,6 @@
 # 17a — The `debug-capture/activate-headless` entry
 
-Spec rows S17-01 … S17-09. Branch `feat/s17a-headless` (from `main` after the docs PR) → one PR
+Spec rows S17-01 … S17-13. Branch `feat/s17a-headless` (from `main` after the docs PR) → one PR
 into `main`.
 
 ## Owned paths
@@ -24,6 +24,17 @@ export { DEBUG_STORAGE_KEY } from './activate';
 export function installDebugActivation(options?: DebugHeadlessActivationOptions): DebugActivationHandle;
 ```
 
+```ts
+// debug-capture/activate (D-57)
+export type DebugPanelChoice = DebugPanelOptions | false;
+// DebugActivationOptions.panel?: DebugPanelChoice | (() => DebugPanelChoice | Promise<DebugPanelChoice>)
+// DebugActivationHandle.panelError: unknown   // why the panel was not installed this switch-on; null otherwise
+```
+
+With a function, `createActivation` loads the core alone first, starts capture, resolves `ready`,
+then asks the function and, on an object, loads the panel entry. A static value keeps today's
+single load (core and panel together) so nothing changes for 2.4 hosts.
+
 `DebugActivationOptions` and `DebugActivationHandle` keep their `DebugPanelOptions` /
 `DebugPanelHandle` types (they come from `activate.ts`, which only `import type`s the panel);
 if that drags panel types into `dist/activate/headless.d.ts`, move the two option/handle types so
@@ -42,9 +53,13 @@ As spec rows S17-01 … S17-07. Read esbuild 0.28.2's metafile shape (`outputs[f
   chord on / off and the flag; a press while loading; `message()`, `onChange()`; a `panel` key
   ignored; the loader asks for the core only.
 - `activate.spec.ts`: a loader without `installDebugPanel` gives `panel: null`.
+- `activate.spec.ts`, the function form: `false` never asks for the panel module; an object
+  installs it; `ready` resolves before the function's promise does; off before the answer
+  installs nothing; throw, rejection and a bad value give no panel, `panelError` set, capture on;
+  called again at the next switch-on; a static value unchanged.
 - Layer self-test: `headless.ts` → `../panel` as value, type and `import()` each fail.
 - Build check self-test: a fixture headless entry that reaches `src/panel/` fails the build.
-- E2E `test/e2e/headless.spec.mjs`: S17-08 (a)–(e).
+- E2E `test/e2e/headless.spec.mjs`: S17-08 (a)–(e) and S17-13.
 
 ## Verification
 
