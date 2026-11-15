@@ -101,3 +101,39 @@ The download link is then
 
 Give the tarball name, the checksum and the link. Each host follows
 [`docs/host-setup.md` › Update](docs/host-setup.md#update-to-a-new-version).
+
+## Patch an older version
+
+When `main` has moved on (say it is at `2.5.0-alpha.1`) and a host needs a fix
+on an older line, cut the patch from a maintenance branch, not from `main`.
+2.3.1 was made this way.
+
+1. **Maintenance branch.** Create `release/<major>.<minor>.x` from the last
+   tag of that line, once, and push it:
+
+   ```bash
+   git checkout -b release/2.3.x v2.3.0
+   git push -u origin release/2.3.x
+   ```
+
+2. **Release branch.** Branch `release/v<version>` from it, cherry-pick the
+   fix and set the version in the three places in §1:
+
+   ```bash
+   git checkout -b release/v2.3.1 release/2.3.x
+   git cherry-pick -x <fix-commit>
+   npm version 2.3.1 --no-git-tag-version
+   # then edit DEBUG_CAPTURE_VERSION by hand
+   ```
+
+   `test/unit/spec-floor.json` usually conflicts, because `main` raised it for
+   specs the old line does not have. Set it to the old floor plus the specs
+   the fix adds, then run `npm test` to confirm it equals the count.
+
+3. **Check and PR.** Run §2, then open the PR into `release/2.3.x`, not into
+   `main` (2.3.1: PR #12).
+4. **Pack, tag, publish** as in §3–§5, but from the merge commit on
+   `release/2.3.x`: `git checkout release/2.3.x && git pull` instead of
+   `main`. The tag `v2.3.1` sits on that commit.
+5. **Land the fix on `main` too**, in its own PR, so the next version has it
+   (2.3.1's fix was PR #11). Do not merge the maintenance branch into `main`.
