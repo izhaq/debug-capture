@@ -211,7 +211,9 @@ A **developer** right-clicks an HTTP request or a WebSocket message in the panel
 instead of the server's (`D-51` … `D-54`). It is a separate entry, `debug-capture/replay`, that
 only **development builds** import; production builds — the stations — do not contain it and stay
 network-free (`D-51`). Also for everyone: **Copy as JSON** on a request, the hand-off format the
-AI assistant can turn into a test mock (`D-55`). Rows: §3.14.
+AI assistant can turn into a test mock (`D-55`). Rows: §3.14. **Split** (owner, 2026-11-16): 2.5.0
+ships the core hooks and the `debug-capture/replay` entry (S-16a, S-16b) with S-17 headless; the
+panel part (S-16c: row menu, Copy as JSON, editors, mock list) ships in **2.6.0**.
 
 ### 2.1f Headless — capture and export with no panel (S-17, `D-56`)
 
