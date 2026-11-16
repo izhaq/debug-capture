@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Tiny static server for the end-to-end tests (Node `http`, no packages).
- *   /<host>/                       → test/hosts/<host>/index.html (angular, react, plain)
+ *   /<host>/                       → test/hosts/<host>/index.html (angular, react, plain, headless, flag)
  *   /plain/vendor/debug-capture/*  → dist/*: the plain page's vendored copy (HLD §6.6)
  *   /hosts-out/*                   → .test-out/hosts/*, the host bundles (test/hosts/build.mjs)
  *   /dist/*                        → the prebuilt bundles (`npm run build` first)
@@ -46,7 +46,7 @@ function toFile(pathname) {
   const vendor = '/plain/vendor/debug-capture/';
   if (pathname.startsWith(vendor)) return `dist/${pathname.slice(vendor.length)}`;
   if (pathname.startsWith('/hosts-out/')) return `.test-out/hosts/${pathname.slice('/hosts-out/'.length)}`;
-  const host = /^\/(angular|react|plain)\/$/.exec(pathname);
+  const host = /^\/(angular|react|plain|headless|flag)\/$/.exec(pathname);
   if (host) return `test/hosts/${host[1]}/index.html`;
   return pathname.slice(1);
 }

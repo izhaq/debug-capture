@@ -13,7 +13,10 @@
  *      shared code (the core) lands in one chunk that every entry imports, so
  *      an app that imports `debug-capture` and `debug-capture/panel` runs one
  *      copy of the core; the panel UI behind its dynamic import() gets its own
- *      chunk. `@angular/*` and `rxjs` stay external. The source maps embed
+ *      chunk. The two activation entries (D-43, D-56) are built in a second pass with
+ *      no splitting, so each is one file a station loads alone; their import() of the
+ *      core and the panel point at the main build's dist/index.mjs and dist/panel.mjs.
+ *      `@angular/*` and `rxjs` stay external. The source maps embed
  *      their sources (`sourcesContent`): src/ is not shipped.
  * An entry whose source file does not exist yet is skipped.
  */
@@ -23,6 +26,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import * as esbuild from 'esbuild';
 import ts from 'typescript';
+import { checkActivationOutputs } from './bundle-checks.mjs';
 import { EXTERNAL_PACKAGES, existingEntries, packageRoot } from './entries.mjs';
 
 const root = packageRoot();
@@ -42,14 +46,13 @@ console.log(`.d.ts: ${rewritten} relative specifiers given a file name`);
 const { present, missing } = existingEntries(root);
 for (const e of missing) console.log(`skip dist/${e.name}.mjs — ${e.source} does not exist yet`);
 
-const result = await esbuild.build({
+/** The activation entries (D-43): built on their own, so each stays one file with no static import. */
+const ACTIVATION = new Set(['activate', 'activate-headless']);
+const shared = {
   absWorkingDir: root,
-  entryPoints: present.map((e) => ({ in: e.source, out: e.name })),
   outdir: 'dist',
   outExtension: { '.js': '.mjs' },
-  chunkNames: 'chunks/[name]-[hash]',
   bundle: true,
-  splitting: true,
   format: 'esm',
   platform: 'browser',
   target: 'es2020',
@@ -60,17 +63,61 @@ const result = await esbuild.build({
   tsconfig: 'tsconfig.build.json',
   metafile: true,
   logLevel: 'warning',
+};
+
+const main = await esbuild.build({
+  ...shared,
+  entryPoints: present.filter((e) => !ACTIVATION.has(e.name)).map((e) => ({ in: e.source, out: e.name })),
+  chunkNames: 'chunks/[name]-[hash]',
+  splitting: true,
 });
+
+/**
+ * Inside src/activate/, `import('..')` and `import('../panel')` become `import('./index.mjs')` and
+ * `import('./panel.mjs')`: the entries the main build made, so a host still runs one core. With
+ * splitting, the two activation entries would share a chunk, and a station would load two files
+ * before switch-on instead of one.
+ */
+const siblingEntries = {
+  name: 'activation-siblings',
+  setup(build) {
+    build.onResolve({ filter: /^\.\.(\/panel)?$/ }, (args) => {
+      if (path.relative(root, args.importer) !== path.join('src', 'activate', path.basename(args.importer)))
+        return undefined;
+      return { path: args.path === '..' ? './index.mjs' : './panel.mjs', external: true };
+    });
+  },
+};
+const activation = present.filter((e) => ACTIVATION.has(e.name));
+const separate =
+  activation.length > 0
+    ? await esbuild.build({
+        ...shared,
+        entryPoints: activation.map((e) => ({ in: e.source, out: e.name })),
+        splitting: false,
+        plugins: [siblingEntries],
+      })
+    : { metafile: { outputs: {} } };
+
+/** One metafile for both builds; an external `./x.mjs` of the second is the main build's `dist/x.mjs`. */
+const merged = { ...main.metafile.outputs };
+for (const [file, info] of Object.entries(separate.metafile.outputs)) {
+  merged[file] = {
+    ...info,
+    imports: info.imports.map((i) =>
+      i.external && i.path.startsWith('./') ? { ...i, path: `dist/${i.path.slice(2)}`, external: false } : i,
+    ),
+  };
+}
+const result = { metafile: { outputs: merged } };
 
 const outputs = Object.entries(result.metafile.outputs).filter(([file]) => file.endsWith('.mjs'));
 for (const [file, info] of outputs) console.log(`${file.padEnd(40)} ${String(info.bytes).padStart(7)} B`);
 
-// D-43: dist/activate.mjs is all a station loads before switch-on — it may import nothing statically.
-const activate = result.metafile.outputs['dist/activate.mjs'];
-const staticImports = activate ? activate.imports.filter((i) => i.kind === 'import-statement') : [];
-if (staticImports.length > 0) {
-  throw new Error(`dist/activate.mjs imports ${staticImports.map((i) => i.path).join(', ')} statically (D-43, rule 9)`);
-}
+// D-43, FR-HL-02: the activation entries load only activation code before switch-on, and the
+// headless entry reaches no panel code at all (scripts/bundle-checks.mjs).
+const bundleProblems = checkActivationOutputs(result.metafile.outputs);
+if (bundleProblems.length > 0) throw new Error(bundleProblems.join('\n'));
 
 // D-42: Settings › About shows DEBUG_CAPTURE_VERSION; it must be the version that ships.
 const pkgVersion = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
@@ -79,7 +126,9 @@ const codeVersion = /export const DEBUG_CAPTURE_VERSION = '([^']+)'/.exec(contra
 if (codeVersion !== pkgVersion) {
   throw new Error(`DEBUG_CAPTURE_VERSION is ${codeVersion}, package.json says ${pkgVersion} (D-42)`);
 }
-console.log(`version ${pkgVersion}; dist/activate.mjs has no static import`);
+console.log(
+  `version ${pkgVersion}; the activation entries import only activation code; the headless entry reaches no panel`,
+);
 
 /**
  * Rewrites each relative module specifier in dist/**\/*.d.ts to the `.js`

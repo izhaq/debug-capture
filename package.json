@@ -1,6 +1,6 @@
 {
   "name": "debug-capture",
-  "version": "2.5.0-alpha.1",
+  "version": "2.5.0-alpha.2",
   "private": true,
   "description": "Debug capture v2: framework-free recorder + on-screen panel for air-gapped apps. Seeded from v1 (src/debug-capture in the host app).",
   "type": "module",
@@ -29,6 +29,9 @@
       ],
       "replay": [
         "./dist/replay/index.d.ts"
+      ],
+      "activate-headless": [
+        "./dist/activate/headless.d.ts"
       ]
     }
   },
@@ -53,6 +56,10 @@
       "types": "./dist/activate/index.d.ts",
       "import": "./dist/activate.mjs"
     },
+    "./activate-headless": {
+      "types": "./dist/activate/headless.d.ts",
+      "import": "./dist/activate-headless.mjs"
+    },
     "./replay": {
       "types": "./dist/replay/index.d.ts",
       "import": "./dist/replay.mjs"
@@ -67,7 +74,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "node scripts/bundle-specs.mjs && karma start karma.conf.cjs",
-    "build": "node scripts/build.mjs",
+    "build": "node scripts/bundle-checks.mjs --self-test && node scripts/build.mjs",
     "size": "node scripts/size.mjs",
     "pack:check": "node scripts/pack-check.mjs",
     "e2e": "playwright test",

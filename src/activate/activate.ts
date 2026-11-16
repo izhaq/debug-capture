@@ -12,9 +12,19 @@ export interface DebugActivationOptions {
   readonly storageKey?: string | false;
   /** Passed to `createCaptureController()`. */
   readonly capture?: DebugCaptureOptions;
-  /** Passed to `installDebugPanel()` (`launcher` defaults to `true` on a `?debug=1` page, else `'hidden'`, `D-41`); `false`: no panel. */
-  readonly panel?: DebugPanelOptions | false;
+  /**
+   * Passed to `installDebugPanel()` (`launcher` defaults to `true` on a `?debug=1` page, else `'hidden'`, `D-41`); `false`: no panel.
+   * 2.5 (`D-57`): or a function — a backend feature flag — asked at each switch-on once capture is on;
+   * `ready` does not wait for it. Anything but `false` or an object (a throw, a rejection) gives no panel.
+   */
+  readonly panel?: DebugPanelChoice | (() => DebugPanelChoice | Promise<DebugPanelChoice>);
 }
+
+/** 2.5 (`D-57`): what the `panel` option, or its function, answers. */
+export type DebugPanelChoice = DebugPanelOptions | false;
+
+/** 2.5 (`D-56`): the options of `debug-capture/activate-headless` — there is no panel to configure. */
+export type DebugHeadlessActivationOptions = Omit<DebugActivationOptions, 'panel'>;
 
 /** What `installDebugActivation()` returns (HLD §6.4). */
 export interface DebugActivationHandle {
@@ -26,6 +36,11 @@ export interface DebugActivationHandle {
   readonly panel: DebugPanelHandle | null;
   /** Why the last switch-on failed (the code did not load, or threw); `null` when it did not. */
   readonly loadError: unknown;
+  /**
+   * 2.5 (`D-57`): why this switch-on has no panel although capture is on — the `panel` function
+   * threw, rejected or gave neither `false` nor options, or the panel failed to load; `null` otherwise.
+   */
+  readonly panelError: unknown;
   /** Resolves when the start-time switch-on (`?debug=1` or the stored flag) has loaded or failed; never rejects. */
   readonly ready: Promise<void>;
   /** As the chord: on, and remembered. */
@@ -47,10 +62,14 @@ export interface DebugActivationHandle {
   onChange(listener: (controller: CaptureController | null) => void): () => void;
 }
 
-/** What a switch-on loads: the core and the panel entry. */
-export interface ActivationModules {
+/** What a switch-on loads of the core. */
+export interface CoreModules {
   createCaptureController(options?: DebugCaptureOptions): CaptureController;
-  installDebugPanel(controller: CaptureController | null, options?: DebugPanelOptions): DebugPanelHandle;
+}
+
+/** What a switch-on loads: the core, and the panel entry when it was asked for and this entry has one. */
+export interface ActivationModules extends CoreModules {
+  installDebugPanel?(controller: CaptureController | null, options?: DebugPanelOptions): DebugPanelHandle;
 }
 
 /** The page, as far as this piece reads it. */
@@ -66,8 +85,8 @@ export interface ActivationScope {
 
 export interface ActivationDeps {
   readonly scope: ActivationScope;
-  /** `import()` of the core and the panel entry (in `index.ts`). */
-  readonly load: () => Promise<ActivationModules>;
+  /** `import()` of the core, and of the panel entry too when `withPanel` (in `index.ts`). */
+  readonly load: (withPanel: boolean) => Promise<ActivationModules>;
 }
 
 type Run = <T>(work: () => T) => T;
@@ -90,6 +109,7 @@ export function createActivation(options: DebugActivationOptions = {}, deps: Act
       controller: null,
       panel: null,
       loadError: null,
+      panelError: null,
       ready: Promise.resolve(),
       activate: none,
       deactivate: none,
@@ -98,6 +118,19 @@ export function createActivation(options: DebugActivationOptions = {}, deps: Act
       onChange: () => none,
     };
   }
+}
+
+/** 2.5 (`D-56`): the headless piece — the same switch-on and off, the core only, never a panel. */
+export function createHeadlessActivation(
+  options: DebugHeadlessActivationOptions = {},
+  deps: { readonly scope: ActivationScope; readonly load: () => Promise<CoreModules> },
+): DebugActivationHandle {
+  // A `panel` key passed anyway (from JavaScript, past the type) is dropped: nothing here asks for a panel.
+  const { capture, shortcut, storageKey } = options;
+  return createActivation(
+    { capture, shortcut, storageKey, panel: false },
+    { scope: deps.scope, load: () => deps.load() },
+  );
 }
 
 function build(options: DebugActivationOptions, deps: ActivationDeps): DebugActivationHandle {
@@ -110,7 +143,12 @@ function build(options: DebugActivationOptions, deps: ActivationDeps): DebugActi
   let generation = 0;
   let active = false;
   let loadError: unknown = null;
+  let panelError: unknown = null;
   let loaded: { controller: CaptureController; panel: DebugPanelHandle | null } | null = null;
+  const choice = options.panel;
+  /** D-57: a function is asked after capture is on; a static value keeps the one 2.4 load. */
+  const ask = typeof choice === 'function' ? choice : null;
+  const staticPanel: DebugPanelOptions | false = typeof choice === 'function' ? false : (choice ?? {});
   const listeners = new Set<(controller: CaptureController | null) => void>();
   const tell = (controller: CaptureController | null): void => {
     for (const listener of [...listeners]) {
@@ -133,31 +171,68 @@ function build(options: DebugActivationOptions, deps: ActivationDeps): DebugActi
     }
   };
 
+  /** D-41: shown on a ?debug=1 page; otherwise no visible sign — unless the host says otherwise. */
+  const install = (
+    modules: ActivationModules,
+    controller: CaptureController,
+    launcher: true | 'hidden',
+    panelOptions: DebugPanelOptions,
+  ): DebugPanelHandle | null =>
+    modules.installDebugPanel
+      ? modules.installDebugPanel(controller, { launcher, ...panelOptions, activation: chord })
+      : null;
+
+  /**
+   * D-57, FR-HL-09…10: asks the host's function once capture is on, then loads and installs the
+   * panel on an options object. Fails closed: a throw, a rejection, any other value or a failed
+   * panel load gives no panel and sets `panelError`; capture stays on. A switch-off (a newer
+   * generation) before any step lands drops the rest.
+   */
+  const decide = (
+    choose: () => DebugPanelChoice | Promise<DebugPanelChoice>,
+    mine: number,
+    launcher: true | 'hidden',
+  ): void => {
+    new Promise<DebugPanelChoice>((done) => done(choose()))
+      .then((answer: unknown) => {
+        if (mine !== generation || answer === false) return undefined;
+        if (typeof answer !== 'object' || answer === null) {
+          throw new TypeError('panel: false or options');
+        }
+        const panelOptions = answer as DebugPanelOptions;
+        return deps.load(true).then((modules) => {
+          if (mine !== generation || !loaded) return;
+          loaded.panel = install(modules, loaded.controller, launcher, panelOptions);
+        });
+      })
+      .catch((error: unknown) => {
+        if (mine === generation) panelError = error;
+      });
+  };
+
   /** `launcher`: the DBG button's default for this switch-on (D-41). */
   const on = (launcher: true | 'hidden'): Promise<void> => {
     if (active) return Promise.resolve();
     active = true;
     loadError = null;
+    panelError = null;
     const mine = ++generation;
     return inRoot(() =>
       deps
-        .load()
+        .load(staticPanel !== false)
         .then((modules) => {
           if (mine !== generation) return;
           const controller = modules.createCaptureController(options.capture);
           tell(controller);
           try {
-            // D-41: shown on a ?debug=1 page; otherwise no visible sign — unless the host says otherwise.
-            const panel =
-              options.panel === false
-                ? null
-                : modules.installDebugPanel(controller, { launcher, ...options.panel, activation: chord });
+            const panel = staticPanel === false ? null : install(modules, controller, launcher, staticPanel);
             loaded = { controller, panel };
           } catch (error) {
             tell(null);
             controller.dispose();
             throw error;
           }
+          if (ask) decide(ask, mine, launcher);
         })
         .catch((error: unknown) => {
           if (mine !== generation) return;
@@ -220,6 +295,9 @@ function build(options: DebugActivationOptions, deps: ActivationDeps): DebugActi
     },
     get loadError(): unknown {
       return loadError;
+    },
+    get panelError(): unknown {
+      return panelError;
     },
     ready,
     activate(): void {

@@ -9,6 +9,7 @@
  *   panel-ui      what only its dynamic import() loads    ≤ 44 kB (D-25, D-34)
  *   activate      src/activate/index.ts + its static imports, nothing external:
  *                 all a station loads before switch-on (D-43)
+ *   activate-headless src/activate/headless.ts, the same way ≤ 1.5 kB (FR-HL-07, D-56)
  *   angular       src/angular/index.ts                   recorded only
  *   react         src/react/index.ts                     recorded only
  *   replay        src/replay/index.ts, the core left out ≤ its budget (S16-11, D-34)
@@ -48,6 +49,11 @@ rows.push(
   has('activate')
     ? await measureStatic('activate', 'src/activate/index.ts')
     : skipped('activate', 'src/activate/index.ts'),
+);
+rows.push(
+  has('activate-headless')
+    ? await measureStatic('activate-headless', 'src/activate/headless.ts')
+    : skipped('activate-headless', 'src/activate/headless.ts'),
 );
 
 print(rows);

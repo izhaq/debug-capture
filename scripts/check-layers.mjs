@@ -46,6 +46,8 @@
  *   rule 9  L6 activate (src/activate/, 2.2) → the L5 barrel and the panel entry
  *           only as types or by dynamic import(), so a station that never
  *           switches the tool on loads neither
+ *   rule 9b src/activate/headless.ts (2.5, D-56) → never the panel, in any form,
+ *           so a host that imports debug-capture/activate-headless bundles none
  *   (v1's rule 7 was about the host app's other code; a package has none.)
  *
  * Usage:
@@ -104,6 +106,9 @@ export const LAYERS = {
   panel: { id: 'P5', barrel: `${SRC}/panel/index.ts`, above: 'public', lazy: 'panel/app', panel: true },
   activate: { id: 'L6', barrel: `${SRC}/activate/index.ts`, above: null, typesOrImport: ['public', 'panel'] },
 };
+
+/** The `debug-capture/activate-headless` entry (rule 9b). */
+const HEADLESS_ENTRY = `${SRC}/activate/headless.ts`;
 
 const TOP_LAYERS = ['contract', 'core', 'adapters', 'install', 'angular', 'react', 'replay', 'activate'];
 const PANEL_LAYERS = ['model', 'ui', 'views', 'app'];
@@ -174,6 +179,10 @@ export function checkImport(from, specifier, exists, kind = 'value') {
   const fromDir = path.posix.dirname(from);
   const targetDir = path.posix.dirname(target);
 
+  // rule 9b (2.5, D-56, FR-HL-02): the headless entry never names the panel — no value, type or import().
+  if (from === HEADLESS_ENTRY && classify(target).startsWith('panel')) {
+    return `${id} activate-headless may not import the panel at all, not even as a type or by import() — a headless host must bundle no panel code (rule 9b)`;
+  }
   if (targetDir === fromDir) return null; // (a) own directory
   if (typesOrImport) {
     if (!typesOrImport.some((key) => target === LAYERS[key].barrel)) {
@@ -394,6 +403,7 @@ const VIRTUAL_FILES = new Set([
   'src/panel/misc/stray.ts',
   'src/activate/index.ts',
   'src/activate/activate.ts',
+  'src/activate/headless.ts',
   'src/replay/index.ts',
   'src/replay/replay.ts',
   'src/replay/mocks.ts',
@@ -445,6 +455,15 @@ const SELF_TEST_CASES = [
   ['src/activate/activate.ts', '../install', 'type', 'rule 9'],
   ['src/activate/activate.ts', '../panel/app', 'dynamic', 'rule 9'],
   ['src/activate/activate.ts', '../angular', 'type', 'rule 9'],
+  // rule 9b (2.5, D-56): the headless entry — its own folder and the L5 barrel by import(), never the panel.
+  ['src/activate/headless.ts', './activate', 'value', null],
+  ['src/activate/headless.ts', '..', 'dynamic', null],
+  ['src/activate/headless.ts', '..', 'type', null],
+  ['src/activate/headless.ts', '..', 'value', 'rule 9'],
+  ['src/activate/headless.ts', '../panel', 'dynamic', 'rule 9b'],
+  ['src/activate/headless.ts', '../panel', 'type', 'rule 9b'],
+  ['src/activate/headless.ts', '../panel', 'value', 'rule 9b'],
+  ['src/activate/headless.ts', '../panel/app', 'dynamic', 'rule 9b'],
   ['src/panel/element.ts', '../activate', 'value', 'rule 4'],
   ['src/index.ts', './activate', 'value', 'rule 4'],
   // L6 angular.

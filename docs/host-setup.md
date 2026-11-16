@@ -151,6 +151,36 @@ unpacked from the tarball's `package/dist/`) next to the page, here as
 </script>
 ```
 
+### No panel (headless) or a backend flag
+
+For a build whose users must never see the panel, change the one import in `src/debug.ts`:
+
+```ts
+import { installDebugActivation } from 'debug-capture/activate-headless'; // no panel code in the bundle
+```
+
+Everything else stays (`ready`, the seams, `message()`); `debug.panel` is always `null`. The
+chords save (`Ctrl+Alt+Shift+D`), copy (`Ctrl+Alt+Shift+C`) and stop / start recording
+(`Ctrl+Alt+Shift+S`). To pick per build in Angular, keep `src/debug.ts` and
+`src/debug.headless.ts` and add to the build configuration in `angular.json`:
+
+```json
+"fileReplacements": [{ "replace": "src/debug.ts", "with": "src/debug.headless.ts" }]
+```
+
+To keep the panel in the bundle and decide at run time from a backend feature flag, pass a
+function as `panel` (`debug-capture/activate`). Capture does not wait for it; `false`, a throw or
+a rejection gives no panel:
+
+```ts
+export const debug = installDebugActivation({
+  panel: () => featureFlags.get('debugPanel').then((on) => (on ? {} : false)),
+});
+```
+
+Note: `panel: false` with `debug-capture/activate` hides the panel but its code is still in the
+bundle; only `debug-capture/activate-headless` leaves it out.
+
 ### Send the app's own messages
 
 Use the handle from `src/debug.ts` and call `message()` anywhere. While the
@@ -191,6 +221,11 @@ policies (Group Policy on Windows; a JSON file in
 `DownloadDirectory` applies to every download in that Chrome; use
 `DefaultDownloadDirectory` to only suggest the folder. Check the result in
 `chrome://policy`. Details: [README › Save to a fixed folder](../README.md#save-to-a-fixed-folder-chrome-policy).
+
+Without IT, a user sets the same once per station: Chrome Settings › Downloads → **Location**
+(the folder), and **Ask where to save each file before downloading** off. Every save is a new
+file, `debug-capture-<date>-<time>.json`. In full screen (F11) Chrome's toolbar and its download
+icon are hidden, so a save shows nothing on screen.
 
 ## Update to a new version
 

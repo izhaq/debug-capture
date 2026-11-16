@@ -14,6 +14,7 @@ export const ENTRIES = [
   { name: 'react', source: 'src/react/index.ts' },
   { name: 'panel', source: 'src/panel/index.ts' },
   { name: 'activate', source: 'src/activate/index.ts' },
+  { name: 'activate-headless', source: 'src/activate/headless.ts' },
   { name: 'replay', source: 'src/replay/index.ts' },
 ];
 
