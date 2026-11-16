@@ -153,6 +153,9 @@ unpacked from the tarball's `package/dist/`) next to the page, here as
 
 ### No panel (headless) or a backend flag
 
+The full guide, with Angular and React code for every option:
+[`panel-options.md`](panel-options.md).
+
 For a build whose users must never see the panel, change the one import in `src/debug.ts`:
 
 ```ts

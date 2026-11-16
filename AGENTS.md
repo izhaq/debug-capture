@@ -160,15 +160,16 @@ count, so a lost spec file fails the run.
 
 31. Put each thing where it belongs:
 
-| Path                 | Holds                                                        |
-| -------------------- | ------------------------------------------------------------ |
-| `CONTRIBUTING.md`    | how to set up, work, test and open a PR                      |
-| `RELEASING.md`       | how to cut, pack and publish a version                       |
-| `docs/host-setup.md` | how a host app installs, wires and updates the package       |
-| `docs/design/`       | the HLD (why, what, and the decisions in §10) and the mockup |
-| `docs/specs/`        | specs, plans and PR briefs, one folder per spec              |
-| `docs/research/`     | evidence behind the HLD (isolation cases, practices)         |
-| `docs/v1/`           | v1's guide and decision record, as they were                 |
-| `scripts/`           | check scripts (`lint:layers`, `contrast`, `size`…)           |
-| `src/`               | the code, with its specs next to it                          |
-| `test/`              | test hosts, the hostile host, end-to-end and perf tests      |
+| Path                    | Holds                                                             |
+| ----------------------- | ----------------------------------------------------------------- |
+| `CONTRIBUTING.md`       | how to set up, work, test and open a PR                           |
+| `RELEASING.md`          | how to cut, pack and publish a version                            |
+| `docs/host-setup.md`    | how a host app installs, wires and updates the package            |
+| `docs/panel-options.md` | the four ways to ship the panel (with, headless, flag, per build) |
+| `docs/design/`          | the HLD (why, what, and the decisions in §10) and the mockup      |
+| `docs/specs/`           | specs, plans and PR briefs, one folder per spec                   |
+| `docs/research/`        | evidence behind the HLD (isolation cases, practices)              |
+| `docs/v1/`              | v1's guide and decision record, as they were                      |
+| `scripts/`              | check scripts (`lint:layers`, `contrast`, `size`…)                |
+| `src/`                  | the code, with its specs next to it                               |
+| `test/`                 | test hosts, the hostile host, end-to-end and perf tests           |

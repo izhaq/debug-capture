@@ -152,6 +152,9 @@ Have your own code `await window.debugReady` before its first request.
 
 ### Without the panel (headless, 2.5)
 
+All four ways to ship it (with the panel, headless, a backend flag, per build), with Angular
+and React code for each: [`docs/panel-options.md`](docs/panel-options.md).
+
 For apps whose users must never see the panel: import the headless entry instead. It is the
 same call and the same handle. Capture, the keyboard chords and export work; there is no panel,
 and none of its code is in your bundle:
